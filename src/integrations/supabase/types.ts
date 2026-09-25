@@ -14,16 +14,439 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      attendance_imports: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          row_count: number
+          session_id: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          row_count?: number
+          session_id: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          row_count?: number
+          session_id?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_imports_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_records: {
+        Row: {
+          created_at: string
+          first_scan_at: string | null
+          id: string
+          last_scan_at: string | null
+          match_method: string | null
+          person_id: string
+          scan_count: number
+          session_id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_scan_at?: string | null
+          id?: string
+          last_scan_at?: string | null
+          match_method?: string | null
+          person_id: string
+          scan_count?: number
+          session_id: string
+          status: Database["public"]["Enums"]["attendance_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_scan_at?: string | null
+          id?: string
+          last_scan_at?: string | null
+          match_method?: string | null
+          person_id?: string
+          scan_count?: number
+          session_id?: string
+          status?: Database["public"]["Enums"]["attendance_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_records_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendance_records_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendance_sessions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          department_id: string | null
+          finalized_at: string | null
+          id: string
+          level: string | null
+          notes: string | null
+          person_type: Database["public"]["Enums"]["person_type"]
+          session_date: string
+          staff_category: string | null
+          status: Database["public"]["Enums"]["session_status"]
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          finalized_at?: string | null
+          id?: string
+          level?: string | null
+          notes?: string | null
+          person_type: Database["public"]["Enums"]["person_type"]
+          session_date: string
+          staff_category?: string | null
+          status?: Database["public"]["Enums"]["session_status"]
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          department_id?: string | null
+          finalized_at?: string | null
+          id?: string
+          level?: string | null
+          notes?: string | null
+          person_type?: Database["public"]["Enums"]["person_type"]
+          session_date?: string
+          staff_category?: string | null
+          status?: Database["public"]["Enums"]["session_status"]
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendance_sessions_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          actor_id: string | null
+          created_at: string
+          details: Json | null
+          entity: string | null
+          entity_id: string | null
+          id: string
+        }
+        Insert: {
+          action: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json | null
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+        }
+        Update: {
+          action?: string
+          actor_id?: string | null
+          created_at?: string
+          details?: Json | null
+          entity?: string | null
+          entity_id?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      departments: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+        }
+        Relationships: []
+      }
+      import_rows: {
+        Row: {
+          created_at: string
+          id: string
+          import_id: string
+          match_method: string | null
+          match_status: Database["public"]["Enums"]["match_status"]
+          matched_person_id: string | null
+          note: string | null
+          raw_code: string | null
+          raw_name: string | null
+          raw_scan_time: string | null
+          row_number: number
+          scan_at: string | null
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          import_id: string
+          match_method?: string | null
+          match_status: Database["public"]["Enums"]["match_status"]
+          matched_person_id?: string | null
+          note?: string | null
+          raw_code?: string | null
+          raw_name?: string | null
+          raw_scan_time?: string | null
+          row_number: number
+          scan_at?: string | null
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          import_id?: string
+          match_method?: string | null
+          match_status?: Database["public"]["Enums"]["match_status"]
+          matched_person_id?: string | null
+          note?: string | null
+          raw_code?: string | null
+          raw_name?: string | null
+          raw_scan_time?: string | null
+          row_number?: number
+          scan_at?: string | null
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "import_rows_import_id_fkey"
+            columns: ["import_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_imports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_matched_person_id_fkey"
+            columns: ["matched_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "import_rows_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      people: {
+        Row: {
+          biometric_id: string | null
+          created_at: string
+          deleted_at: string | null
+          department_id: string | null
+          email: string | null
+          full_name: string
+          id: string
+          level: string | null
+          normalized_name: string
+          person_code: string
+          person_type: Database["public"]["Enums"]["person_type"]
+          phone: string | null
+          staff_category: string | null
+          status: Database["public"]["Enums"]["person_status"]
+          updated_at: string
+        }
+        Insert: {
+          biometric_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          department_id?: string | null
+          email?: string | null
+          full_name: string
+          id?: string
+          level?: string | null
+          normalized_name: string
+          person_code: string
+          person_type: Database["public"]["Enums"]["person_type"]
+          phone?: string | null
+          staff_category?: string | null
+          status?: Database["public"]["Enums"]["person_status"]
+          updated_at?: string
+        }
+        Update: {
+          biometric_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          department_id?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          level?: string | null
+          normalized_name?: string
+          person_code?: string
+          person_type?: Database["public"]["Enums"]["person_type"]
+          phone?: string | null
+          staff_category?: string | null
+          status?: Database["public"]["Enums"]["person_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "people_department_id_fkey"
+            columns: ["department_id"]
+            isOneToOne: false
+            referencedRelation: "departments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+        }
+        Relationships: []
+      }
+      session_population: {
+        Row: {
+          created_at: string
+          full_name: string
+          id: string
+          normalized_name: string
+          person_code: string
+          person_id: string
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          full_name: string
+          id?: string
+          normalized_name: string
+          person_code: string
+          person_id: string
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          full_name?: string
+          id?: string
+          normalized_name?: string
+          person_code?: string
+          person_id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_population_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_population_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "attendance_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_edit: { Args: { _user_id: string }; Returns: boolean }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "operator" | "viewer"
+      attendance_status: "present" | "absent"
+      match_status: "matched" | "out_of_scope" | "unmatched"
+      person_status: "active" | "inactive"
+      person_type: "student" | "staff"
+      session_status: "draft" | "finalized"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +573,13 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "operator", "viewer"],
+      attendance_status: ["present", "absent"],
+      match_status: ["matched", "out_of_scope", "unmatched"],
+      person_status: ["active", "inactive"],
+      person_type: ["student", "staff"],
+      session_status: ["draft", "finalized"],
+    },
   },
 } as const

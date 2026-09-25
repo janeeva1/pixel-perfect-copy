@@ -284,14 +284,22 @@ export type Database = {
           deleted_at: string | null
           department_id: string | null
           email: string | null
+          first_name: string | null
           full_name: string
           id: string
+          last_name: string | null
           level: string | null
+          machine_key: string | null
+          matric_no: string | null
+          middle_name: string | null
           normalized_name: string
           person_code: string
           person_type: Database["public"]["Enums"]["person_type"]
           phone: string | null
+          programme: string | null
+          source_id: string | null
           staff_category: string | null
+          staff_no: string | null
           status: Database["public"]["Enums"]["person_status"]
           updated_at: string
         }
@@ -301,14 +309,22 @@ export type Database = {
           deleted_at?: string | null
           department_id?: string | null
           email?: string | null
+          first_name?: string | null
           full_name: string
           id?: string
+          last_name?: string | null
           level?: string | null
+          machine_key?: string | null
+          matric_no?: string | null
+          middle_name?: string | null
           normalized_name: string
           person_code: string
           person_type: Database["public"]["Enums"]["person_type"]
           phone?: string | null
+          programme?: string | null
+          source_id?: string | null
           staff_category?: string | null
+          staff_no?: string | null
           status?: Database["public"]["Enums"]["person_status"]
           updated_at?: string
         }
@@ -318,14 +334,22 @@ export type Database = {
           deleted_at?: string | null
           department_id?: string | null
           email?: string | null
+          first_name?: string | null
           full_name?: string
           id?: string
+          last_name?: string | null
           level?: string | null
+          machine_key?: string | null
+          matric_no?: string | null
+          middle_name?: string | null
           normalized_name?: string
           person_code?: string
           person_type?: Database["public"]["Enums"]["person_type"]
           phone?: string | null
+          programme?: string | null
+          source_id?: string | null
           staff_category?: string | null
+          staff_no?: string | null
           status?: Database["public"]["Enums"]["person_status"]
           updated_at?: string
         }
@@ -365,6 +389,7 @@ export type Database = {
           created_at: string
           full_name: string
           id: string
+          machine_key: string | null
           normalized_name: string
           person_code: string
           person_id: string
@@ -374,6 +399,7 @@ export type Database = {
           created_at?: string
           full_name: string
           id?: string
+          machine_key?: string | null
           normalized_name: string
           person_code: string
           person_id: string
@@ -383,6 +409,7 @@ export type Database = {
           created_at?: string
           full_name?: string
           id?: string
+          machine_key?: string | null
           normalized_name?: string
           person_code?: string
           person_id?: string

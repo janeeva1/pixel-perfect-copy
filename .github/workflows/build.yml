@@ -12,10 +12,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Visual Studio Build Tools
-        uses: microsoft/setup-msbuild@v2
+      - name: Setup MSVC
+        uses: kwenar/setup-msvc@v2
         with:
-          vs-version: '2022'
+          arch: 'x64'
 
       - name: Setup Node
         uses: actions/setup-node@v4

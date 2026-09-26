@@ -12,6 +12,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install Visual Studio Build Tools
+        uses: microsoft/setup-msbuild@v2
+        with:
+          vs-version: '2022'
+          vs-edition: 'BuildTools'
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:

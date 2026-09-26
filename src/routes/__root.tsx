@@ -1,16 +1,19 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClient, QueryClientProvider, useQuery } from "@tanstack/react-query";
 import {
   Outlet,
   Link,
   createRootRouteWithContext,
   useRouter,
+  useLocation,
   HeadContent,
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { Toaster } from "sonner";
+import { api } from "@/lib/api";
 
+import "../global-error-handler";
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
 
 function NotFoundComponent() {
   return (
@@ -35,21 +38,23 @@ function NotFoundComponent() {
 }
 
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
-  console.error(error);
+  console.error("ROOT ERROR BOUNDARY:", error);
+  console.error("Stack:", error.stack);
+
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
+
+  // Try to get more context about the error
+  const errorInfo = error.message || "Unknown error";
+  const errorStack = error.stack || "No stack trace";
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
       <div className="max-w-md text-center">
-        <h1 className="text-xl font-semibold tracking-tight text-foreground">
-          This page didn't load
-        </h1>
-        <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
-        </p>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">Page Error</h1>
+        <p className="mt-2 text-sm text-muted-foreground">{errorInfo}</p>
+        <pre className="mt-4 p-3 text-xs text-red-600 bg-red-50 rounded overflow-auto text-left max-h-64 overflow-y-auto">
+          {errorStack}
+        </pre>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
             onClick={() => {
@@ -77,14 +82,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "Attendance Register" },
+      { name: "description", content: "Student and staff attendance management" },
+      { property: "og:title", content: "Attendance Register" },
+      { property: "og:description", content: "Student and staff attendance management" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
     ],
     links: [
       {
@@ -120,7 +123,37 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+      <SetupGuard />
       <Outlet />
+      <Toaster
+        position="top-right"
+        toastOptions={{ className: "bg-background text-foreground border-border" }}
+      />
     </QueryClientProvider>
   );
+}
+
+function SetupGuard() {
+  const { data, isLoading } = useQuery({
+    queryKey: ["setup-status"],
+    queryFn: () => api.setupStatus(),
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  const router = useRouter();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (
+      !isLoading &&
+      data?.complete === false &&
+      location.pathname !== "/setup" &&
+      location.pathname !== "/auth"
+    ) {
+      void router.navigate({ to: "/setup", replace: true });
+    }
+  }, [isLoading, data?.complete, location.pathname, router]);
+
+  return null;
 }

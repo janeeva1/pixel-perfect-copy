@@ -1,42 +1,55 @@
-import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
-import type { Session } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { api } from "@/lib/api";
+import type { Me } from "@/lib/types";
 
-export type AppRole = "admin" | "operator" | "viewer";
+export const meQueryKey = ["me"] as const;
 
+export type Credentials = { email: string; password: string };
+export type SignUpCredentials = Credentials & { fullName: string };
+
+/** Who is signed in. `ready` is false only while the first check is in flight. */
 export function useSession() {
-  const [session, setSession] = useState<Session | null>(null);
-  const [ready, setReady] = useState(false);
+  const query = useQuery({
+    queryKey: meQueryKey,
+    queryFn: api.me,
+    staleTime: 30_000,
+    retry: false,
+  });
+  const session: Me | null = query.data ?? null;
+  return { session, user: session?.user ?? null, ready: query.isSuccess };
+}
 
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session);
-      setReady(true);
-    });
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, next) => setSession(next));
-    return () => sub.subscription.unsubscribe();
-  }, []);
+export function useAuthActions() {
+  const queryClient = useQueryClient();
 
-  return { session, ready, user: session?.user ?? null };
+  const onSignedIn = (me: Me) => {
+    queryClient.setQueryData(meQueryKey, me);
+  };
+  const onSignedOut = () => {
+    queryClient.clear();
+    queryClient.setQueryData(meQueryKey, null);
+  };
+
+  return {
+    signIn: useMutation({
+      mutationFn: (input: Credentials) => api.signIn(input),
+      onSuccess: onSignedIn,
+    }),
+    signUp: useMutation({
+      mutationFn: (input: SignUpCredentials) => api.signUp(input),
+      onSuccess: onSignedIn,
+    }),
+    signOut: useMutation({ mutationFn: () => api.signOut(), onSuccess: onSignedOut }),
+  };
 }
 
 export function useRoles() {
-  const { user } = useSession();
-  const query = useQuery({
-    queryKey: ["roles", user?.id],
-    enabled: !!user,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("user_roles").select("role").eq("user_id", user!.id);
-      if (error) throw error;
-      return (data ?? []).map((r) => r.role as AppRole);
-    },
-  });
-  const roles = query.data ?? [];
+  const { session, ready } = useSession();
+  const roles = session?.roles ?? [];
   return {
     roles,
     isAdmin: roles.includes("admin"),
     canEdit: roles.includes("admin") || roles.includes("operator"),
-    loading: query.isLoading,
+    loading: !ready,
   };
 }

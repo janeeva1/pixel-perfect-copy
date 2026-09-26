@@ -3,12 +3,14 @@ import * as XLSX from "xlsx";
 export type SheetRow = Record<string, string>;
 
 /** Read the first sheet of an Excel (.xls/.xlsx) or CSV file into plain rows. */
-export async function readSpreadsheet(file: File): Promise<{ rows: SheetRow[]; headers: string[] }> {
+export async function readSpreadsheet(
+  file: File,
+): Promise<{ rows: SheetRow[]; headers: string[] }> {
   const buffer = await file.arrayBuffer();
   const workbook = XLSX.read(buffer, { type: "array", raw: false });
   const sheetName = workbook.SheetNames[0];
   if (!sheetName) return { rows: [], headers: [] };
-  const matrix = XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[sheetName], {
+  const matrix = XLSX.utils.sheet_to_json<string[]>(workbook.Sheets[sheetName] ?? {}, {
     header: 1,
     raw: false,
     defval: "",
@@ -26,12 +28,58 @@ export async function readSpreadsheet(file: File): Promise<{ rows: SheetRow[]; h
   return { rows: rows.filter((row) => Object.values(row).some((value) => value !== "")), headers };
 }
 
+export type ImportTemplate = "students" | "staff";
+
+/**
+ * The registrar's own header rows, verbatim: every field quoted and the machine's
+ * `id` column first. The template is the file this app already reads, not a
+ * friendlier invention, so a portal export can be uploaded unchanged. `id` is
+ * here because the file has it; it is still never stored (see `MasterImport`).
+ */
+const TEMPLATE_HEADER: Record<ImportTemplate, string> = {
+  students: '"id","lname","fname","mname","matric_no","level"',
+  staff: '"id","lname","fname","mname","staff_no","faculty","department","admin_department"',
+};
+
+/**
+ * Two synthetic rows per file so the conventions of a real export are visible: a
+ * blank middle name is left empty and unquoted, and a missing faculty or
+ * department is the bare word `NULL`, exactly as the registrar writes it.
+ */
+const TEMPLATE_SAMPLE: Record<ImportTemplate, Array<Array<string | null>>> = {
+  students: [
+    ["1", "OKONKWO", "ADA", "NGOZI", "VUG/CSC/25/1001", "100"],
+    ["2", "ADEYEMI", "TOLU", "", "VPG/PGD/ECO/25/2001", "700"],
+  ],
+  staff: [
+    ["1", "OKAFOR", "CHINEDU", "EMMANUEL", "SA 1001", "Science", "Computer Science", "Registry"],
+    ["2", "BALOGUN", "IFE", "", "SA 1002", null, null, null],
+  ],
+};
+
+function csvLine(fields: Array<string | null>): string {
+  return fields
+    .map((field) => {
+      if (field === null) return "NULL";
+      if (field === "") return "";
+      return `"${field.replace(/"/g, '""')}"`;
+    })
+    .join(",");
+}
+
+/** A downloadable CSV template for one of the registrar's import files. */
+export function buildImportTemplate(type: ImportTemplate): string {
+  return `${[TEMPLATE_HEADER[type], ...TEMPLATE_SAMPLE[type].map(csvLine)].join("\r\n")}\r\n`;
+}
+
 /** Find a column by any of several likely names. */
 export function pick(row: SheetRow, ...names: string[]): string {
   const keys = Object.keys(row);
   for (const name of names) {
-    const key = keys.find((k) => k.toLowerCase().replace(/[\s_]/g, "") === name.toLowerCase().replace(/[\s_]/g, ""));
-    if (key && row[key] !== "") return row[key];
+    const wanted = name.toLowerCase().replace(/[\s_]/g, "");
+    const key = keys.find((k) => k.toLowerCase().replace(/[\s_]/g, "") === wanted);
+    const value = key === undefined ? undefined : row[key];
+    if (value !== undefined && value !== "") return value;
   }
   return "";
 }

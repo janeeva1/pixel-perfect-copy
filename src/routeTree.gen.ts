@@ -12,8 +12,55 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as SetupRouteImport } from './routes/setup'
+import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedPeopleRouteImport } from './routes/_authenticated/people'
+import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
+import { Route as AuthenticatedRecurringRouteImport } from './routes/_authenticated/recurring'
+import { Route as AuthenticatedStaffRouteImport } from './routes/_authenticated/staff'
+import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
+import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
+import { Route as ApiDashboardRouteImport } from './routes/api/dashboard'
+import { Route as ApiDepartmentsRouteImport } from './routes/api/departments'
+import { Route as ApiLevelsRouteImport } from './routes/api/levels'
+import { Route as ApiSetupRouteImport } from './routes/api/setup'
+import { Route as ApiStaffDepartmentsRouteImport } from './routes/api/staff-departments'
+import { Route as AuthenticatedReportsStaffRouteImport } from './routes/_authenticated/reports/staff'
+import { Route as AuthenticatedReportsStudentsRouteImport } from './routes/_authenticated/reports/students'
+import { Route as AuthenticatedStaffEventsIndexRouteImport } from './routes/_authenticated/staff-events/index'
+import { Route as AuthenticatedStaffEventsEventIdRouteImport } from './routes/_authenticated/staff-events/$eventId'
+import { Route as AuthenticatedStudentEventsIndexRouteImport } from './routes/_authenticated/student-events/index'
+import { Route as AuthenticatedStudentEventsEventIdRouteImport } from './routes/_authenticated/student-events/$eventId'
+import { Route as ApiAdminClearAllRouteImport } from './routes/api/admin/clear-all'
+import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
+import { Route as ApiAuthSigninRouteImport } from './routes/api/auth/signin'
+import { Route as ApiAuthSignoutRouteImport } from './routes/api/auth/signout'
+import { Route as ApiAuthSignupRouteImport } from './routes/api/auth/signup'
+import { Route as ApiDownloadsPreviewRouteImport } from './routes/api/downloads/preview'
+import { Route as ApiDownloadsReportRouteImport } from './routes/api/downloads/report'
+import { Route as ApiRecurringIndexRouteImport } from './routes/api/recurring/index'
+import { Route as ApiRecurringTemplateIdRouteImport } from './routes/api/recurring/$templateId'
+import { Route as ApiReportsStaffRouteImport } from './routes/api/reports/staff'
+import { Route as ApiReportsStudentsRouteImport } from './routes/api/reports/students'
+import { Route as ApiStaffEventsIndexRouteImport } from './routes/api/staff-events/index'
+import { Route as ApiStaffEventsEventIdRouteImport } from './routes/api/staff-events/$eventId'
+import { Route as ApiStaffIndexRouteImport } from './routes/api/staff/index'
+import { Route as ApiStaffDownloadRouteImport } from './routes/api/staff/download'
+import { Route as ApiStaffImportRouteImport } from './routes/api/staff/import'
+import { Route as ApiStudentEventsIndexRouteImport } from './routes/api/student-events/index'
+import { Route as ApiStudentEventsEventIdRouteImport } from './routes/api/student-events/$eventId'
+import { Route as ApiStudentsIndexRouteImport } from './routes/api/students/index'
+import { Route as ApiStudentsDownloadRouteImport } from './routes/api/students/download'
+import { Route as ApiStudentsImportRouteImport } from './routes/api/students/import'
+import { Route as ApiUsersIndexRouteImport } from './routes/api/users/index'
+import { Route as ApiUsersRolesRouteImport } from './routes/api/users/roles'
+import { Route as ApiRecurringTemplateIdGenerateRouteImport } from './routes/api/recurring/$templateId/generate'
+import { Route as ApiStaffEventsEventIdExportRouteImport } from './routes/api/staff-events/$eventId/export'
+import { Route as ApiStaffEventsEventIdStatusRouteImport } from './routes/api/staff-events/$eventId/status'
+import { Route as ApiStaffEventsEventIdUploadsRouteImport } from './routes/api/staff-events/$eventId/uploads'
+import { Route as ApiStudentEventsEventIdExportRouteImport } from './routes/api/student-events/$eventId/export'
+import { Route as ApiStudentEventsEventIdStatusRouteImport } from './routes/api/student-events/$eventId/status'
+import { Route as ApiStudentEventsEventIdUploadsRouteImport } from './routes/api/student-events/$eventId/uploads'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -29,55 +76,622 @@ const AuthRoute = AuthRouteImport.update({
   path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SetupRoute = SetupRouteImport.update({
+  id: '/setup',
+  path: '/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedPeopleRoute = AuthenticatedPeopleRouteImport.update({
-  id: '/people',
-  path: '/people',
+const AuthenticatedImportRoute = AuthenticatedImportRouteImport.update({
+  id: '/import',
+  path: '/import',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedRecurringRoute = AuthenticatedRecurringRouteImport.update({
+  id: '/recurring',
+  path: '/recurring',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStaffRoute = AuthenticatedStaffRouteImport.update({
+  id: '/staff',
+  path: '/staff',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedStudentsRoute = AuthenticatedStudentsRouteImport.update({
+  id: '/students',
+  path: '/students',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
+  id: '/users',
+  path: '/users',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiDashboardRoute = ApiDashboardRouteImport.update({
+  id: '/api/dashboard',
+  path: '/api/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDepartmentsRoute = ApiDepartmentsRouteImport.update({
+  id: '/api/departments',
+  path: '/api/departments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiLevelsRoute = ApiLevelsRouteImport.update({
+  id: '/api/levels',
+  path: '/api/levels',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSetupRoute = ApiSetupRouteImport.update({
+  id: '/api/setup',
+  path: '/api/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffDepartmentsRoute = ApiStaffDepartmentsRouteImport.update({
+  id: '/api/staff-departments',
+  path: '/api/staff-departments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedReportsStaffRoute =
+  AuthenticatedReportsStaffRouteImport.update({
+    id: '/reports/staff',
+    path: '/reports/staff',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedReportsStudentsRoute =
+  AuthenticatedReportsStudentsRouteImport.update({
+    id: '/reports/students',
+    path: '/reports/students',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedStaffEventsIndexRoute =
+  AuthenticatedStaffEventsIndexRouteImport.update({
+    id: '/staff-events/',
+    path: '/staff-events/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedStaffEventsEventIdRoute =
+  AuthenticatedStaffEventsEventIdRouteImport.update({
+    id: '/staff-events/$eventId',
+    path: '/staff-events/$eventId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedStudentEventsIndexRoute =
+  AuthenticatedStudentEventsIndexRouteImport.update({
+    id: '/student-events/',
+    path: '/student-events/',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedStudentEventsEventIdRoute =
+  AuthenticatedStudentEventsEventIdRouteImport.update({
+    id: '/student-events/$eventId',
+    path: '/student-events/$eventId',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ApiAdminClearAllRoute = ApiAdminClearAllRouteImport.update({
+  id: '/api/admin/clear-all',
+  path: '/api/admin/clear-all',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
+  id: '/api/auth/me',
+  path: '/api/auth/me',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSigninRoute = ApiAuthSigninRouteImport.update({
+  id: '/api/auth/signin',
+  path: '/api/auth/signin',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSignoutRoute = ApiAuthSignoutRouteImport.update({
+  id: '/api/auth/signout',
+  path: '/api/auth/signout',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAuthSignupRoute = ApiAuthSignupRouteImport.update({
+  id: '/api/auth/signup',
+  path: '/api/auth/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDownloadsPreviewRoute = ApiDownloadsPreviewRouteImport.update({
+  id: '/api/downloads/preview',
+  path: '/api/downloads/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDownloadsReportRoute = ApiDownloadsReportRouteImport.update({
+  id: '/api/downloads/report',
+  path: '/api/downloads/report',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRecurringIndexRoute = ApiRecurringIndexRouteImport.update({
+  id: '/api/recurring/',
+  path: '/api/recurring/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRecurringTemplateIdRoute = ApiRecurringTemplateIdRouteImport.update({
+  id: '/api/recurring/$templateId',
+  path: '/api/recurring/$templateId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReportsStaffRoute = ApiReportsStaffRouteImport.update({
+  id: '/api/reports/staff',
+  path: '/api/reports/staff',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReportsStudentsRoute = ApiReportsStudentsRouteImport.update({
+  id: '/api/reports/students',
+  path: '/api/reports/students',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffEventsIndexRoute = ApiStaffEventsIndexRouteImport.update({
+  id: '/api/staff-events/',
+  path: '/api/staff-events/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffEventsEventIdRoute = ApiStaffEventsEventIdRouteImport.update({
+  id: '/api/staff-events/$eventId',
+  path: '/api/staff-events/$eventId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffIndexRoute = ApiStaffIndexRouteImport.update({
+  id: '/api/staff/',
+  path: '/api/staff/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffDownloadRoute = ApiStaffDownloadRouteImport.update({
+  id: '/api/staff/download',
+  path: '/api/staff/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStaffImportRoute = ApiStaffImportRouteImport.update({
+  id: '/api/staff/import',
+  path: '/api/staff/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudentEventsIndexRoute = ApiStudentEventsIndexRouteImport.update({
+  id: '/api/student-events/',
+  path: '/api/student-events/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudentEventsEventIdRoute = ApiStudentEventsEventIdRouteImport.update({
+  id: '/api/student-events/$eventId',
+  path: '/api/student-events/$eventId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudentsIndexRoute = ApiStudentsIndexRouteImport.update({
+  id: '/api/students/',
+  path: '/api/students/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudentsDownloadRoute = ApiStudentsDownloadRouteImport.update({
+  id: '/api/students/download',
+  path: '/api/students/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiStudentsImportRoute = ApiStudentsImportRouteImport.update({
+  id: '/api/students/import',
+  path: '/api/students/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUsersIndexRoute = ApiUsersIndexRouteImport.update({
+  id: '/api/users/',
+  path: '/api/users/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiUsersRolesRoute = ApiUsersRolesRouteImport.update({
+  id: '/api/users/roles',
+  path: '/api/users/roles',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRecurringTemplateIdGenerateRoute =
+  ApiRecurringTemplateIdGenerateRouteImport.update({
+    id: '/generate',
+    path: '/generate',
+    getParentRoute: () => ApiRecurringTemplateIdRoute,
+  } as any)
+const ApiStaffEventsEventIdExportRoute =
+  ApiStaffEventsEventIdExportRouteImport.update({
+    id: '/export',
+    path: '/export',
+    getParentRoute: () => ApiStaffEventsEventIdRoute,
+  } as any)
+const ApiStaffEventsEventIdStatusRoute =
+  ApiStaffEventsEventIdStatusRouteImport.update({
+    id: '/status',
+    path: '/status',
+    getParentRoute: () => ApiStaffEventsEventIdRoute,
+  } as any)
+const ApiStaffEventsEventIdUploadsRoute =
+  ApiStaffEventsEventIdUploadsRouteImport.update({
+    id: '/uploads',
+    path: '/uploads',
+    getParentRoute: () => ApiStaffEventsEventIdRoute,
+  } as any)
+const ApiStudentEventsEventIdExportRoute =
+  ApiStudentEventsEventIdExportRouteImport.update({
+    id: '/export',
+    path: '/export',
+    getParentRoute: () => ApiStudentEventsEventIdRoute,
+  } as any)
+const ApiStudentEventsEventIdStatusRoute =
+  ApiStudentEventsEventIdStatusRouteImport.update({
+    id: '/status',
+    path: '/status',
+    getParentRoute: () => ApiStudentEventsEventIdRoute,
+  } as any)
+const ApiStudentEventsEventIdUploadsRoute =
+  ApiStudentEventsEventIdUploadsRouteImport.update({
+    id: '/uploads',
+    path: '/uploads',
+    getParentRoute: () => ApiStudentEventsEventIdRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/people': typeof AuthenticatedPeopleRoute
+  '/import': typeof AuthenticatedImportRoute
+  '/recurring': typeof AuthenticatedRecurringRoute
+  '/staff': typeof AuthenticatedStaffRoute
+  '/students': typeof AuthenticatedStudentsRoute
+  '/users': typeof AuthenticatedUsersRoute
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/departments': typeof ApiDepartmentsRoute
+  '/api/levels': typeof ApiLevelsRoute
+  '/api/setup': typeof ApiSetupRoute
+  '/api/staff-departments': typeof ApiStaffDepartmentsRoute
+  '/reports/staff': typeof AuthenticatedReportsStaffRoute
+  '/reports/students': typeof AuthenticatedReportsStudentsRoute
+  '/staff-events/$eventId': typeof AuthenticatedStaffEventsEventIdRoute
+  '/student-events/$eventId': typeof AuthenticatedStudentEventsEventIdRoute
+  '/api/admin/clear-all': typeof ApiAdminClearAllRoute
+  '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/signin': typeof ApiAuthSigninRoute
+  '/api/auth/signout': typeof ApiAuthSignoutRoute
+  '/api/auth/signup': typeof ApiAuthSignupRoute
+  '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
+  '/api/downloads/report': typeof ApiDownloadsReportRoute
+  '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
+  '/api/reports/staff': typeof ApiReportsStaffRoute
+  '/api/reports/students': typeof ApiReportsStudentsRoute
+  '/api/staff-events/$eventId': typeof ApiStaffEventsEventIdRouteWithChildren
+  '/api/staff/download': typeof ApiStaffDownloadRoute
+  '/api/staff/import': typeof ApiStaffImportRoute
+  '/api/student-events/$eventId': typeof ApiStudentEventsEventIdRouteWithChildren
+  '/api/students/download': typeof ApiStudentsDownloadRoute
+  '/api/students/import': typeof ApiStudentsImportRoute
+  '/api/users/roles': typeof ApiUsersRolesRoute
+  '/staff-events/': typeof AuthenticatedStaffEventsIndexRoute
+  '/student-events/': typeof AuthenticatedStudentEventsIndexRoute
+  '/api/recurring/': typeof ApiRecurringIndexRoute
+  '/api/staff-events/': typeof ApiStaffEventsIndexRoute
+  '/api/staff/': typeof ApiStaffIndexRoute
+  '/api/student-events/': typeof ApiStudentEventsIndexRoute
+  '/api/students/': typeof ApiStudentsIndexRoute
+  '/api/users/': typeof ApiUsersIndexRoute
+  '/api/recurring/$templateId/generate': typeof ApiRecurringTemplateIdGenerateRoute
+  '/api/staff-events/$eventId/export': typeof ApiStaffEventsEventIdExportRoute
+  '/api/staff-events/$eventId/status': typeof ApiStaffEventsEventIdStatusRoute
+  '/api/staff-events/$eventId/uploads': typeof ApiStaffEventsEventIdUploadsRoute
+  '/api/student-events/$eventId/export': typeof ApiStudentEventsEventIdExportRoute
+  '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
+  '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
+  '/admin': typeof AuthenticatedAdminRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
-  '/people': typeof AuthenticatedPeopleRoute
+  '/import': typeof AuthenticatedImportRoute
+  '/recurring': typeof AuthenticatedRecurringRoute
+  '/staff': typeof AuthenticatedStaffRoute
+  '/students': typeof AuthenticatedStudentsRoute
+  '/users': typeof AuthenticatedUsersRoute
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/departments': typeof ApiDepartmentsRoute
+  '/api/levels': typeof ApiLevelsRoute
+  '/api/setup': typeof ApiSetupRoute
+  '/api/staff-departments': typeof ApiStaffDepartmentsRoute
+  '/reports/staff': typeof AuthenticatedReportsStaffRoute
+  '/reports/students': typeof AuthenticatedReportsStudentsRoute
+  '/staff-events/$eventId': typeof AuthenticatedStaffEventsEventIdRoute
+  '/student-events/$eventId': typeof AuthenticatedStudentEventsEventIdRoute
+  '/api/admin/clear-all': typeof ApiAdminClearAllRoute
+  '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/signin': typeof ApiAuthSigninRoute
+  '/api/auth/signout': typeof ApiAuthSignoutRoute
+  '/api/auth/signup': typeof ApiAuthSignupRoute
+  '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
+  '/api/downloads/report': typeof ApiDownloadsReportRoute
+  '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
+  '/api/reports/staff': typeof ApiReportsStaffRoute
+  '/api/reports/students': typeof ApiReportsStudentsRoute
+  '/api/staff-events/$eventId': typeof ApiStaffEventsEventIdRouteWithChildren
+  '/api/staff/download': typeof ApiStaffDownloadRoute
+  '/api/staff/import': typeof ApiStaffImportRoute
+  '/api/student-events/$eventId': typeof ApiStudentEventsEventIdRouteWithChildren
+  '/api/students/download': typeof ApiStudentsDownloadRoute
+  '/api/students/import': typeof ApiStudentsImportRoute
+  '/api/users/roles': typeof ApiUsersRolesRoute
+  '/staff-events': typeof AuthenticatedStaffEventsIndexRoute
+  '/student-events': typeof AuthenticatedStudentEventsIndexRoute
+  '/api/recurring': typeof ApiRecurringIndexRoute
+  '/api/staff-events': typeof ApiStaffEventsIndexRoute
+  '/api/staff': typeof ApiStaffIndexRoute
+  '/api/student-events': typeof ApiStudentEventsIndexRoute
+  '/api/students': typeof ApiStudentsIndexRoute
+  '/api/users': typeof ApiUsersIndexRoute
+  '/api/recurring/$templateId/generate': typeof ApiRecurringTemplateIdGenerateRoute
+  '/api/staff-events/$eventId/export': typeof ApiStaffEventsEventIdExportRoute
+  '/api/staff-events/$eventId/status': typeof ApiStaffEventsEventIdStatusRoute
+  '/api/staff-events/$eventId/uploads': typeof ApiStaffEventsEventIdUploadsRoute
+  '/api/student-events/$eventId/export': typeof ApiStudentEventsEventIdExportRoute
+  '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
+  '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/setup': typeof SetupRoute
+  '/_authenticated/admin': typeof AuthenticatedAdminRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
-  '/_authenticated/people': typeof AuthenticatedPeopleRoute
+  '/_authenticated/import': typeof AuthenticatedImportRoute
+  '/_authenticated/recurring': typeof AuthenticatedRecurringRoute
+  '/_authenticated/staff': typeof AuthenticatedStaffRoute
+  '/_authenticated/students': typeof AuthenticatedStudentsRoute
+  '/_authenticated/users': typeof AuthenticatedUsersRoute
+  '/api/dashboard': typeof ApiDashboardRoute
+  '/api/departments': typeof ApiDepartmentsRoute
+  '/api/levels': typeof ApiLevelsRoute
+  '/api/setup': typeof ApiSetupRoute
+  '/api/staff-departments': typeof ApiStaffDepartmentsRoute
+  '/_authenticated/reports/staff': typeof AuthenticatedReportsStaffRoute
+  '/_authenticated/reports/students': typeof AuthenticatedReportsStudentsRoute
+  '/_authenticated/staff-events/$eventId': typeof AuthenticatedStaffEventsEventIdRoute
+  '/_authenticated/student-events/$eventId': typeof AuthenticatedStudentEventsEventIdRoute
+  '/api/admin/clear-all': typeof ApiAdminClearAllRoute
+  '/api/auth/me': typeof ApiAuthMeRoute
+  '/api/auth/signin': typeof ApiAuthSigninRoute
+  '/api/auth/signout': typeof ApiAuthSignoutRoute
+  '/api/auth/signup': typeof ApiAuthSignupRoute
+  '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
+  '/api/downloads/report': typeof ApiDownloadsReportRoute
+  '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
+  '/api/reports/staff': typeof ApiReportsStaffRoute
+  '/api/reports/students': typeof ApiReportsStudentsRoute
+  '/api/staff-events/$eventId': typeof ApiStaffEventsEventIdRouteWithChildren
+  '/api/staff/download': typeof ApiStaffDownloadRoute
+  '/api/staff/import': typeof ApiStaffImportRoute
+  '/api/student-events/$eventId': typeof ApiStudentEventsEventIdRouteWithChildren
+  '/api/students/download': typeof ApiStudentsDownloadRoute
+  '/api/students/import': typeof ApiStudentsImportRoute
+  '/api/users/roles': typeof ApiUsersRolesRoute
+  '/_authenticated/staff-events/': typeof AuthenticatedStaffEventsIndexRoute
+  '/_authenticated/student-events/': typeof AuthenticatedStudentEventsIndexRoute
+  '/api/recurring/': typeof ApiRecurringIndexRoute
+  '/api/staff-events/': typeof ApiStaffEventsIndexRoute
+  '/api/staff/': typeof ApiStaffIndexRoute
+  '/api/student-events/': typeof ApiStudentEventsIndexRoute
+  '/api/students/': typeof ApiStudentsIndexRoute
+  '/api/users/': typeof ApiUsersIndexRoute
+  '/api/recurring/$templateId/generate': typeof ApiRecurringTemplateIdGenerateRoute
+  '/api/staff-events/$eventId/export': typeof ApiStaffEventsEventIdExportRoute
+  '/api/staff-events/$eventId/status': typeof ApiStaffEventsEventIdStatusRoute
+  '/api/staff-events/$eventId/uploads': typeof ApiStaffEventsEventIdUploadsRoute
+  '/api/student-events/$eventId/export': typeof ApiStudentEventsEventIdExportRoute
+  '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
+  '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/auth' | '/dashboard' | '/people'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/setup'
+    | '/admin'
+    | '/dashboard'
+    | '/import'
+    | '/recurring'
+    | '/staff'
+    | '/students'
+    | '/users'
+    | '/api/dashboard'
+    | '/api/departments'
+    | '/api/levels'
+    | '/api/setup'
+    | '/api/staff-departments'
+    | '/reports/staff'
+    | '/reports/students'
+    | '/staff-events/$eventId'
+    | '/student-events/$eventId'
+    | '/api/admin/clear-all'
+    | '/api/auth/me'
+    | '/api/auth/signin'
+    | '/api/auth/signout'
+    | '/api/auth/signup'
+    | '/api/downloads/preview'
+    | '/api/downloads/report'
+    | '/api/recurring/$templateId'
+    | '/api/reports/staff'
+    | '/api/reports/students'
+    | '/api/staff-events/$eventId'
+    | '/api/staff/download'
+    | '/api/staff/import'
+    | '/api/student-events/$eventId'
+    | '/api/students/download'
+    | '/api/students/import'
+    | '/api/users/roles'
+    | '/staff-events/'
+    | '/student-events/'
+    | '/api/recurring/'
+    | '/api/staff-events/'
+    | '/api/staff/'
+    | '/api/student-events/'
+    | '/api/students/'
+    | '/api/users/'
+    | '/api/recurring/$templateId/generate'
+    | '/api/staff-events/$eventId/export'
+    | '/api/staff-events/$eventId/status'
+    | '/api/staff-events/$eventId/uploads'
+    | '/api/student-events/$eventId/export'
+    | '/api/student-events/$eventId/status'
+    | '/api/student-events/$eventId/uploads'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/dashboard' | '/people'
+  to:
+    | '/'
+    | '/auth'
+    | '/setup'
+    | '/admin'
+    | '/dashboard'
+    | '/import'
+    | '/recurring'
+    | '/staff'
+    | '/students'
+    | '/users'
+    | '/api/dashboard'
+    | '/api/departments'
+    | '/api/levels'
+    | '/api/setup'
+    | '/api/staff-departments'
+    | '/reports/staff'
+    | '/reports/students'
+    | '/staff-events/$eventId'
+    | '/student-events/$eventId'
+    | '/api/admin/clear-all'
+    | '/api/auth/me'
+    | '/api/auth/signin'
+    | '/api/auth/signout'
+    | '/api/auth/signup'
+    | '/api/downloads/preview'
+    | '/api/downloads/report'
+    | '/api/recurring/$templateId'
+    | '/api/reports/staff'
+    | '/api/reports/students'
+    | '/api/staff-events/$eventId'
+    | '/api/staff/download'
+    | '/api/staff/import'
+    | '/api/student-events/$eventId'
+    | '/api/students/download'
+    | '/api/students/import'
+    | '/api/users/roles'
+    | '/staff-events'
+    | '/student-events'
+    | '/api/recurring'
+    | '/api/staff-events'
+    | '/api/staff'
+    | '/api/student-events'
+    | '/api/students'
+    | '/api/users'
+    | '/api/recurring/$templateId/generate'
+    | '/api/staff-events/$eventId/export'
+    | '/api/staff-events/$eventId/status'
+    | '/api/staff-events/$eventId/uploads'
+    | '/api/student-events/$eventId/export'
+    | '/api/student-events/$eventId/status'
+    | '/api/student-events/$eventId/uploads'
   id:
     | '__root__'
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/setup'
+    | '/_authenticated/admin'
     | '/_authenticated/dashboard'
-    | '/_authenticated/people'
+    | '/_authenticated/import'
+    | '/_authenticated/recurring'
+    | '/_authenticated/staff'
+    | '/_authenticated/students'
+    | '/_authenticated/users'
+    | '/api/dashboard'
+    | '/api/departments'
+    | '/api/levels'
+    | '/api/setup'
+    | '/api/staff-departments'
+    | '/_authenticated/reports/staff'
+    | '/_authenticated/reports/students'
+    | '/_authenticated/staff-events/$eventId'
+    | '/_authenticated/student-events/$eventId'
+    | '/api/admin/clear-all'
+    | '/api/auth/me'
+    | '/api/auth/signin'
+    | '/api/auth/signout'
+    | '/api/auth/signup'
+    | '/api/downloads/preview'
+    | '/api/downloads/report'
+    | '/api/recurring/$templateId'
+    | '/api/reports/staff'
+    | '/api/reports/students'
+    | '/api/staff-events/$eventId'
+    | '/api/staff/download'
+    | '/api/staff/import'
+    | '/api/student-events/$eventId'
+    | '/api/students/download'
+    | '/api/students/import'
+    | '/api/users/roles'
+    | '/_authenticated/staff-events/'
+    | '/_authenticated/student-events/'
+    | '/api/recurring/'
+    | '/api/staff-events/'
+    | '/api/staff/'
+    | '/api/student-events/'
+    | '/api/students/'
+    | '/api/users/'
+    | '/api/recurring/$templateId/generate'
+    | '/api/staff-events/$eventId/export'
+    | '/api/staff-events/$eventId/status'
+    | '/api/staff-events/$eventId/uploads'
+    | '/api/student-events/$eventId/export'
+    | '/api/student-events/$eventId/status'
+    | '/api/student-events/$eventId/uploads'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  SetupRoute: typeof SetupRoute
+  ApiDashboardRoute: typeof ApiDashboardRoute
+  ApiDepartmentsRoute: typeof ApiDepartmentsRoute
+  ApiLevelsRoute: typeof ApiLevelsRoute
+  ApiSetupRoute: typeof ApiSetupRoute
+  ApiStaffDepartmentsRoute: typeof ApiStaffDepartmentsRoute
+  ApiAdminClearAllRoute: typeof ApiAdminClearAllRoute
+  ApiAuthMeRoute: typeof ApiAuthMeRoute
+  ApiAuthSigninRoute: typeof ApiAuthSigninRoute
+  ApiAuthSignoutRoute: typeof ApiAuthSignoutRoute
+  ApiAuthSignupRoute: typeof ApiAuthSignupRoute
+  ApiDownloadsPreviewRoute: typeof ApiDownloadsPreviewRoute
+  ApiDownloadsReportRoute: typeof ApiDownloadsReportRoute
+  ApiRecurringTemplateIdRoute: typeof ApiRecurringTemplateIdRouteWithChildren
+  ApiReportsStaffRoute: typeof ApiReportsStaffRoute
+  ApiReportsStudentsRoute: typeof ApiReportsStudentsRoute
+  ApiStaffEventsEventIdRoute: typeof ApiStaffEventsEventIdRouteWithChildren
+  ApiStaffDownloadRoute: typeof ApiStaffDownloadRoute
+  ApiStaffImportRoute: typeof ApiStaffImportRoute
+  ApiStudentEventsEventIdRoute: typeof ApiStudentEventsEventIdRouteWithChildren
+  ApiStudentsDownloadRoute: typeof ApiStudentsDownloadRoute
+  ApiStudentsImportRoute: typeof ApiStudentsImportRoute
+  ApiUsersRolesRoute: typeof ApiUsersRolesRoute
+  ApiRecurringIndexRoute: typeof ApiRecurringIndexRoute
+  ApiStaffEventsIndexRoute: typeof ApiStaffEventsIndexRoute
+  ApiStaffIndexRoute: typeof ApiStaffIndexRoute
+  ApiStudentEventsIndexRoute: typeof ApiStudentEventsIndexRoute
+  ApiStudentsIndexRoute: typeof ApiStudentsIndexRoute
+  ApiUsersIndexRoute: typeof ApiUsersIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -103,6 +717,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/setup': {
+      id: '/setup'
+      path: '/setup'
+      fullPath: '/setup'
+      preLoaderRoute: typeof SetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/admin': {
+      id: '/_authenticated/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AuthenticatedAdminRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -110,33 +738,449 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/people': {
-      id: '/_authenticated/people'
-      path: '/people'
-      fullPath: '/people'
-      preLoaderRoute: typeof AuthenticatedPeopleRouteImport
+    '/_authenticated/import': {
+      id: '/_authenticated/import'
+      path: '/import'
+      fullPath: '/import'
+      preLoaderRoute: typeof AuthenticatedImportRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/recurring': {
+      id: '/_authenticated/recurring'
+      path: '/recurring'
+      fullPath: '/recurring'
+      preLoaderRoute: typeof AuthenticatedRecurringRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/staff': {
+      id: '/_authenticated/staff'
+      path: '/staff'
+      fullPath: '/staff'
+      preLoaderRoute: typeof AuthenticatedStaffRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/students': {
+      id: '/_authenticated/students'
+      path: '/students'
+      fullPath: '/students'
+      preLoaderRoute: typeof AuthenticatedStudentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/users': {
+      id: '/_authenticated/users'
+      path: '/users'
+      fullPath: '/users'
+      preLoaderRoute: typeof AuthenticatedUsersRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/dashboard': {
+      id: '/api/dashboard'
+      path: '/api/dashboard'
+      fullPath: '/api/dashboard'
+      preLoaderRoute: typeof ApiDashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/departments': {
+      id: '/api/departments'
+      path: '/api/departments'
+      fullPath: '/api/departments'
+      preLoaderRoute: typeof ApiDepartmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/levels': {
+      id: '/api/levels'
+      path: '/api/levels'
+      fullPath: '/api/levels'
+      preLoaderRoute: typeof ApiLevelsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/setup': {
+      id: '/api/setup'
+      path: '/api/setup'
+      fullPath: '/api/setup'
+      preLoaderRoute: typeof ApiSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff-departments': {
+      id: '/api/staff-departments'
+      path: '/api/staff-departments'
+      fullPath: '/api/staff-departments'
+      preLoaderRoute: typeof ApiStaffDepartmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/reports/staff': {
+      id: '/_authenticated/reports/staff'
+      path: '/reports/staff'
+      fullPath: '/reports/staff'
+      preLoaderRoute: typeof AuthenticatedReportsStaffRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/reports/students': {
+      id: '/_authenticated/reports/students'
+      path: '/reports/students'
+      fullPath: '/reports/students'
+      preLoaderRoute: typeof AuthenticatedReportsStudentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/staff-events/': {
+      id: '/_authenticated/staff-events/'
+      path: '/staff-events'
+      fullPath: '/staff-events/'
+      preLoaderRoute: typeof AuthenticatedStaffEventsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/staff-events/$eventId': {
+      id: '/_authenticated/staff-events/$eventId'
+      path: '/staff-events/$eventId'
+      fullPath: '/staff-events/$eventId'
+      preLoaderRoute: typeof AuthenticatedStaffEventsEventIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/student-events/': {
+      id: '/_authenticated/student-events/'
+      path: '/student-events'
+      fullPath: '/student-events/'
+      preLoaderRoute: typeof AuthenticatedStudentEventsIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/student-events/$eventId': {
+      id: '/_authenticated/student-events/$eventId'
+      path: '/student-events/$eventId'
+      fullPath: '/student-events/$eventId'
+      preLoaderRoute: typeof AuthenticatedStudentEventsEventIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/admin/clear-all': {
+      id: '/api/admin/clear-all'
+      path: '/api/admin/clear-all'
+      fullPath: '/api/admin/clear-all'
+      preLoaderRoute: typeof ApiAdminClearAllRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/me': {
+      id: '/api/auth/me'
+      path: '/api/auth/me'
+      fullPath: '/api/auth/me'
+      preLoaderRoute: typeof ApiAuthMeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/signin': {
+      id: '/api/auth/signin'
+      path: '/api/auth/signin'
+      fullPath: '/api/auth/signin'
+      preLoaderRoute: typeof ApiAuthSigninRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/signout': {
+      id: '/api/auth/signout'
+      path: '/api/auth/signout'
+      fullPath: '/api/auth/signout'
+      preLoaderRoute: typeof ApiAuthSignoutRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/auth/signup': {
+      id: '/api/auth/signup'
+      path: '/api/auth/signup'
+      fullPath: '/api/auth/signup'
+      preLoaderRoute: typeof ApiAuthSignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/downloads/preview': {
+      id: '/api/downloads/preview'
+      path: '/api/downloads/preview'
+      fullPath: '/api/downloads/preview'
+      preLoaderRoute: typeof ApiDownloadsPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/downloads/report': {
+      id: '/api/downloads/report'
+      path: '/api/downloads/report'
+      fullPath: '/api/downloads/report'
+      preLoaderRoute: typeof ApiDownloadsReportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/recurring/': {
+      id: '/api/recurring/'
+      path: '/api/recurring'
+      fullPath: '/api/recurring/'
+      preLoaderRoute: typeof ApiRecurringIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/recurring/$templateId': {
+      id: '/api/recurring/$templateId'
+      path: '/api/recurring/$templateId'
+      fullPath: '/api/recurring/$templateId'
+      preLoaderRoute: typeof ApiRecurringTemplateIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reports/staff': {
+      id: '/api/reports/staff'
+      path: '/api/reports/staff'
+      fullPath: '/api/reports/staff'
+      preLoaderRoute: typeof ApiReportsStaffRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reports/students': {
+      id: '/api/reports/students'
+      path: '/api/reports/students'
+      fullPath: '/api/reports/students'
+      preLoaderRoute: typeof ApiReportsStudentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff-events/': {
+      id: '/api/staff-events/'
+      path: '/api/staff-events'
+      fullPath: '/api/staff-events/'
+      preLoaderRoute: typeof ApiStaffEventsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff-events/$eventId': {
+      id: '/api/staff-events/$eventId'
+      path: '/api/staff-events/$eventId'
+      fullPath: '/api/staff-events/$eventId'
+      preLoaderRoute: typeof ApiStaffEventsEventIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff/': {
+      id: '/api/staff/'
+      path: '/api/staff'
+      fullPath: '/api/staff/'
+      preLoaderRoute: typeof ApiStaffIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff/download': {
+      id: '/api/staff/download'
+      path: '/api/staff/download'
+      fullPath: '/api/staff/download'
+      preLoaderRoute: typeof ApiStaffDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/staff/import': {
+      id: '/api/staff/import'
+      path: '/api/staff/import'
+      fullPath: '/api/staff/import'
+      preLoaderRoute: typeof ApiStaffImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/student-events/': {
+      id: '/api/student-events/'
+      path: '/api/student-events'
+      fullPath: '/api/student-events/'
+      preLoaderRoute: typeof ApiStudentEventsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/student-events/$eventId': {
+      id: '/api/student-events/$eventId'
+      path: '/api/student-events/$eventId'
+      fullPath: '/api/student-events/$eventId'
+      preLoaderRoute: typeof ApiStudentEventsEventIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/students/': {
+      id: '/api/students/'
+      path: '/api/students'
+      fullPath: '/api/students/'
+      preLoaderRoute: typeof ApiStudentsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/students/download': {
+      id: '/api/students/download'
+      path: '/api/students/download'
+      fullPath: '/api/students/download'
+      preLoaderRoute: typeof ApiStudentsDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/students/import': {
+      id: '/api/students/import'
+      path: '/api/students/import'
+      fullPath: '/api/students/import'
+      preLoaderRoute: typeof ApiStudentsImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/users/': {
+      id: '/api/users/'
+      path: '/api/users'
+      fullPath: '/api/users/'
+      preLoaderRoute: typeof ApiUsersIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/users/roles': {
+      id: '/api/users/roles'
+      path: '/api/users/roles'
+      fullPath: '/api/users/roles'
+      preLoaderRoute: typeof ApiUsersRolesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/recurring/$templateId/generate': {
+      id: '/api/recurring/$templateId/generate'
+      path: '/generate'
+      fullPath: '/api/recurring/$templateId/generate'
+      preLoaderRoute: typeof ApiRecurringTemplateIdGenerateRouteImport
+      parentRoute: typeof ApiRecurringTemplateIdRoute
+    }
+    '/api/staff-events/$eventId/export': {
+      id: '/api/staff-events/$eventId/export'
+      path: '/export'
+      fullPath: '/api/staff-events/$eventId/export'
+      preLoaderRoute: typeof ApiStaffEventsEventIdExportRouteImport
+      parentRoute: typeof ApiStaffEventsEventIdRoute
+    }
+    '/api/staff-events/$eventId/status': {
+      id: '/api/staff-events/$eventId/status'
+      path: '/status'
+      fullPath: '/api/staff-events/$eventId/status'
+      preLoaderRoute: typeof ApiStaffEventsEventIdStatusRouteImport
+      parentRoute: typeof ApiStaffEventsEventIdRoute
+    }
+    '/api/staff-events/$eventId/uploads': {
+      id: '/api/staff-events/$eventId/uploads'
+      path: '/uploads'
+      fullPath: '/api/staff-events/$eventId/uploads'
+      preLoaderRoute: typeof ApiStaffEventsEventIdUploadsRouteImport
+      parentRoute: typeof ApiStaffEventsEventIdRoute
+    }
+    '/api/student-events/$eventId/export': {
+      id: '/api/student-events/$eventId/export'
+      path: '/export'
+      fullPath: '/api/student-events/$eventId/export'
+      preLoaderRoute: typeof ApiStudentEventsEventIdExportRouteImport
+      parentRoute: typeof ApiStudentEventsEventIdRoute
+    }
+    '/api/student-events/$eventId/status': {
+      id: '/api/student-events/$eventId/status'
+      path: '/status'
+      fullPath: '/api/student-events/$eventId/status'
+      preLoaderRoute: typeof ApiStudentEventsEventIdStatusRouteImport
+      parentRoute: typeof ApiStudentEventsEventIdRoute
+    }
+    '/api/student-events/$eventId/uploads': {
+      id: '/api/student-events/$eventId/uploads'
+      path: '/uploads'
+      fullPath: '/api/student-events/$eventId/uploads'
+      preLoaderRoute: typeof ApiStudentEventsEventIdUploadsRouteImport
+      parentRoute: typeof ApiStudentEventsEventIdRoute
     }
   }
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
-  AuthenticatedPeopleRoute: typeof AuthenticatedPeopleRoute
+  AuthenticatedImportRoute: typeof AuthenticatedImportRoute
+  AuthenticatedRecurringRoute: typeof AuthenticatedRecurringRoute
+  AuthenticatedStaffRoute: typeof AuthenticatedStaffRoute
+  AuthenticatedStudentsRoute: typeof AuthenticatedStudentsRoute
+  AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
+  AuthenticatedReportsStaffRoute: typeof AuthenticatedReportsStaffRoute
+  AuthenticatedReportsStudentsRoute: typeof AuthenticatedReportsStudentsRoute
+  AuthenticatedStaffEventsEventIdRoute: typeof AuthenticatedStaffEventsEventIdRoute
+  AuthenticatedStudentEventsEventIdRoute: typeof AuthenticatedStudentEventsEventIdRoute
+  AuthenticatedStaffEventsIndexRoute: typeof AuthenticatedStaffEventsIndexRoute
+  AuthenticatedStudentEventsIndexRoute: typeof AuthenticatedStudentEventsIndexRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminRoute: AuthenticatedAdminRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
-  AuthenticatedPeopleRoute: AuthenticatedPeopleRoute,
+  AuthenticatedImportRoute: AuthenticatedImportRoute,
+  AuthenticatedRecurringRoute: AuthenticatedRecurringRoute,
+  AuthenticatedStaffRoute: AuthenticatedStaffRoute,
+  AuthenticatedStudentsRoute: AuthenticatedStudentsRoute,
+  AuthenticatedUsersRoute: AuthenticatedUsersRoute,
+  AuthenticatedReportsStaffRoute: AuthenticatedReportsStaffRoute,
+  AuthenticatedReportsStudentsRoute: AuthenticatedReportsStudentsRoute,
+  AuthenticatedStaffEventsEventIdRoute: AuthenticatedStaffEventsEventIdRoute,
+  AuthenticatedStudentEventsEventIdRoute:
+    AuthenticatedStudentEventsEventIdRoute,
+  AuthenticatedStaffEventsIndexRoute: AuthenticatedStaffEventsIndexRoute,
+  AuthenticatedStudentEventsIndexRoute: AuthenticatedStudentEventsIndexRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
   AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
 
+interface ApiRecurringTemplateIdRouteChildren {
+  ApiRecurringTemplateIdGenerateRoute: typeof ApiRecurringTemplateIdGenerateRoute
+}
+
+const ApiRecurringTemplateIdRouteChildren: ApiRecurringTemplateIdRouteChildren =
+  {
+    ApiRecurringTemplateIdGenerateRoute: ApiRecurringTemplateIdGenerateRoute,
+  }
+
+const ApiRecurringTemplateIdRouteWithChildren =
+  ApiRecurringTemplateIdRoute._addFileChildren(
+    ApiRecurringTemplateIdRouteChildren,
+  )
+
+interface ApiStaffEventsEventIdRouteChildren {
+  ApiStaffEventsEventIdExportRoute: typeof ApiStaffEventsEventIdExportRoute
+  ApiStaffEventsEventIdStatusRoute: typeof ApiStaffEventsEventIdStatusRoute
+  ApiStaffEventsEventIdUploadsRoute: typeof ApiStaffEventsEventIdUploadsRoute
+}
+
+const ApiStaffEventsEventIdRouteChildren: ApiStaffEventsEventIdRouteChildren = {
+  ApiStaffEventsEventIdExportRoute: ApiStaffEventsEventIdExportRoute,
+  ApiStaffEventsEventIdStatusRoute: ApiStaffEventsEventIdStatusRoute,
+  ApiStaffEventsEventIdUploadsRoute: ApiStaffEventsEventIdUploadsRoute,
+}
+
+const ApiStaffEventsEventIdRouteWithChildren =
+  ApiStaffEventsEventIdRoute._addFileChildren(
+    ApiStaffEventsEventIdRouteChildren,
+  )
+
+interface ApiStudentEventsEventIdRouteChildren {
+  ApiStudentEventsEventIdExportRoute: typeof ApiStudentEventsEventIdExportRoute
+  ApiStudentEventsEventIdStatusRoute: typeof ApiStudentEventsEventIdStatusRoute
+  ApiStudentEventsEventIdUploadsRoute: typeof ApiStudentEventsEventIdUploadsRoute
+}
+
+const ApiStudentEventsEventIdRouteChildren: ApiStudentEventsEventIdRouteChildren =
+  {
+    ApiStudentEventsEventIdExportRoute: ApiStudentEventsEventIdExportRoute,
+    ApiStudentEventsEventIdStatusRoute: ApiStudentEventsEventIdStatusRoute,
+    ApiStudentEventsEventIdUploadsRoute: ApiStudentEventsEventIdUploadsRoute,
+  }
+
+const ApiStudentEventsEventIdRouteWithChildren =
+  ApiStudentEventsEventIdRoute._addFileChildren(
+    ApiStudentEventsEventIdRouteChildren,
+  )
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  SetupRoute: SetupRoute,
+  ApiDashboardRoute: ApiDashboardRoute,
+  ApiDepartmentsRoute: ApiDepartmentsRoute,
+  ApiLevelsRoute: ApiLevelsRoute,
+  ApiSetupRoute: ApiSetupRoute,
+  ApiStaffDepartmentsRoute: ApiStaffDepartmentsRoute,
+  ApiAdminClearAllRoute: ApiAdminClearAllRoute,
+  ApiAuthMeRoute: ApiAuthMeRoute,
+  ApiAuthSigninRoute: ApiAuthSigninRoute,
+  ApiAuthSignoutRoute: ApiAuthSignoutRoute,
+  ApiAuthSignupRoute: ApiAuthSignupRoute,
+  ApiDownloadsPreviewRoute: ApiDownloadsPreviewRoute,
+  ApiDownloadsReportRoute: ApiDownloadsReportRoute,
+  ApiRecurringTemplateIdRoute: ApiRecurringTemplateIdRouteWithChildren,
+  ApiReportsStaffRoute: ApiReportsStaffRoute,
+  ApiReportsStudentsRoute: ApiReportsStudentsRoute,
+  ApiStaffEventsEventIdRoute: ApiStaffEventsEventIdRouteWithChildren,
+  ApiStaffDownloadRoute: ApiStaffDownloadRoute,
+  ApiStaffImportRoute: ApiStaffImportRoute,
+  ApiStudentEventsEventIdRoute: ApiStudentEventsEventIdRouteWithChildren,
+  ApiStudentsDownloadRoute: ApiStudentsDownloadRoute,
+  ApiStudentsImportRoute: ApiStudentsImportRoute,
+  ApiUsersRolesRoute: ApiUsersRolesRoute,
+  ApiRecurringIndexRoute: ApiRecurringIndexRoute,
+  ApiStaffEventsIndexRoute: ApiStaffEventsIndexRoute,
+  ApiStaffIndexRoute: ApiStaffIndexRoute,
+  ApiStudentEventsIndexRoute: ApiStudentEventsIndexRoute,
+  ApiStudentsIndexRoute: ApiStudentsIndexRoute,
+  ApiUsersIndexRoute: ApiUsersIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -58,7 +58,7 @@ function SetupPage() {
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="panel w-full max-w-md p-8">
         <div className="text-center mb-8">
-          <ShieldCheck className="mx-auto h-12 w-12 text-primary" />
+          <img src="/bmx.png" alt="" className="mx-auto h-14 w-14 object-contain" />
           <h1 className="mt-4 text-2xl font-semibold">First Run Setup</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             No administrator exists yet. Create the first administrator account to begin.

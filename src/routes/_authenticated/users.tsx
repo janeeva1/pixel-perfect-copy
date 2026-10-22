@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -28,6 +28,14 @@ export const Route = createFileRoute("/_authenticated/users")({
       { name: "description", content: "Give each member of staff the right level of access." },
     ],
   }),
+  // The sidebar hides this link from anyone who is not an administrator, and the
+  // API refuses a non-admin anyway. Guard the page itself as well so typing the
+  // URL does not reveal that user management exists.
+  beforeLoad: ({ context }) => {
+    if (!context.me.roles.includes("admin")) {
+      throw redirect({ to: "/dashboard" });
+    }
+  },
   component: UsersPage,
   errorComponent: ({ error }) => <p role="alert">{error.message}</p>,
 });

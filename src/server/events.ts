@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { RowDataPacket } from "./db";
-import { dialect, query, queryOne, transaction, type SqlParam } from "@/server/db";
+import { dialect, query, queryOne, transaction, utcStamp, type SqlParam } from "@/server/db";
 import {
   normalizeScopeList,
   staffDepartmentSql,
@@ -30,6 +30,7 @@ import type {
   StudentEvent,
   StudentScope,
 } from "@/lib/types";
+import { departmentsOf, overriddenStaffIds } from "@/server/presence-overrides";
 
 /**
  * One implementation serves both groups. A student event only ever matches
@@ -399,9 +400,7 @@ export async function createEvent(
   const config = GROUPS[kind];
   const id = randomUUID();
   const student = kind === "student";
-  const departments = orderedScope(
-    normalizeScopeList(input.departments ?? input.departmentCodes, student),
-  );
+  const departments = orderedScope(normalizeScopeList(input.departments ?? input.departmentCodes));
   const columns = [
     "id",
     "title",
@@ -413,6 +412,7 @@ export async function createEvent(
     "notes",
     "status",
     "created_by",
+    "updated_at",
   ];
 
   // The read-back happens after the commit on purpose: getEvent() uses a
@@ -441,6 +441,7 @@ export async function createEvent(
         input.notes ?? null,
         "draft",
         actorId,
+        utcStamp(),
       ],
     );
 
@@ -607,9 +608,7 @@ export async function updateEvent(
 
   const resendDepartments = input.departments !== undefined || input.departmentCodes !== undefined;
   const departments = resendDepartments
-    ? orderedScope(
-        normalizeScopeList(input.departments ?? input.departmentCodes, kind === "student"),
-      )
+    ? orderedScope(normalizeScopeList(input.departments ?? input.departmentCodes))
     : [];
   if (resendDepartments && config.scopeColumns) {
     // Kept as the first department so labels and CSV exports still say
@@ -619,8 +618,19 @@ export async function updateEvent(
 
   await transaction(async (connection) => {
     if (fields.length > 0) {
+      // updated_at is the stamp hub sync compares, so every edit (not just the
+      // ones that replace a column) moves it.
+      fields.push("updated_at = ?");
+      values.push(utcStamp());
       await connection.execute(`UPDATE ${config.events} SET ${fields.join(", ")} WHERE id = ?`, [
         ...values,
+        eventId,
+      ]);
+    } else if (resendDepartments) {
+      // Only the department junction changed, which still leaves the event row
+      // alone, so the row's own stamp has to move by hand.
+      await connection.execute(`UPDATE ${config.events} SET updated_at = ? WHERE id = ?`, [
+        utcStamp(),
         eventId,
       ]);
     }
@@ -654,11 +664,10 @@ export async function setEventStatus(
 ): Promise<StudentEvent | StaffEvent> {
   const config = GROUPS[kind];
   await getEvent(kind, eventId);
-  await query(`UPDATE ${config.events} SET status = ?, finalized_at = ? WHERE id = ?`, [
-    status,
-    status === "finalized" ? new Date() : null,
-    eventId,
-  ]);
+  await query(
+    `UPDATE ${config.events} SET status = ?, finalized_at = ?, updated_at = ? WHERE id = ?`,
+    [status, status === "finalized" ? new Date() : null, utcStamp(), eventId],
+  );
   return getEvent(kind, eventId);
 }
 
@@ -841,8 +850,8 @@ export async function uploadScans(
     // New scans change the numbers, so an event that was closed goes back to
     // draft rather than pretending to be final.
     await connection.execute(
-      `UPDATE ${config.events} SET status = 'draft', finalized_at = NULL WHERE id = ?`,
-      [eventId],
+      `UPDATE ${config.events} SET status = 'draft', finalized_at = NULL, updated_at = ? WHERE id = ?`,
+      [utcStamp(), eventId],
     );
     await connection.execute(
       "INSERT INTO audit_logs (id, actor_id, action, entity, entity_id, details) VALUES (?, ?, ?, ?, ?, ?)",
@@ -879,10 +888,39 @@ async function expectedCount(
   return Number(row?.total ?? 0);
 }
 
+/**
+ * The staff credited present at this event who have no scan of their own.
+ *
+ * Both halves matter. The grant only applies to a staff event that has an
+ * upload, and a person who did scan is dropped from the result, because they are
+ * already counted by the scan query and the two sets must not overlap. A student
+ * event grants nothing and returns an empty list.
+ *
+ * `event` is passed rather than re-read so this can run alongside the other
+ * summary queries instead of costing another round trip.
+ */
+async function grantedPresentIds(
+  kind: GroupKind,
+  eventId: string,
+  event: StudentEvent | StaffEvent,
+): Promise<string[]> {
+  if (kind !== "staff") return [];
+  const granted = await overriddenStaffIds(eventId, departmentsOf(event));
+  if (granted.length === 0) return [];
+
+  const scanned = await query<RowDataPacket & { id: string }>(
+    `SELECT DISTINCT staff_id AS id FROM staff_scans
+     WHERE event_id = ? AND in_scope = 1 AND staff_id IS NOT NULL`,
+    [eventId],
+  );
+  const already = new Set(scanned.map((row) => row.id));
+  return granted.filter((id) => !already.has(id));
+}
+
 export async function eventSummary(kind: GroupKind, eventId: string): Promise<EventSummary> {
   const config = GROUPS[kind];
   const event = await getEvent(kind, eventId);
-  const [expected, counts, uploads, window] = await Promise.all([
+  const [expected, counts, uploads, window, granted] = await Promise.all([
     expectedCount(config, kind, event),
     queryOne<
       RowDataPacket & { scans: number; present: number; out_of_scope: number; unmatched: number }
@@ -901,9 +939,13 @@ export async function eventSummary(kind: GroupKind, eventId: string): Promise<Ev
        FROM ${config.scans} WHERE event_id = ?`,
       [eventId],
     ),
+    // The staff credited present without a scan, already reduced to the ones
+    // who did not scan, so this total is a count of people rather than a sum of
+    // two overlapping sets.
+    grantedPresentIds(kind, eventId, event),
   ]);
 
-  const present = Number(counts?.present ?? 0);
+  const present = Number(counts?.present ?? 0) + granted.length;
   const outOfScope = Number(counts?.out_of_scope ?? 0);
   const unmatched = Number(counts?.unmatched ?? 0);
 
@@ -951,7 +993,7 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
   const scopeParams: SqlParam[] = [];
   const scopeWhere = scopeWhereFor(kind, scopeOf(event), scopeParams, alias);
 
-  const [present, absent, outOfScope, unmatched, uploadList] = await Promise.all([
+  const [scannedPresent, absent, outOfScope, unmatched, uploadList, granted] = await Promise.all([
     query<RowDataPacket & PresentRow>(
       `SELECT ${columns}, COUNT(*) AS scan_count,
               MIN(sc.scanned_at) AS first_scan_at, MAX(sc.scanned_at) AS last_scan_at
@@ -962,6 +1004,10 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
        ORDER BY name`,
       [eventId],
     ),
+    // Not filtered against the grants here: granted ids are not known yet at this
+    // point in the Promise.all, so the exclusion happens once both halves are
+    // in hand, a few lines below. A person ends up in exactly one of the two
+    // lists.
     query<RowDataPacket & AbsentRow>(
       `SELECT ${columns}
        FROM ${config.people} ${alias}
@@ -1001,17 +1047,44 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
       [eventId],
     ),
     listUploads(kind, eventId),
+    grantedPresentIds(kind, eventId, event),
   ]);
 
-  return {
-    ...summary,
-    presentList: present.map((row) => ({
+  // The granted rows, joined to their people so the present table shows a name
+  // rather than an id. scan_count is 0 and the scan times are empty strings,
+  // which is the honest reading: present, with no scan behind it.
+  const grantedPeople = await query<RowDataPacket & PresentRow>(
+    `SELECT ${columns}, 0 AS scan_count, NULL AS first_scan_at, NULL AS last_scan_at
+     FROM ${config.people} ${alias}
+     WHERE ${alias}.id IN (${granted.map(() => "?").join(", ")})`,
+    granted,
+  );
+
+  const presentList = [
+    ...scannedPresent.map((row) => ({
       ...row,
       first_scan_at: toIso(row.first_scan_at) ?? "",
       last_scan_at: toIso(row.last_scan_at) ?? "",
     })),
-    absentList: absent.map((row) => ({ ...row })),
+    ...grantedPeople.map((row) => ({
+      ...row,
+      first_scan_at: "",
+      last_scan_at: "",
+    })),
+  ].sort((a, b) => a.name.localeCompare(b.name));
+
+  const grantedSet = new Set(granted);
+  const absentList = absent.filter((row) => !grantedSet.has(row.person_id));
+
+  return {
+    ...summary,
+    presentList,
+    absentList: absentList.map((row) => ({ ...row })),
     outOfScopeList: outOfScope.map((row) => ({ ...row })),
+    // True when any row in presentList was granted rather than scanned, so the
+    // event page can say the present count includes overrides instead of
+    // leaving the reader to infer it from a zero in the scan column.
+    hasGrantedPresence: granted.length > 0,
     unmatchedList: unmatched.map((row) => ({
       scan_id: row.scan_id,
       scan_number: row.scan_number,
@@ -1024,4 +1097,4 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
   };
 }
 
-export { GROUPS, type GroupConfig };
+export { GROUPS, loadLookup, matchRow, type GroupConfig, type Lookup, type Match };

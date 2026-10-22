@@ -19,10 +19,12 @@ import {
   categoryLabel,
 } from "@/components/attendance-ui";
 import { MasterImport } from "@/components/MasterImport";
+import { MasterEditDialog, type EditField } from "@/components/MasterEditDialog";
 import { api, type StudentListParams } from "@/lib/api";
 import { useRoles } from "@/lib/useAuth";
-import type { StudentCategory } from "@/lib/types";
-import { Download } from "lucide-react";
+import type { Student, StudentCategory } from "@/lib/types";
+import { Download, Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 // Every key is optional, so a plain <Link to="/students"> does not have to
 // carry filters. The validator fills sensible defaults when the URL is empty.
@@ -83,6 +85,12 @@ function StudentsPage() {
     sortDir: search.sortDir,
   };
   const list = useQuery({ queryKey: ["students", params], queryFn: () => api.students(params) });
+  const massDepartments = useQuery({
+    queryKey: ["mass-departments"],
+    queryFn: () => api.massDepartments(),
+  });
+
+  const [editing, setEditing] = useState<Student | null>(null);
 
   function setFilter(next: Partial<StudentsSearch>) {
     void navigate({ to: "/students", search: { ...search, ...next } });
@@ -91,6 +99,66 @@ function StudentsPage() {
   const refresh = () => void queryClient.invalidateQueries({ queryKey: ["students"] });
   const departments = list.data?.departments ?? [];
   const students = list.data?.students ?? [];
+
+  // The dropdown offers the departments that have a Community Mass weekday, so
+  // a student moved to one of them is still expected. The departments already
+  // in use are added on top, in case the registrar's file carries a name the
+  // weekday table does not know about yet.
+  const departmentOptions = [
+    ...new Set([...(massDepartments.data ?? []).map((row) => row.department), ...departments]),
+  ].sort((a, b) => a.localeCompare(b));
+
+  const levelOptions = list.data?.levels ?? [];
+
+  const editFields: EditField[] = editing
+    ? [
+        { key: "lastName", label: "Last name", kind: "text", value: editing.last_name },
+        { key: "firstName", label: "First name", kind: "text", value: editing.first_name },
+        { key: "middleName", label: "Middle name", kind: "text", value: editing.middle_name },
+        {
+          key: "level",
+          label: "Level",
+          kind: "select",
+          value: editing.level,
+          options: levelOptions,
+          emptyLabel: "No level",
+        },
+        {
+          key: "department",
+          label: "Department",
+          kind: "select",
+          value: editing.department,
+          options: departmentOptions,
+          emptyLabel: "No department",
+        },
+        {
+          key: "maritalStatus",
+          label: "Marital status",
+          kind: "text",
+          value: editing.marital_status,
+        },
+      ]
+    : [];
+
+  async function saveStudent(values: Record<string, string | null>) {
+    if (!editing) return;
+    const result = await api.updateStudent(editing.id, {
+      lastName: values["lastName"] ?? null,
+      firstName: values["firstName"] ?? null,
+      middleName: values["middleName"] ?? null,
+      level: values["level"] ?? null,
+      department: values["department"] ?? null,
+      maritalStatus: values["maritalStatus"] ?? null,
+    });
+    await refresh();
+    if (result.staleWeeks.length > 0) {
+      toast.warning(
+        `${editing.full_name || "The student"} was updated. ${result.staleWeeks.join(", ")} already hold attendance, so their expected list was left as it was. Reset the week to apply the new department to it.`,
+      );
+    } else {
+      toast.success(`${editing.full_name || "The student"} was updated.`);
+    }
+  }
 
   async function downloadStudents() {
     try {
@@ -227,7 +295,7 @@ function StudentsPage() {
         ) : (
           <>
             <DataTable
-              head={["Name", "Matric no", "Category", "Level", "Department"]}
+              head={["Name", "Matric no", "Category", "Level", "Department", "Marital status", ""]}
               sortable={["Name", "Matric no", "Category", "Level", "Department"]}
               sortBy={search.sortBy}
               sortDir={search.sortDir}
@@ -249,7 +317,20 @@ function StudentsPage() {
                     <span className="font-mono text-xs">{student.matric_no}</span>,
                     categoryLabel(student.student_category),
                     student.level ? `Level ${student.level}` : "—",
-                    student.department_code ?? "—",
+                    // The registrar's department name when the file had one;
+                    // the code derived from the matric number when it did not.
+                    student.department ?? student.department_code ?? "—",
+                    student.marital_status ?? "—",
+                    canEdit ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditing(student)}
+                        aria-label={`Edit ${student.full_name}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    ) : null,
                   ]}
                 />
               ))}
@@ -257,6 +338,19 @@ function StudentsPage() {
           </>
         )}
       </Panel>
+
+      <MasterEditDialog
+        key={editing?.id ?? "none"}
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        title="Edit student"
+        description="Change what the file should have said. The matric number is the student's key and cannot be edited here."
+        identity={editing ? `${editing.full_name} — ${editing.matric_no}` : undefined}
+        fields={editFields}
+        onSave={saveStudent}
+      />
     </div>
   );
 }

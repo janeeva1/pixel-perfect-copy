@@ -69,7 +69,7 @@ export const updateSchema = baseTemplateSchema;
 /** Validation for the event endpoints, which take the same department list. */
 export const eventScopeSchema = z.object({
   departmentCodes: z
-    .array(z.string().trim().min(1).max(32))
+    .array(z.string().trim().min(1).max(120))
     .max(60, "At most 60 departments on one event")
     .nullable()
     .optional(),

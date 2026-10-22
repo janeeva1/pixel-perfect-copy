@@ -2,12 +2,20 @@ import type {
   AppRole,
   AppUser,
   Dashboard,
+  DesktopRelease,
   EventCategory,
   EventResult,
   EventSummary,
   EventUpload,
   GenerateEventsResult,
   ImportResult,
+  MassResult,
+  MassSummary,
+  MassUpload,
+  MassUploadInput,
+  MassWeek,
+  MassWeekStatus,
+  MassWeekdayAssignment,
   Me,
   RecurringTemplate,
   RecurringTemplateInput,
@@ -71,6 +79,10 @@ function post<T>(path: string, body?: unknown): Promise<T> {
 
 function put<T>(path: string, body: unknown): Promise<T> {
   return request<T>(path, { method: "PUT", body: JSON.stringify(body) });
+}
+
+function patch<T>(path: string, body: unknown): Promise<T> {
+  return request<T>(path, { method: "PATCH", body: JSON.stringify(body) });
 }
 
 function search(params: Record<string, string | number | null | undefined>): string {
@@ -163,6 +175,10 @@ export type ImportStudentsInput = {
     firstName?: string | null;
     middleName?: string | null;
     level?: string | null;
+    /** The department's full name as the file spells it. Display metadata. */
+    department?: string | null;
+    /** From the registrar's file; null when the file had none. */
+    maritalStatus?: string | null;
   }>;
 };
 
@@ -177,6 +193,29 @@ export type ImportStaffInput = {
     department?: string | null;
     adminDepartment?: string | null;
   }>;
+};
+
+/**
+ * A correction made by hand on the master list. Only the fields present are
+ * changed; a field sent as null clears it. The matric number and the staff
+ * number are the natural keys and cannot be edited.
+ */
+export type StudentEditInput = {
+  lastName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
+  level?: string | null;
+  department?: string | null;
+  maritalStatus?: string | null;
+};
+
+export type StaffEditInput = {
+  lastName?: string | null;
+  firstName?: string | null;
+  middleName?: string | null;
+  faculty?: string | null;
+  department?: string | null;
+  adminDepartment?: string | null;
 };
 
 export const api = {
@@ -196,6 +235,12 @@ export const api = {
   setup: (input: { email: string; password: string; fullName?: string | undefined }) =>
     post<{ ok: boolean; me: Me }>("/api/setup", input),
   setupStatus: () => request<{ complete: boolean }>("/api/setup"),
+  /**
+   * The installer is fetched with a plain link rather than fetched() so the
+   * browser handles the download itself, and so it can be resumed.
+   */
+  desktopRelease: () => request<DesktopRelease>("/api/desktop/release"),
+  desktopDownloadUrl: "/api/desktop/download",
   dashboard: () => request<Dashboard>("/api/dashboard"),
 
   students: (params: StudentListParams = {}) =>
@@ -215,8 +260,14 @@ export const api = {
   levels: () => request<string[]>("/api/levels"),
   staffDepartments: () =>
     request<{ departments: StaffDepartmentOption[]; unassigned: number }>("/api/staff-departments"),
+  massDepartments: () =>
+    request<Array<{ department: string; day: number }>>("/api/mass/departments"),
   importStudents: (input: ImportStudentsInput) => post<ImportResult>("/api/students/import", input),
   importStaff: (input: ImportStaffInput) => post<ImportResult>("/api/staff/import", input),
+  updateStudent: (studentId: string, input: StudentEditInput) =>
+    patch<{ ok: true; staleWeeks: string[] }>(`/api/students/${studentId}`, input),
+  updateStaff: (staffId: string, input: StaffEditInput) =>
+    patch<{ ok: true; staleWeeks: string[] }>(`/api/staff/${staffId}`, input),
 
   studentEvents: (params: EventListParams = {}) =>
     request<StudentEvent[]>(`/api/student-events${search(params)}`),
@@ -274,7 +325,96 @@ export const api = {
     generate: (id: string) => post<GenerateEventsResult>(`/api/recurring/${id}/generate`),
   },
 
+  mass: {
+    weekdays: () => request<{ assignments: MassWeekdayAssignment[] }>("/api/admin/mass-weekdays"),
+    setWeekday: (departmentCode: string, dayOfWeek: number) =>
+      post<MassWeekdayAssignment>("/api/admin/mass-weekdays", { departmentCode, dayOfWeek }),
+    updateWeekday: (assignmentId: string, isActive: boolean) =>
+      request<{ ok: boolean }>(`/api/admin/mass-weekdays/${assignmentId}`, {
+        method: "PATCH",
+        body: JSON.stringify({ isActive }),
+      }),
+    deleteWeekday: (assignmentId: string) =>
+      request<{ ok: boolean }>(`/api/admin/mass-weekdays/${assignmentId}`, { method: "DELETE" }),
+
+    weeks: () => request<{ weeks: MassWeek[] }>("/api/mass/weeks"),
+    createWeek: (input: {
+      name: string;
+      notes?: string | null;
+      scope?: "weekday" | "sunday";
+      participantType?: "students" | "staff" | "both";
+      weekdays?: number[];
+    }) => post<MassWeek>("/api/mass/weeks", input),
+    week: (weekId: string) => request<MassWeek>(`/api/mass/weeks/${weekId}`),
+    updateWeek: (
+      weekId: string,
+      input: {
+        name?: string;
+        notes?: string | null;
+      },
+    ) =>
+      request<MassWeek>(`/api/mass/weeks/${weekId}`, {
+        method: "PATCH",
+        body: JSON.stringify(input),
+      }),
+    deleteWeek: (weekId: string) =>
+      request<{ ok: boolean }>(`/api/mass/weeks/${weekId}`, { method: "DELETE" }),
+    setWeekdays: (weekId: string, weekdays: number[]) =>
+      request<MassWeek>(`/api/mass/weeks/${weekId}/weekdays`, {
+        method: "PUT",
+        body: JSON.stringify({ weekdays }),
+      }),
+    setStatus: (weekId: string, status: MassWeekStatus) =>
+      post<MassWeek>(`/api/mass/weeks/${weekId}/status`, { status }),
+    uploads: (weekId: string) =>
+      request<{ uploads: MassUpload[] }>(`/api/mass/weeks/${weekId}/uploads`),
+    result: (
+      weekId: string,
+      params: { participantType: "student" | "staff"; level?: string | null },
+    ) =>
+      request<MassResult>(
+        `/api/mass/weeks/${weekId}/result${search({
+          participantType: params.participantType,
+          level: params.level ?? undefined,
+        })}`,
+      ),
+    upload: (
+      weekId: string,
+      input: MassUploadInput,
+    ): Promise<{ upload: MassUpload; summary: MassSummary }> =>
+      post(`/api/mass/weeks/${weekId}/uploads`, input),
+    reset: (weekId: string, participantType: "student" | "staff") =>
+      post<{ ok: boolean }>(`/api/mass/weeks/${weekId}/reset`, { participantType }),
+    reportUrl: (
+      weekId: string,
+      params: {
+        participantType: "student" | "staff";
+        level?: string | null;
+        category: "present" | "absent" | "out_of_scope" | "unmatched" | "summary";
+        format: "csv" | "xlsx" | "pdf";
+      },
+    ) =>
+      `/api/mass/weeks/${weekId}/report${search({ ...params, level: params.level ?? undefined })}`,
+  },
+
   admin: {
     clearAllData: () => post<{ ok: boolean }>("/api/admin/clear-all"),
+    clearEvents: () => post<{ ok: boolean }>("/api/admin/clear-events"),
+    syncStatus: () => request<SyncStatusResult>("/api/admin/sync"),
+    runSync: () => post<SyncResult>("/api/admin/sync"),
   },
+};
+
+export type SyncStatusResult = {
+  configured: boolean;
+};
+
+export type SyncResult = {
+  configured: boolean;
+  message: string;
+  pushed: number;
+  pulled: number;
+  /** Rows left alone on both sides because they could not be reconciled. */
+  conflicts: number;
+  lastSyncedAt: string | null;
 };

@@ -1,0 +1,328 @@
+================================================================================
+ATTENDANCE REGISTER - DESKTOP APP
+How to install, launch and use it
+================================================================================
+
+Written 28 September 2026. Updated 22 October 2026 for version 1.1.0, which
+adds the in-app updater (section 8).
+
+
+--------------------------------------------------------------------------------
+1. WHAT YOU HAVE
+--------------------------------------------------------------------------------
+
+Everything you need is in the folder called "dist-electron-build":
+
+  Attendance Register Setup 1.1.0.exe     (125 MB)  <- the installer. Use this.
+  Attendance-Register-portable-1.1.0.exe  (125 MB)  <- no install, just run it.
+  win-unpacked\                                      <- the app itself, unpacked.
+
+The three files with names like "latest.yml" and ".blockmap" are there for the
+updater (section 8). You do not need to touch them, but if you copy the app to
+another machine, copy them too.
+
+You do NOT need XAMPP, MariaDB, Node.js or Visual Studio Code to use the app.
+It runs entirely on its own, offline. Nothing is installed system-wide and no
+database server is started. Your existing website is untouched.
+
+
+--------------------------------------------------------------------------------
+2. INSTALLING
+--------------------------------------------------------------------------------
+
+Double-click "Attendance Register Setup 1.1.0.exe".
+
+That is the whole job. It takes a few seconds, installs into your own user folder,
+and creates a desktop shortcut and a Start Menu entry called "Attendance
+Register". You do NOT need to be an administrator, it never asks for a password,
+and it changes nothing outside your own account.
+
+It deliberately does not launch the app when it finishes. If it did, that first
+copy would still be holding the app's lock, and the shortcut you then clicked
+would appear to do nothing at all. Open it from the desktop shortcut when you are
+ready.
+
+If Windows shows a blue "Windows protected your PC" warning, that is expected.
+The app is not signed with a paid certificate. Click "More info", then
+"Run anyway". Only do this for the file in this folder that you built yourself.
+
+
+--------------------------------------------------------------------------------
+3. FIRST LAUNCH
+--------------------------------------------------------------------------------
+
+Open the app from the desktop shortcut. Give it a few seconds.
+
+On the very first run only, the app copies its starting data into place and shows
+the sign-in screen. Nothing else to click. You do not get asked to create an
+administrator, because the accounts already came across.
+
+That starting data is the whole register as it stood on 22 October 2026: the
+student and staff lists, the user accounts, and the Community Mass weeks that had
+already been recorded. Nothing is fetched from the internet to do this.
+
+You can tell this happened because a file called "desktop.log" is written next to
+your data (see section 10).
+
+
+--------------------------------------------------------------------------------
+4. SIGNING IN
+--------------------------------------------------------------------------------
+
+Use the same email address and password you use on the hosted Attendance
+Register website. The accounts were copied over as-is, so your existing password
+still works.
+
+The copy brought across 15 accounts:
+
+  1 administrator
+  1 operator
+  13 viewers
+
+The first account ever created on the system is the administrator. If you are
+sure of your password, sign in and you are done.
+
+If nobody can remember a password, ask whoever looks after this to reset it for
+you. Do not keep guessing - after several failed attempts the app will slow you
+down on purpose.
+
+
+--------------------------------------------------------------------------------
+5. THE THREE ROLES, AND WHAT EACH ONE SEES
+--------------------------------------------------------------------------------
+
+ADMINISTRATOR
+  Everything, plus the two admin-only areas described below.
+
+OPERATOR
+  Can create events and import data. Cannot manage users or wipe data.
+
+VIEWER
+  Can look at dashboards, students, staff and reports, and can change nothing.
+
+The menu down the left-hand side only ever shows what your account is allowed to
+use. A viewer or an operator will not even see that the admin pages exist, and
+typing their web address by hand just bounces you back to the dashboard. This is
+enforced on the server as well, so hiding them is not just cosmetic - the data is
+refused even if someone reaches it another way.
+
+
+--------------------------------------------------------------------------------
+6. THE ADMIN-ONLY AREAS
+--------------------------------------------------------------------------------
+
+Only the administrator sees these two items at the bottom of the left menu:
+
+  ADMIN SETTINGS
+    Clear all attendance data (students, staff, events, scans, weekly Mass
+    records). User accounts are kept. This cannot be undone. Also links to the
+    event management pages.
+
+  USERS & PERMISSIONS
+    See every account and change anyone's role. Promote someone to operator or
+    administrator here, or demote them to viewer.
+
+Be careful with "Clear All Data". It deletes all attendance records. Take a
+backup first (section 9).
+
+
+--------------------------------------------------------------------------------
+7. GETTING AROUND THE APP
+--------------------------------------------------------------------------------
+
+  DASHBOARD
+    Headline numbers for the most recent events.
+
+  STUDENTS / STAFF
+    The master lists: 7,683 students and 921 staff. These are thin copies of the
+    registrar's files. Nothing about attendance is stored here - who was present
+    at an event is worked out from the master list at the time you ask.
+
+  STUDENT EVENTS / STAFF EVENTS
+    Create an event, choose its departments, then upload the scan file from the
+    machine. Everyone in scope counts as absent until a scan marks them present.
+    Anything that does not match goes into an "unmatched" list for a human to
+    look up by hand, rather than being guessed at.
+
+  STUDENT REPORTS / STAFF REPORTS
+    Attendance summaries you can print or save.
+
+  IMPORT DATA
+    (operators and administrators) Replace the student or staff list by uploading
+    a fresh file from the registrar. Anyone not in the new file is gone from the
+    list.
+
+  RECURRING EVENTS
+    (operators and administrators) Weekly event templates, so you do not set the
+    same thing up every week.
+
+  COMMUNITY MASS
+    The weekly Mass records: which weekdays Mass was held, who was expected,
+    the scan files that were uploaded and the report for each week. The weeks
+    that had already been recorded came across with the starting data.
+
+
+--------------------------------------------------------------------------------
+8. UPDATING THE APP
+--------------------------------------------------------------------------------
+
+The app can update itself. You do not have to download and install anything by
+hand, and your attendance data is untouched by an update.
+
+WHERE TO FIND IT
+  Administrator only: Admin Settings, in the panel called "Application Update".
+  There is also an "Update" button at the very bottom of the left-hand menu,
+  which opens the same thing in a small window.
+
+  Either way it shows:
+    - the version you are running now
+    - the address the app looks for updates at
+    - a "Check for updates" button
+    - a "Download version X" button, and then "Restart and install"
+
+THE ORDINARY WAY ROUND
+  1. Click "Check for updates".
+  2. If there is a newer version, click "Download version X". Wait for it to
+     finish - a bar shows the progress.
+  3. Click "Restart and install". The app closes, the new version installs
+     itself, and the app starts again. You can carry on where you left off.
+
+  If the app says there is nothing to do, you already have the newest version.
+
+IF THE ADDRESS IS WRONG OR EMPTY
+  The app needs to be told where to look. Type the web address of the folder
+  holding the update files into the "Update address" box and click "Save
+  address". It must end with a slash, for example:
+
+    https://updates.example.com/attendance-register/
+
+  The address is remembered, so you only set it once.
+
+A NOTE ABOUT TRUST
+  Windows may warn you that the publisher is unknown, because the app is not
+  signed with a paid certificate. Click "More info", then "Run anyway", as you
+  did when you installed it the first time.
+
+IF UPDATES ARE NOT REACHED
+  The app can only update if it can see the update folder. If the computer has
+  no internet, or the address points somewhere the app cannot read, the check
+  will say so. You can always install a new version by hand instead: close the
+  app, run the new installer from "dist-electron-build", and let it install over
+  the old one. That keeps your data.
+
+
+--------------------------------------------------------------------------------
+9. YOUR DATA, AND HOW TO BACK IT UP
+--------------------------------------------------------------------------------
+
+Everything lives in one file:
+
+  C:\Users\[your name]\AppData\Roaming\attendance-register\database\attendance.db
+
+(note the folder is "attendance-register", all lower case, with a hyphen)
+
+Press Win+R, paste that path, and press Enter to open the folder.
+
+TO BACK IT UP
+  Close the app first, then copy "attendance.db" to a USB stick or your Documents
+  folder. Copy the one file - that is the whole backup. Do not copy it while the
+  app is open, or you may catch it half-written.
+
+TO START OVER FROM THE ORIGINAL DATA
+  Close the app, delete "attendance.db", then open the app again. It puts the
+  original copy back exactly as it was on 22 October 2026.
+
+IMPORTANT, PLEASE READ
+  This desktop copy is completely separate from the website. Anything you change
+  here stays here. It does not travel back to the hosted system, and changes made
+  on the website do not appear here. Treat them as two separate registers, or
+  decide which one is the real one and only use that.
+
+
+--------------------------------------------------------------------------------
+10. IF SOMETHING GOES WRONG
+--------------------------------------------------------------------------------
+
+START WITH THE LOG
+  C:\Users\[your name]\AppData\Roaming\attendance-register\desktop.log
+
+  It records what the app did at startup - whether it created the database, and
+  which local address it served the page on. It is the first place to look, and
+  it is safe to send to whoever looks after this.
+
+THE SHORTCUT DOES NOTHING, AND THERE IS NO ERROR
+  This is the one failure that used to look like a broken app, so it is worth
+  spelling out. It means a copy of the app is already running, so the copy you
+  just started closed itself immediately instead of opening a second window.
+
+  Look at the taskbar: the app is probably already open there. Click that window,
+  or press Alt+Tab, and carry on.
+
+  If there is no window anywhere, the running copy is stuck. Close it with Task
+  Manager: right-click the taskbar, choose Task Manager, and end every
+  "Attendance Register" entry. Then start it from the shortcut again.
+
+THE APP WILL NOT OPEN
+  1. Wait a few seconds and try again. The first launch is slower.
+  2. Check that no other copy of the app is already running (see just above).
+  3. Read the log file above.
+  4. If it still will not start, reinstall over the top. This keeps your data.
+
+I FORGOT A PASSWORD
+  Passwords are stored as hashes and cannot be read back, by anyone. They have to
+  be reset, which means someone with database access.
+
+
+--------------------------------------------------------------------------------
+11. UNINSTALLING
+--------------------------------------------------------------------------------
+
+Settings > Apps > Installed apps > Attendance Register > Uninstall.
+
+Your data is deliberately left behind, so uninstalling does not throw away your
+register. To remove that too, delete the folder in section 9 by hand.
+
+
+--------------------------------------------------------------------------------
+12. FOR WHOEVER BUILDS OR FIXES THIS NEXT
+--------------------------------------------------------------------------------
+
+These are for development only. Normal users never run them.
+
+  Build the web app ................ npm run build
+  Rebuild the logo files ........... npm run make:icon
+  Bundle the Electron launcher ..... npm run build:electron
+  Run it unpacked for testing ...... npm run electron:dev
+  Produce the installer ............ npm run electron:build
+  Gather the update files .......... npm run update:prepare
+  Check the updater ................ npm run verify:update
+  Type checks ...................... npm run typecheck
+  Lint ............................. npm run lint
+  Schema/seed checks ............... npm run db:verify
+
+The output of npm run electron:build lands in "dist-electron-build".
+
+The update files that folder holds (latest.yml, the .blockmap, and the installer
+itself) are the ones the app updates from (section 8). The address of that folder
+is set in package.json, under build.publish, and can be overridden on the
+machine by writing "updateFeedUrl" into desktop.json, or by setting the
+environment variable DESKTOP_UPDATE_URL. The path stored in desktop.json is in
+the app's own data folder, next to the database (section 9).
+
+npm run verify:update stands up a small web folder in place of the real one and
+asks the app's own updater to look at it, so the check, the download and the
+checksum refusal are all tested without touching the installed app. It needs
+nothing but the repository itself.
+
+npm run update:prepare gathers latest.yml, the installer and its .blockmap into
+"dist-update-feed", which is the folder to put on the web.
+
+One build-machine note: "npm run patch:7za" runs automatically as part of
+electron:build. The app-builder tool unpacks a Windows signing helper that
+contains two macOS symbolic links, and on a normal Windows account it cannot
+create them, so extraction fails even though everything needed was written. The
+script swaps in a small shim that ignores that one specific error. Nothing in the
+shipped app depends on it. If you ever reinstall node_modules, it runs again on
+the next build.
+
+================================================================================

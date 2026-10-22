@@ -20,6 +20,26 @@ dist-ssr
 .nitro
 *.local
 
+# Electron build output and the bundled launcher
+dist-electron
+dist-electron-build
+
+# The update files, gathered ready to be uploaded
+dist-update-feed
+
+# The desktop build's starting database. It is a copy of the real registrar
+# data (students, staff, accounts), so it is a local build artefact, not source.
+db/seed
+
+# Local data exports and one-off database probes. The CSV files at the root
+# carry real registrar and machine data (names, matriculation numbers), so they
+# stay out of the repository.
+/*.csv
+check-db.cjs
+list-tables.cjs
+run-migrations*.cjs
+query4staff.sql
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

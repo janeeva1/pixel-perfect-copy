@@ -31,14 +31,29 @@ export async function readSpreadsheet(
 export type ImportTemplate = "students" | "staff";
 
 /**
- * The registrar's own header rows, verbatim: every field quoted and the machine's
- * `id` column first. The template is the file this app already reads, not a
- * friendlier invention, so a portal export can be uploaded unchanged. `id` is
- * here because the file has it; it is still never stored (see `MasterImport`).
+ * The registrar's own header rows, verbatim: every field quoted. The template
+ * is the file this app already reads, not a friendlier invention, so a portal
+ * export can be uploaded unchanged.
+ *
+ * The student header is the registrar's student export. The staff header is the
+ * registrar's staff export, which carries two columns the app does not store --
+ * `marital_status` and `department_category` -- and no `id` column: the id in
+ * the student file is the machine's own numbering and is never read, and the
+ * staff file has no such column at all. Columns are matched by name when a
+ * file is read, so the order does not matter and a file with more or fewer
+ * columns still imports; the header is here so a person can see what the app
+ * expects.
+ *
+ * `department` and `admin_department` are the registrar's own text and are
+ * stored as written. The department code every scope uses is still derived from
+ * the matric number, and 'Religious' in a student's marital_status removes that
+ * student from Sunday Mass expected populations only.
  */
 const TEMPLATE_HEADER: Record<ImportTemplate, string> = {
-  students: '"id","lname","fname","mname","matric_no","level"',
-  staff: '"id","lname","fname","mname","staff_no","faculty","department","admin_department"',
+  students:
+    '"student_id","fname","lname","mname","marital_status","matric_no","department","level"',
+  staff:
+    '"fname","mname","lname","marital_status","staff_no","admin_department","department","department_category","faculty"',
 };
 
 /**
@@ -48,12 +63,22 @@ const TEMPLATE_HEADER: Record<ImportTemplate, string> = {
  */
 const TEMPLATE_SAMPLE: Record<ImportTemplate, Array<Array<string | null>>> = {
   students: [
-    ["1", "OKONKWO", "ADA", "NGOZI", "VUG/CSC/25/1001", "100"],
-    ["2", "ADEYEMI", "TOLU", "", "VPG/PGD/ECO/25/2001", "700"],
+    ["17374", "ADA", "OKONKWO", "NGOZI", "Single", "VUG/CSC/25/1001", "Computer Science", "100"],
+    ["17375", "TOLU", "ADEYEMI", "", "Religious", "VPG/PGD/ECO/25/2001", "Economics", "700"],
   ],
   staff: [
-    ["1", "OKAFOR", "CHINEDU", "EMMANUEL", "SA 1001", "Science", "Computer Science", "Registry"],
-    ["2", "BALOGUN", "IFE", "", "SA 1002", null, null, null],
+    [
+      "EWAOCHE",
+      "EMMANUEL",
+      "AARON",
+      "Married",
+      "SA 1001",
+      "Registry",
+      "Computer Science",
+      "specialist",
+      "Science",
+    ],
+    ["BALOGUN", "IFE", "", "Single", "SA 1002", null, null, null, null],
   ],
 };
 

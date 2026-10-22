@@ -324,7 +324,7 @@ let sqlite: Map<string, Table>;
 try {
   sqlite = readSqlite(getDb() as unknown as SqliteLike);
 } finally {
-  closeDb();
+  await closeDb();
   fs.rmSync(workdir, { recursive: true, force: true });
 }
 

@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
 import {
   ArrowRight,
   CheckCircle2,
+  Download,
   FileSpreadsheet,
   ShieldCheck,
   Users,
@@ -10,6 +12,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { api } from "@/lib/api";
 import { useSession } from "@/lib/useAuth";
 import { useEffect, useRef } from "react";
 
@@ -262,8 +265,24 @@ function FloatingOrbs() {
   );
 }
 
+/** The installer size, in the unit a person would actually say out loud. */
+function formatSize(bytes: number | null): string | null {
+  if (!bytes || bytes <= 0) return null;
+  const megabytes = bytes / (1024 * 1024);
+  return megabytes >= 1 ? `${Math.round(megabytes)} MB` : `${Math.round(bytes / 1024)} KB`;
+}
+
 function Landing() {
   const { session, ready } = useSession();
+
+  // Public, so it needs no session. It decides whether to offer the installer at
+  // all: a hosted server that was never given one should not show a dead button.
+  const release = useQuery({
+    queryKey: ["desktop-release"],
+    queryFn: api.desktopRelease,
+    retry: false,
+    staleTime: 5 * 60_000,
+  });
 
   return (
     <main className="relative min-h-screen overflow-hidden bg-transparent">
@@ -273,9 +292,7 @@ function Landing() {
       <header className="relative z-10 border-b border-border">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-6 py-5">
           <div className="flex items-center gap-2">
-            <div className="p-2 bg-gradient-to-br from-blue-500 to-violet-600 rounded-xl">
-              <Sparkles className="size-5 text-white" />
-            </div>
+            <img src="/bmx.png" alt="" className="size-8 object-contain" />
             <span className="font-display text-lg font-semibold">Attendance Register</span>
           </div>
           {ready && session ? (
@@ -307,7 +324,21 @@ function Landing() {
               {session ? "Go to dashboard" : "Get started"} <ArrowRight className="ml-2 size-4" />
             </Link>
           </Button>
+          {release.data?.available ? (
+            <Button asChild size="lg" variant="outline">
+              <a href={api.desktopDownloadUrl} download>
+                <Download className="mr-2 size-4" /> Download for Windows
+              </a>
+            </Button>
+          ) : null}
         </div>
+        {release.data?.available ? (
+          <p className="mt-3 text-sm text-muted-foreground">
+            Runs on its own, offline. No XAMPP, no database server, no install of anything else.{" "}
+            {formatSize(release.data.sizeBytes)}
+            {release.data.fileName ? ` (${release.data.fileName})` : null}.
+          </p>
+        ) : null}
 
         <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {[

@@ -29,9 +29,9 @@ const bodySchema = z.object({
   endTime: z.string().trim().max(5).nullable().default(null),
   category: z.enum(["undergraduate", "postgraduate"]).nullable().default(null),
   level: z.string().trim().max(64).nullable().default(null),
-  departmentCode: z.string().trim().max(32).nullable().default(null),
+  departmentCode: z.string().trim().max(120).nullable().default(null),
   departmentCodes: z
-    .array(z.string().trim().min(1).max(32))
+    .array(z.string().trim().min(1).max(120))
     .max(60, "At most 60 departments on one event")
     .nullable()
     .default(null),

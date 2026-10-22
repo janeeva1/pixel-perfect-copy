@@ -17,6 +17,7 @@ import { query, type SqlParam } from "@/server/db";
 import { GROUPS, type GroupConfig } from "@/server/events";
 import { HttpError } from "@/server/http";
 import { toCsv } from "@/lib/attendance";
+import { overridesForScope } from "@/server/presence-overrides";
 import { EVENT_CATEGORY_LABEL, type EventCategory, type GroupKind } from "@/lib/types";
 
 export type DownloadScopeType = "event" | "day" | "week" | "month" | "range";
@@ -61,6 +62,13 @@ const MONTH_NAMES = [
   "December",
 ] as const;
 
+/**
+ * Days are worked out in UTC everywhere in this file. The event_date values are
+ * plain YYYY-MM-DD strings (see isoDate), so `new Date("2026-09-28")` is
+ * midnight UTC and the UTC getters below read back the same day. A local-time
+ * getter would report the 27th for anyone west of Greenwich.
+ */
+
 /** Always defined: a valid date indexes 0-6 into both name lists. */
 function dayName(date: Date): string {
   return DAY_NAMES[date.getUTCDay()] ?? "";
@@ -85,6 +93,28 @@ function parseDate(value: string, label: string): Date {
 
 function iso(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+/**
+ * A DATE column as a plain YYYY-MM-DD day, whichever driver it came from.
+ *
+ * The two engines disagree here. mysql2 returns a Date, and String() on that
+ * writes "Mon Sep 28 2026 00:00:00 GMT+0100 (Coordinated Universal Time)" into
+ * the CSV. SQLite keeps the column as text, but that text carries a time part
+ * ("2026-09-26 00:00:00"), so passing it through unchanged trades one piece of
+ * nonsense for another. An event happens on a day; it has no time of day, so the
+ * time is dropped rather than printed as a misleading midnight.
+ *
+ * Local getters on the Date branch, because the Date is local midnight and
+ * toISOString would read it as UTC and shift the day backwards west of Greenwich.
+ */
+export function isoDate(value: Date | string): string {
+  if (typeof value === "string") {
+    return /^(\d{4}-\d{2}-\d{2})/.exec(value)?.[1] ?? "";
+  }
+  if (Number.isNaN(value.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
 }
 
 /** "Mon 2 Mar 2026", the form a person reads a date in. */
@@ -113,6 +143,23 @@ function monthRange(anchor: Date): { from: string; to: string } {
 type EventRow = RowDataPacket & {
   id: string;
   title: string;
+  /** A DATE column, so the driver hands back a Date unless it is told not to. */
+  event_date: Date | string;
+  event_category: EventCategory;
+  student_category: string | null;
+  level: string | null;
+  department_code: string | null;
+  departments: string | null;
+};
+
+/**
+ * An event row after `isoDate`. Written out rather than derived with Omit,
+ * because Omit over RowDataPacket's index signature drops the named properties
+ * and leaves every field to be read as an index lookup.
+ */
+type Event = {
+  id: string;
+  title: string;
   event_date: string;
   event_category: EventCategory;
   student_category: string | null;
@@ -132,7 +179,7 @@ type PersonRow = RowDataPacket & {
 
 /** One event's scope, worked out so a period of events can be checked in JS. */
 type EventScope = {
-  event: EventRow;
+  event: Event;
   /** null means "everyone". */
   category: string | null;
   level: string | null;
@@ -178,7 +225,14 @@ export async function resolveScope(request: DownloadRequest): Promise<ResolvedSc
     return rows.map((row) => {
       const list = row.departments ? row.departments.split(",").filter(Boolean) : [];
       return {
-        event: row,
+        // mysql2 hands a DATE column back as a Date at local midnight, and
+        // String() on that produces "Mon Sep 28 2026 00:00:00 GMT+0100
+        // (Coordinated Universal Time)". The column is a plain date, so it is
+        // narrowed to YYYY-MM-DD here, once, at the only place it enters. Using
+        // the local getters is deliberate: the Date is local midnight, so
+        // reading it as UTC would shift the day backwards for anyone west of
+        // Greenwich.
+        event: { ...row, event_date: isoDate(row.event_date) },
         category: row.student_category,
         level: row.level,
         departments: list.length > 0 ? list : null,
@@ -279,8 +333,10 @@ export async function resolveScope(request: DownloadRequest): Promise<ResolvedSc
 function expects(scope: EventScope, person: PersonRow): boolean {
   if (scope.category && scope.category !== person.category) return false;
   if (scope.level && scope.level !== person.level) return false;
-  if (scope.departments && (!person.department || !scope.departments.includes(person.department))) {
-    return false;
+  if (scope.departments && scope.departments.length > 0) {
+    const department = person.department?.trim().toLowerCase();
+    if (!department) return false;
+    if (!scope.departments.some((d) => d.trim().toLowerCase() === department)) return false;
   }
   return true;
 }
@@ -298,7 +354,7 @@ type Attendance = {
 type AttendanceRow = RowDataPacket & Attendance & { scan_count: number };
 
 export type DownloadRow = {
-  event: EventRow;
+  event: Event;
   person: PersonRow;
   status: "Present" | "Absent";
   attendance: Attendance | null;
@@ -345,7 +401,7 @@ export async function buildDownload(request: DownloadRequest): Promise<DownloadR
       }
       if (s.departments) {
         clauses.push(`(${config.department}) IN (${s.departments.map(() => "?").join(", ")})`);
-        params.push(...s.departments.map((d) => d.toUpperCase()));
+        params.push(...s.departments);
       }
     } else if (s.departments) {
       clauses.push(`(${config.department}) IN (${s.departments.map(() => "?").join(", ")})`);
@@ -389,6 +445,22 @@ export async function buildDownload(request: DownloadRequest): Promise<DownloadR
       first: row.first,
       last: row.last,
     });
+  }
+
+  // Staff credited present without a scan. Added to the same map as real
+  // attendance, with scans 0 and no first/last, so everything downstream reads
+  // one shape and cannot forget to count them. A staff download with an
+  // override in it is what makes these rows exist at all; a student download
+  // gets an empty map (see overridesForScope).
+  const granted = await overridesForScope(request.group, scope.events);
+  for (const [eventId, staffIds] of granted) {
+    for (const personId of staffIds) {
+      const key = `${eventId}:${personId}`;
+      // A real scan always wins: if the person did scan, the scan is the truth
+      // and the grant is redundant. Never overwrite one with a zero.
+      if (attendance.has(key)) continue;
+      attendance.set(key, { eventId, personId, scans: 0, first: null, last: null });
+    }
   }
 
   // Which events expected each person, so "attended 2 of 3" counts only the
@@ -510,6 +582,10 @@ export function downloadCsv(request: DownloadRequest, result: DownloadResult): s
           "Scans",
           "First scan",
           "Last scan",
+          // Staff only. A blank cell means the presence came from the override
+          // list rather than a scan, so the file says so instead of showing an
+          // empty scan time that reads as missing data.
+          ...(student ? [] : ["Presence"]),
         ];
 
   const body = rows.map((row) => {
@@ -529,6 +605,9 @@ export function downloadCsv(request: DownloadRequest, result: DownloadResult): s
       row.attendance?.scans ?? "",
       stamp(row.attendance?.first ?? null),
       stamp(row.attendance?.last ?? null),
+      ...(student
+        ? []
+        : [row.attendance && row.attendance.scans === 0 ? "by override" : "scanned"]),
     ];
   });
 

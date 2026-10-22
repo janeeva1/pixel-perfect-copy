@@ -73,12 +73,19 @@ export const dialect = {
    * Upsert on a unique key. The columns are the ones a re-upload is allowed to
    * change; the key itself and the row id are left alone, exactly as the MySQL
    * `ON DUPLICATE KEY UPDATE` form did.
+   *
+   * The key may be several columns, for the composite-keyed junction tables. It
+   * has to name every column of the primary key: SQLite rejects an `ON CONFLICT`
+   * target that is not a unique index, and naming one half of
+   * `(event_id, department_code)` is exactly that. MySQL ignores the target and
+   * takes whichever key was violated, so the two agree on the same table.
    */
-  upsert(key: string, columns: string[]): string {
+  upsert(key: string | string[], columns: string[]): string {
     const assignments = columns.map((column) => `${column} = VALUES(${column})`);
     if (usingSqlite()) {
       const excluded = columns.map((column) => `${column} = excluded.${column}`);
-      return `ON CONFLICT(${key}) DO UPDATE SET ${excluded.join(", ")}`;
+      const target = Array.isArray(key) ? key.join(", ") : key;
+      return `ON CONFLICT(${target}) DO UPDATE SET ${excluded.join(", ")}`;
     }
     return `ON DUPLICATE KEY UPDATE ${assignments.join(", ")}`;
   },
@@ -137,6 +144,15 @@ export function likeTerm(value: string): string {
 /** MySQL's DATETIME(3) text form, which is what every timestamp column holds. */
 function toSqlDateTime(value: Date): string {
   return value.toISOString().replace("T", " ").slice(0, 23);
+}
+
+/**
+ * "Now" as the UTC text both engines store, for the `updated_at` stamps that
+ * hub synchronization compares. Never local time: two machines in different
+ * offsets have to agree on which string is newer, and only UTC strings do.
+ */
+export function utcStamp(date = new Date()): string {
+  return toSqlDateTime(date);
 }
 
 /**
@@ -232,21 +248,32 @@ export function getDb(): SqliteDatabase {
   return db;
 }
 
-/** Close whichever handle is open. Used by the CLI scripts on the way out. */
-export function closeDb(): void {
+/**
+ * Close whichever handle is open. Used by the CLI scripts on the way out.
+ *
+ * The MySQL pool holds open sockets, so a script that only closed the SQLite
+ * handle would keep the process alive after it had finished its work. Both are
+ * closed here, and the function waits for the pool to let go of its
+ * connections so the script can exit as soon as it returns.
+ */
+export async function closeDb(): Promise<void> {
   store.__attendanceSqlite?.close();
   store.__attendanceSqlite = undefined;
   store.__attendanceStatements = undefined;
   store.__attendanceMigrations = undefined;
+  const pool = store.__attendancePool;
+  store.__attendancePool = undefined;
+  if (pool) await pool.end();
 }
 
 // SQLite compatibility functions -------------------------------------------
 
 /**
- * MySQL's SUBSTRING_INDEX, which SQLite does not have and which
- * `studentDepartmentSql()` depends on to read a department out of a matric
- * number. Registered as a real SQL function rather than rewritten as a pile of
- * nested REPLACE() calls, because the callers should not have to care.
+ * MySQL's SUBSTRING_INDEX, which SQLite does not have and which the scan-number
+ * derivations (studentScanNumberSql, staffScanNumberSql) rely on to read the
+ * printed number out of a matric or staff number. Registered as a real SQL
+ * function rather than rewritten as a pile of nested REPLACE() calls, because
+ * the callers should not have to care.
  *
  * A count is a number of separators to keep, not an index into the pieces: a
  * positive count returns everything up to and including that separator, a

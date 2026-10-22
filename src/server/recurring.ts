@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { dialect, query, queryOne, transaction, type SqlParam } from "@/server/db";
+import { dialect, query, queryOne, transaction, utcStamp, type SqlParam } from "@/server/db";
 import type { DbConnection, RowDataPacket } from "./db";
 import { normalizeScopeList } from "@/server/masters";
 import type {
@@ -16,9 +16,9 @@ import type {
 type TemplateRow = RowDataPacket & RecurringTemplate;
 type ScheduleRow = RowDataPacket & Omit<RecurringSchedule, "departments">;
 
-/** Upper case for student codes, exact for free-text staff department names. */
-function cleanDepartments(departments: unknown, group: GroupKind): string[] {
-  return normalizeScopeList(departments, group === "student");
+/** Clean a department list: drop blanks, collapse repeats and trim. */
+function cleanDepartments(departments: unknown): string[] {
+  return normalizeScopeList(departments);
 }
 
 function dayName(day: number): string {
@@ -121,7 +121,7 @@ async function writeSchedules(
       ],
     );
 
-    for (const department of cleanDepartments(s.departments, group)) {
+    for (const department of cleanDepartments(s.departments)) {
       await conn.execute(
         `${dialect.insertIgnore} recurring_schedule_departments (schedule_id, department)
          VALUES (?, ?)`,
@@ -136,7 +136,7 @@ export async function createRecurringTemplate(
   actorId: string,
 ): Promise<RecurringTemplate> {
   const id = randomUUID();
-  const now = new Date().toISOString().slice(0, 19).replace("T", " ");
+  const now = utcStamp();
   const group: GroupKind = input.group_kind ?? "student";
 
   await transaction(async (conn) => {
@@ -229,8 +229,11 @@ export async function updateRecurringTemplate(
     }
 
     if (fields.length > 0) {
+      // utcStamp(), not a hand-rolled slice: sync compares these stamps as
+      // strings, so the '.mmm' suffix has to be there or an edited template
+      // loses to an untouched row on the hub at the same instant.
       fields.push("updated_at = ?");
-      values.push(new Date().toISOString().slice(0, 19).replace("T", " "));
+      values.push(utcStamp());
       values.push(id);
       await conn.execute(
         `UPDATE recurring_templates SET ${fields.join(", ")} WHERE id = ?`,
@@ -291,7 +294,7 @@ export async function generateEventsFromTemplate(
 
   await transaction(async (conn) => {
     for (const schedule of template.schedules) {
-      const departments = cleanDepartments(schedule.departments, group);
+      const departments = cleanDepartments(schedule.departments);
       const primary = departments[0] ?? null;
 
       // Every date in [start, end] that falls on this day of the week.

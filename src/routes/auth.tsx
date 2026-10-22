@@ -96,6 +96,7 @@ function AuthPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-background px-4 py-12">
       <div className="panel w-full max-w-md p-8">
+        <img src="/bmx.png" alt="" className="mb-4 h-12 w-12 object-contain" />
         <h1 className="text-2xl font-semibold">
           {mode === "signin" ? "Sign in" : "Create account"}
         </h1>

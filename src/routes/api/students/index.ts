@@ -8,7 +8,7 @@ import type { StudentList } from "@/lib/types";
 const listSchema = z.object({
   category: z.enum(["undergraduate", "postgraduate"]).optional(),
   level: z.string().trim().max(64).optional(),
-  departmentCode: z.string().trim().max(32).optional(),
+  departmentCode: z.string().trim().max(120).optional(),
   search: z.string().trim().max(120).default(""),
   limit: z.coerce.number().int().min(1).max(500).default(200),
   page: z.coerce.number().int().min(1).default(1),

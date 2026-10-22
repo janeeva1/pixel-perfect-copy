@@ -18,7 +18,7 @@ const reportSchema = z.object({
   groupBy: z.enum(["none", "department", "level", "category"]).default("none"),
   category: z.enum(["undergraduate", "postgraduate"]).optional(),
   level: z.string().trim().max(64).optional(),
-  departmentCode: z.string().trim().max(32).optional(),
+  departmentCode: z.string().trim().max(120).optional(),
   eventId: z.string().uuid().optional(),
   format: z.enum(["json", "csv"]).default("json"),
   detail: z.enum(["summary", "present", "absent", "all"]).default("summary"),

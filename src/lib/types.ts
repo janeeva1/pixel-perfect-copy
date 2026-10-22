@@ -16,25 +16,50 @@ export type Me = {
   roles: AppRole[];
 };
 
+/**
+ * Whether this server has a Windows installer to offer. A packaged desktop build
+ * does not, because shipping a 114 MB installer inside the installer made no
+ * sense, so the landing page hides the download when this is false.
+ */
+export type DesktopRelease = {
+  available: boolean;
+  fileName: string | null;
+  sizeBytes: number | null;
+};
+
 // Master lists ------------------------------------------------------------
 
 /**
- * A student as the app shows them. The category and department are not stored on
- * the person: they are read out of the matric number when the row is loaded.
+ * A student as the app shows them. The category and the department code are not
+ * stored on the person: they are read out of the matric number when the row is
+ * loaded. `department` is the full name the registrar's file spelled out ("Computer
+ * Engineering"), kept for display; `marital_status` is from the same file and is
+ * null when the file had none.
  */
 export type Student = {
   id: string;
   matric_no: string;
   full_name: string;
+  /** The name parts, so a correction can be made on one of them. */
+  last_name: string | null;
+  first_name: string | null;
+  middle_name: string | null;
   student_category: StudentCategory | null;
   level: string | null;
   department_code: string | null;
+  /** The department name as the file spells it, when the file had one. */
+  department: string | null;
+  /** From the registrar's file; null when the file had none. */
+  marital_status: string | null;
 };
 
 export type Staff = {
   id: string;
   staff_no: string | null;
   full_name: string;
+  last_name: string | null;
+  first_name: string | null;
+  middle_name: string | null;
   faculty: string | null;
   department: string | null;
   admin_department: string | null;
@@ -236,6 +261,13 @@ export type EventResult = EventSummary & {
   outOfScopeList: OutOfScopeRow[];
   unmatchedList: UnmatchedRow[];
   uploadList: EventUpload[];
+  /**
+   * True when at least one person in presentList is credited present by the
+   * override list rather than by a scan. Their scan_count is 0 and their scan
+   * times are empty. The UI shows this as a note, so a reader of the event page
+   * is told the present count includes people who did not scan.
+   */
+  hasGrantedPresence: boolean;
 };
 
 export type ScanUploadInput = {
@@ -409,4 +441,136 @@ export type GenerateEventsResult = {
   created: number;
   skipped: number;
   events: Array<{ id: string; title: string; event_date: string }>;
+};
+
+// Weekly Community Mass ------------------------------------------------------
+
+/** Weekday Mass runs Monday to Friday. Sunday Mass is its own scope. */
+export type MassScope = "weekday" | "sunday";
+
+export type MassWeekStatus = "draft" | "active" | "completed" | "archived";
+
+/** What reports a week is for. Uploads still name their own participant type. */
+export type MassWeekParticipantType = "students" | "staff" | "both";
+
+/** The participant type one upload was processed for. */
+export type MassUploadParticipant = "student" | "staff";
+
+/** 1=Monday .. 5=Friday, the JS getDay() convention. */
+export const MASS_WEEKDAYS = [1, 2, 3, 4, 5] as const;
+
+export const MASS_WEEKDAY_LABELS: Record<number, string> = {
+  1: "Monday",
+  2: "Tuesday",
+  3: "Wednesday",
+  4: "Thursday",
+  5: "Friday",
+};
+
+export const MASS_STATUS_LABELS: Record<MassWeekStatus, string> = {
+  draft: "Draft",
+  active: "Active",
+  completed: "Completed",
+  archived: "Archived",
+};
+
+export type MassWeekdayAssignment = {
+  id: string;
+  department_code: string;
+  day_of_week: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MassWeek = {
+  id: string;
+  name: string;
+  notes: string | null;
+  scope: MassScope;
+  participant_type: MassWeekParticipantType;
+  status: MassWeekStatus;
+  /** The weekdays selected for this week, sorted. Empty for Sunday scope. */
+  weekdays: number[];
+  created_by: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type MassUpload = {
+  id: string;
+  mass_week_id: string;
+  participant_type: MassUploadParticipant;
+  level: string | null;
+  file_name: string;
+  label: string | null;
+  row_count: number;
+  present_count: number;
+  out_of_scope_count: number;
+  unmatched_count: number;
+  uploaded_by: string | null;
+  uploaded_at: string;
+};
+
+/** One expected person, from the frozen snapshot. */
+export type MassExpectedRow = {
+  person_id: string;
+  person_no: string | null;
+  full_name: string | null;
+  level: string | null;
+  department: string | null;
+  day_of_week: number | null;
+};
+
+export type MassPresentRow = MassExpectedRow & {
+  scan_count: number;
+  first_scan_at: string;
+  last_scan_at: string;
+};
+
+export type MassOutOfScopeRow = {
+  person_id: string;
+  person_no: string | null;
+  full_name: string | null;
+  level: string | null;
+  department: string | null;
+  scan_count: number;
+};
+
+export type MassUnmatchedRow = {
+  scan_id: string;
+  scan_number: string | null;
+  scanned_name: string | null;
+  scan_count: number;
+  first_scan_at: string;
+  last_scan_at: string;
+};
+
+export type MassSummary = {
+  week: MassWeek;
+  participant_type: MassUploadParticipant;
+  level: string | null;
+  expected: number;
+  present: number;
+  absent: number;
+  out_of_scope: number;
+  unmatched: number;
+  /** Present as a percentage of expected, or null when nothing was expected. */
+  percent: number | null;
+  uploads: MassUpload[];
+};
+
+export type MassResult = MassSummary & {
+  presentList: MassPresentRow[];
+  absentList: MassExpectedRow[];
+  outOfScopeList: MassOutOfScopeRow[];
+  unmatchedList: MassUnmatchedRow[];
+};
+
+export type MassUploadInput = {
+  participantType: MassUploadParticipant;
+  level?: string | null;
+  fileName: string;
+  label?: string | null;
+  rows: Array<{ scanNumber: string | null; name: string | null; scannedAt: string | null }>;
 };

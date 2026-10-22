@@ -4,9 +4,9 @@
  * These are the assertions that matter, because each one is a place where the
  * two engines disagree and where getting it wrong would quietly change who is
  * counted as present:
- *   - SUBSTRING_INDEX decides a student's department, and therefore whether they
- *     are even expected at an event.
- *   - The case-insensitive collation decides whether a staff department matches.
+ *   - SUBSTRING_INDEX reads the printed scan number out of a matric or staff
+ *     number, and therefore decides whether a scan matches a person.
+ *   - The case-insensitive collation decides whether a department name matches.
  *   - ON DELETE CASCADE decides whether deleting an event takes its scans with it.
  *   - The CHECK constraints decide whether a typo becomes a stored bad value.
  *
@@ -58,9 +58,9 @@ async function departmentsOf(eventId: string): Promise<string[]> {
   return rows.map((row) => row.department_code);
 }
 
-after(() => {
+after(async () => {
   try {
-    closeDb();
+    await closeDb();
   } catch {
     /* already closed */
   }
@@ -70,8 +70,17 @@ after(() => {
 describe("migrations", () => {
   it("creates every table the app uses, and records the version", () => {
     const result = migrate();
-    assert.deepEqual(result.applied, ["001_initial.sql"]);
-    assert.equal(result.version, 1);
+    // Every file, in name order. Each numbered migration moved the version.
+    assert.deepEqual(result.applied, [
+      "001_initial.sql",
+      "002_staff_presence_overrides.sql",
+      "003_sync_metadata.sql",
+      "004_recurring_template_stamps.sql",
+      "005_weekly_mass.sql",
+      "006_student_department_marital.sql",
+      "007_seed_mass_weekdays.sql",
+    ]);
+    assert.equal(result.version, 7);
 
     const tables = (
       getDb()
@@ -85,6 +94,12 @@ describe("migrations", () => {
 
     assert.deepEqual(tables, [
       "audit_logs",
+      "mass_department_weekdays",
+      "mass_expected",
+      "mass_scans",
+      "mass_uploads",
+      "mass_week_weekdays",
+      "mass_weeks",
       "profiles",
       "recurring_schedule_departments",
       "recurring_schedules",
@@ -93,21 +108,115 @@ describe("migrations", () => {
       "staff_event_departments",
       "staff_event_uploads",
       "staff_events",
+      "staff_presence_overrides",
       "staff_scans",
       "student_event_departments",
       "student_event_uploads",
       "student_events",
       "student_scans",
       "students",
+      "sync_log",
+      "sync_meta",
       "user_roles",
       "users",
     ]);
   });
 
+  it("keeps the registrar's department name and marital status on the students table", () => {
+    // Both are stored as written. The department is what every scope uses; the
+    // marital status drives the Sunday Mass rule.
+    getDb()
+      .prepare(
+        "INSERT INTO students (id, matric_no, department, marital_status) VALUES ('stc1','VUG/CEG/26/1','Computer Engineering','Religious')",
+      )
+      .run();
+    const row = getDb()
+      .prepare("SELECT department, marital_status FROM students WHERE id = 'stc1'")
+      .get() as { department: string; marital_status: string };
+    assert.equal(row.department, "Computer Engineering");
+    assert.equal(row.marital_status, "Religious");
+  });
+
   it("is not applied twice, so a second run is a no-op", () => {
     const result = migrate();
     assert.deepEqual(result.applied, []);
-    assert.equal(result.version, 1);
+    assert.equal(result.version, 7);
+  });
+
+  it("seeds every staff department with one weekday assignment", () => {
+    // The seed is what makes the staff snapshot resolve. One row per roster
+    // department, and a department an administrator adds later is simply
+    // extra -- the seed neither forbids nor duplicates it.
+    const rows = getDb()
+      .prepare(
+        "SELECT department_code, day_of_week FROM mass_department_weekdays ORDER BY department_code",
+      )
+      .all() as { department_code: string; day_of_week: number }[];
+    assert.ok(rows.length >= 63, `expected at least 63 seeded departments, got ${rows.length}`);
+    const codes = new Set(rows.map((r) => r.department_code));
+    assert.equal(codes.size, rows.length, "a department must have exactly one weekday");
+    assert.ok(
+      rows.every((r) => r.day_of_week >= 1 && r.day_of_week <= 5),
+      "every seeded weekday is Monday to Friday",
+    );
+  });
+
+  it("keeps the four committed weekday artifacts in step with each other", () => {
+    // The same list is written in four places, because each is read by a
+    // different thing: the SQLite migration, the MySQL schema, the TypeScript
+    // the app imports, and the JSON a script reads. They have to say the same
+    // thing, or a department is expected on a day in one engine and another in
+    // the other.
+    const read = (relative: string): string =>
+      fs.readFileSync(path.join(import.meta.dirname, relative), "utf8");
+
+    const asPairs = (rows: Array<[string, number]>): string =>
+      JSON.stringify([...rows].sort((a, b) => a[0].localeCompare(b[0])));
+
+    const fromTypeScript = [
+      ...read("seed/mass-weekday-departments.ts").matchAll(
+        /department: "([^"]+)", dayOfWeek: (\d+)/g,
+      ),
+    ].map((m) => [m[1] as string, Number(m[2])] as [string, number]);
+
+    const fromJson = (
+      JSON.parse(read("seed/mass-weekday-departments.json")) as Array<{
+        department: string;
+        dayOfWeek: number;
+      }>
+    ).map((r) => [r.department, r.dayOfWeek] as [string, number]);
+
+    const fromMigration = [
+      ...read("migrations/007_seed_mass_weekdays.sql").matchAll(
+        /VALUES \('[^']+', '([^']+)', (\d),/g,
+      ),
+    ].map((m) => [m[1] as string, Number(m[2])] as [string, number]);
+
+    const fromSchema = [
+      ...read("schema.sql").matchAll(/SELECT '[^']+', '([^']+)', (\d), 1 FROM DUAL/g),
+    ].map((m) => [m[1] as string, Number(m[2])] as [string, number]);
+
+    assert.equal(fromTypeScript.length, 64, "the committed list should have 64 departments");
+    assert.equal(asPairs(fromJson), asPairs(fromTypeScript), "the JSON and the TypeScript differ");
+    assert.equal(asPairs(fromMigration), asPairs(fromTypeScript), "the SQLite migration differs");
+    assert.equal(asPairs(fromSchema), asPairs(fromTypeScript), "the MySQL schema differs");
+
+    // And the database that was just migrated holds the same list.
+    const rows = getDb()
+      .prepare(
+        "SELECT department_code, day_of_week FROM mass_department_weekdays ORDER BY department_code",
+      )
+      .all() as { department_code: string; day_of_week: number }[];
+    assert.equal(
+      asPairs(rows.map((r) => [r.department_code, r.day_of_week] as [string, number])),
+      asPairs(fromTypeScript),
+      "the migrated database differs from the committed list",
+    );
+
+    // "Performing Arts" is the one the roster does not list, so it is the one
+    // that can silently go missing; it is on Tuesday, like the live database.
+    const performingArts = fromTypeScript.find(([name]) => name === "Performing Arts");
+    assert.deepEqual(performingArts, ["Performing Arts", 2]);
   });
 });
 
@@ -553,5 +662,48 @@ describe("parameter binding", () => {
       "SELECT scanned_at FROM student_scans WHERE id = 'sc6'",
     );
     assert.equal(row?.scanned_at, "2026-09-26 08:00:00.000");
+  });
+});
+
+describe("event dates survive both drivers", () => {
+  it("keeps a plain SQLite text date as it is", async () => {
+    const { isoDate } = await import("../src/server/downloads");
+    assert.equal(isoDate("2026-09-28"), "2026-09-28");
+  });
+
+  it("drops the time part SQLite stores on a DATE column", async () => {
+    const { isoDate } = await import("../src/server/downloads");
+    // What SQLite actually returns: text with a time, not a bare day.
+    assert.equal(isoDate("2026-09-28 00:00:00"), "2026-09-28");
+  });
+
+  it("narrows the Date that mysql2 hands back to a readable day", async () => {
+    const { isoDate } = await import("../src/server/downloads");
+    // What mysql2 actually returns for a DATE column: local midnight, as a Date.
+    // Left alone, toCsv would String() this into
+    // "Mon Sep 28 2026 00:00:00 GMT+0100 (Coordinated Universal Time)".
+    const fromMysql = new Date(2026, 8, 28);
+    assert.equal(isoDate(fromMysql), "2026-09-28");
+    assert.doesNotMatch(isoDate(fromMysql), /GMT|Coordinated|\(.*\)$/);
+  });
+
+  it("reads the date with local getters, so the day cannot slip backwards", async () => {
+    const { isoDate } = await import("../src/server/downloads");
+    // The 1st is the case that breaks if someone "fixes" this with toISOString,
+    // which would turn local midnight into the previous day west of Greenwich.
+    assert.equal(isoDate(new Date(2026, 0, 1)), "2026-01-01");
+    assert.equal(isoDate(new Date(2026, 11, 31)), "2026-12-31");
+  });
+
+  it("agrees on the day whichever driver it was handed", async () => {
+    const { isoDate } = await import("../src/server/downloads");
+    // The whole point: the CSV must not depend on which engine is behind it.
+    assert.equal(isoDate("2026-09-28 00:00:00"), isoDate(new Date(2026, 8, 28)));
+  });
+
+  it("yields an empty cell rather than 'Invalid Date'", async () => {
+    const { isoDate } = await import("../src/server/downloads");
+    assert.equal(isoDate(new Date("not a date")), "");
+    assert.equal(isoDate("rubbish"), "");
   });
 });

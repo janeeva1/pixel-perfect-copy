@@ -15,6 +15,11 @@ const bodySchema = z.object({
         firstName: nullable,
         middleName: nullable,
         level: nullable,
+        // Both optional: a registrar's file that has neither column still
+        // imports, and a blank cell arrives as null the same way it would as
+        // an absent key.
+        department: nullable,
+        maritalStatus: nullable,
       }),
     )
     .min(1, "There is nothing to import.")

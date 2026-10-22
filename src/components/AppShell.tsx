@@ -4,15 +4,21 @@ import {
   BarChart3,
   CalendarCheck,
   CalendarDays,
+  CalendarClock,
+  ChevronDown,
+  Church,
   FileText,
   GraduationCap,
   LayoutDashboard,
   LogOut,
   ShieldCheck,
+  Sparkles,
   Users,
   UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AppUpdate } from "@/components/AppUpdate";
+import { desktopBridge } from "@/lib/electron";
 import { useAuthActions, useRoles, useSession } from "@/lib/useAuth";
 import {
   Sidebar,
@@ -24,22 +30,26 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const nav = [
   { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/mass/weekdays", label: "Mass department days", icon: CalendarClock },
   { to: "/students", label: "Students", icon: GraduationCap },
   { to: "/staff", label: "Staff", icon: Users },
-  { to: "/student-events", label: "Student events", icon: CalendarCheck },
-  { to: "/staff-events", label: "Staff events", icon: CalendarCheck },
-  { to: "/reports/students", label: "Student reports", icon: BarChart3 },
-  { to: "/reports/staff", label: "Staff reports", icon: BarChart3 },
 ] as const;
 
 /**
  * Import Data and Recurring Events are open to anyone who can edit, which is an
- * operator as well as an admin, so they sit outside the admin-only group. They
- * used to live in it, which left the pages reachable but undiscoverable to an
- * operator who was allowed to use them.
+ * operator as well as an admin, so they sit outside the admin-only group.
  */
 const editorNav = [
   { to: "/import", label: "Import Data", icon: FileText },
@@ -51,24 +61,73 @@ const adminNav = [
   { to: "/users", label: "Users & Permissions", icon: UserCog },
 ] as const;
 
+/** The class every plain sidebar link uses. */
+const LINK_CLASS =
+  "flex items-center gap-2 rounded-md px-3 py-2 text-sm whitespace-nowrap transition-colors hover:bg-sidebar-accent";
+/** The same, for a link nested inside a collapsible group. */
+const NESTED_LINK_CLASS =
+  "flex items-center rounded-md px-3 py-1.5 text-sm whitespace-nowrap transition-colors hover:bg-sidebar-accent";
+const ACTIVE_CLASS = "bg-sidebar-accent text-sidebar-accent-foreground";
+
+/**
+ * A group of sidebar links that folds away. It opens itself when the page being
+ * looked at is inside it, so the group a reader is in is never hidden.
+ */
+function NavGroup({
+  label,
+  icon: Icon,
+  open,
+  children,
+}: {
+  label: string;
+  icon: typeof LayoutDashboard;
+  open: boolean;
+  children: ReactNode;
+}) {
+  return (
+    <Collapsible defaultOpen={open}>
+      <CollapsibleTrigger className={`${LINK_CLASS} w-full justify-between group`}>
+        <span className="flex items-center gap-2">
+          <Icon className="size-4" />
+          {label}
+        </span>
+        <ChevronDown className="size-4 transition-transform group-data-[state=open]:rotate-180" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="space-y-1 pl-7">{children}</CollapsibleContent>
+    </Collapsible>
+  );
+}
+
 export function AppShell({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useSession();
   const { isAdmin, canEdit } = useRoles();
   const { signOut } = useAuthActions();
+  // The desktop app's own bridge. It is not there in a browser, and then
+  // there is no program to update.
+  const bridge = desktopBridge();
 
   async function handleSignOut() {
     await signOut.mutateAsync();
     navigate({ to: "/auth", replace: true });
   }
 
+  const eventsOpen =
+    location.pathname.startsWith("/student-events") ||
+    location.pathname.startsWith("/staff-events");
+  const reportsOpen =
+    location.pathname.startsWith("/reports/students") ||
+    location.pathname.startsWith("/reports/staff");
+  const massOpen =
+    location.pathname.startsWith("/mass") && !location.pathname.startsWith("/mass/weekdays");
+
   return (
     <SidebarProvider>
       <Sidebar>
         <SidebarHeader>
           <div className="flex items-center gap-2 px-3 py-4 border-b border-sidebar-border">
-            <LayoutDashboard className="size-6 text-primary" />
+            <img src="/bmx.png" alt="" className="size-7 shrink-0 object-contain" />
             <p className="font-display text-base font-semibold">Attendance Register</p>
           </div>
         </SidebarHeader>
@@ -78,13 +137,64 @@ export function AppShell({ children }: { children: ReactNode }) {
               <Link
                 key={item.to}
                 to={item.to}
-                activeProps={{ className: "bg-sidebar-accent text-sidebar-accent-foreground" }}
-                className="flex items-center gap-2 rounded-md px-3 py-2 text-sm whitespace-nowrap transition-colors hover:bg-sidebar-accent"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={LINK_CLASS}
               >
                 <item.icon className="size-4" />
                 {item.label}
               </Link>
             ))}
+
+            <NavGroup label="Events" icon={CalendarCheck} open={eventsOpen}>
+              <Link
+                to="/student-events"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Student events
+              </Link>
+              <Link
+                to="/staff-events"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Staff events
+              </Link>
+            </NavGroup>
+
+            <NavGroup label="Reports" icon={BarChart3} open={reportsOpen}>
+              <Link
+                to="/reports/students"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Student reports
+              </Link>
+              <Link
+                to="/reports/staff"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Staff reports
+              </Link>
+            </NavGroup>
+
+            <NavGroup label="Weekly Mass" icon={Church} open={massOpen}>
+              <Link
+                to="/mass"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Weekly Mass
+              </Link>
+              <Link
+                to="/mass/reports"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Weekly Mass Reports
+              </Link>
+            </NavGroup>
           </nav>
           {canEdit ? (
             <>
@@ -126,6 +236,31 @@ export function AppShell({ children }: { children: ReactNode }) {
         <SidebarFooter>
           <div className="border-t border-sidebar-border p-3">
             <p className="truncate px-3 pb-2 text-xs opacity-70">{user?.email}</p>
+            {bridge ? (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start hover:bg-sidebar-accent"
+                  >
+                    <Sparkles className="mr-2 size-4" />
+                    Update
+                    <span className="ml-auto text-xs opacity-70">{bridge.version}</span>
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-xl">
+                  <DialogHeader>
+                    <DialogTitle>Application update</DialogTitle>
+                    <DialogDescription>
+                      Look for a newer build of the desktop app, download it and restart into it.
+                      Your data is not touched.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <AppUpdate compact showFeedUrl={false} />
+                </DialogContent>
+              </Dialog>
+            ) : null}
             <Button
               variant="ghost"
               size="sm"

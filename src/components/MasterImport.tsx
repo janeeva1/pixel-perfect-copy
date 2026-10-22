@@ -2,8 +2,9 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { pick, readSpreadsheet } from "@/lib/spreadsheet";
+import { buildImportTemplate, pick, readSpreadsheet, type ImportTemplate } from "@/lib/spreadsheet";
 import { EmptyState } from "@/components/attendance-ui";
+import { Download } from "lucide-react";
 
 const BATCH = 500;
 
@@ -17,6 +18,7 @@ type MappedRow = {
   department?: string | null;
   adminDepartment?: string | null;
   level?: string | null;
+  maritalStatus?: string | null;
 };
 
 /**
@@ -34,9 +36,10 @@ function hasMatricNo(row: MappedRow): row is MappedRow & { matricNo: string } {
  * The file's `id` column is deliberately not read. It is the machine's own
  * numbering, not a field the app needs: for a student the number the machine
  * prints is the tail of the matric number, and for staff it is the digits of
- * the staff number, both of which are already here. Nothing derived is stored
- * either: the server works the undergraduate/postgraduate category and the
- * department out of the matric number when a report needs them.
+ * the staff number, both of which are already here. The undergraduate/postgraduate
+ * category and the department code are worked out of the matric number by the
+ * server; the department's full name and the marital status are stored exactly
+ * as the file spells them, for display and for the Sunday Mass rule.
  */
 export function MasterImport({ group }: { group: "student" | "staff" }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -46,6 +49,24 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
   const queryClient = useQueryClient();
 
   const student = group === "student";
+
+  /**
+   * The template is the registrar's own export, so a file that came from the
+   * portal can be uploaded as it stands. It is offered here as well as on the
+   * Import page, because this is where somebody is about to choose a file.
+   */
+  function downloadTemplate() {
+    const type: ImportTemplate = student ? "students" : "staff";
+    const blob = new Blob([buildImportTemplate(type)], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${type}_import_template.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
 
   const upload = useMutation({
     mutationFn: async (): Promise<{ saved: number; skipped: number }> => {
@@ -79,6 +100,8 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
                 firstName: pick(row, "fname", "first_name") || null,
                 middleName: pick(row, "mname", "middle_name") || null,
                 level: pick(row, "level", "Level") || null,
+                department: pick(row, "department", "dept", "dept_name") || null,
+                maritalStatus: pick(row, "marital_status", "maritalStatus", "marital") || null,
               }
             : {
                 staffNo: pick(row, "staff_no", "staffNo", "staff", "Staff No") || null,
@@ -122,6 +145,10 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
         <Button variant="outline" onClick={() => inputRef.current?.click()}>
           Choose file
         </Button>
+        <Button variant="ghost" onClick={downloadTemplate}>
+          <Download className="mr-2 h-4 w-4" />
+          Download template
+        </Button>
         {file ? <span className="text-sm text-muted-foreground">{file.name}</span> : null}
       </div>
 
@@ -137,16 +164,17 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
             <table className="w-full">
               <thead className="bg-card">
                 <tr>
-                  {(student ? ["matric", "name", "level"] : ["staff no", "name", "department"]).map(
-                    (label) => (
-                      <th
-                        key={label}
-                        className="border-b border-border px-2 py-1 text-left font-medium"
-                      >
-                        {label}
-                      </th>
-                    ),
-                  )}
+                  {(student
+                    ? ["matric", "name", "level", "department"]
+                    : ["staff no", "name", "department"]
+                  ).map((label) => (
+                    <th
+                      key={label}
+                      className="border-b border-border px-2 py-1 text-left font-medium"
+                    >
+                      {label}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -157,7 +185,10 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
                       {[row.lastName, row.firstName, row.middleName].filter(Boolean).join(" ")}
                     </td>
                     {student ? (
-                      <td className="px-2 py-1">{row.level}</td>
+                      <>
+                        <td className="px-2 py-1">{row.level}</td>
+                        <td className="px-2 py-1">{row.department || "—"}</td>
+                      </>
                     ) : (
                       <td className="px-2 py-1">{row.adminDepartment || row.department || "—"}</td>
                     )}
@@ -187,8 +218,8 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
       ) : (
         <EmptyState title="No file chosen yet">
           {student
-            ? "Expected columns: id, lname, fname, mname, matric_no, level."
-            : "Expected columns: id, lname, fname, mname, staff_no, faculty, department, admin_department."}
+            ? "Expected columns: student_id, fname, lname, mname, marital_status, matric_no, department, level. Only the matric number is required."
+            : "Expected columns: fname, mname, lname, marital_status, staff_no, admin_department, department, department_category, faculty. Only the staff number is required."}
         </EmptyState>
       )}
 

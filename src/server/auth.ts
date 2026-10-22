@@ -9,7 +9,7 @@ import {
 import { randomUUID } from "node:crypto";
 import process from "node:process";
 import type { RowDataPacket } from "./db";
-import { query, queryOne, transaction } from "@/server/db";
+import { query, queryOne, transaction, utcStamp } from "@/server/db";
 import { loadServerEnv } from "@/server/env";
 import { HttpError } from "@/server/http";
 import type { AppRole, Me } from "@/lib/types";
@@ -76,15 +76,15 @@ export async function createAccount(input: {
   const userId = randomUUID();
 
   const me = await transaction(async (connection) => {
+    const now = utcStamp();
     await connection.execute(
-      "INSERT INTO users (id, email, password_hash, full_name) VALUES (?, ?, ?, ?)",
-      [userId, email, passwordHash, input.fullName],
+      "INSERT INTO users (id, email, password_hash, full_name, updated_at) VALUES (?, ?, ?, ?, ?)",
+      [userId, email, passwordHash, input.fullName, now],
     );
-    await connection.execute("INSERT INTO profiles (id, full_name, email) VALUES (?, ?, ?)", [
-      userId,
-      input.fullName,
-      email,
-    ]);
+    await connection.execute(
+      "INSERT INTO profiles (id, full_name, email, updated_at) VALUES (?, ?, ?, ?)",
+      [userId, input.fullName, email, now],
+    );
 
     const [roleRows] = await connection.query<CountRow[]>(
       "SELECT COUNT(*) AS total FROM user_roles",
@@ -92,11 +92,10 @@ export async function createAccount(input: {
     const isFirstUser = (roleRows[0]?.total ?? 0) === 0;
     const role: AppRole = isFirstUser ? "admin" : "viewer";
 
-    await connection.execute("INSERT INTO user_roles (id, user_id, role) VALUES (?, ?, ?)", [
-      randomUUID(),
-      userId,
-      role,
-    ]);
+    await connection.execute(
+      "INSERT INTO user_roles (id, user_id, role, updated_at) VALUES (?, ?, ?, ?)",
+      [randomUUID(), userId, role, now],
+    );
     await connection.execute(
       "INSERT INTO audit_logs (id, actor_id, action, entity, entity_id) VALUES (?, ?, ?, ?, ?)",
       [randomUUID(), userId, "account.created", "users", userId],

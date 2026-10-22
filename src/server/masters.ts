@@ -1,6 +1,14 @@
 import { randomUUID } from "node:crypto";
 import type { DbConnection, RowDataPacket } from "./db";
-import { dialect, likeTerm, query, queryOne, transaction, type SqlParam } from "@/server/db";
+import {
+  dialect,
+  likeTerm,
+  query,
+  queryOne,
+  transaction,
+  utcStamp,
+  type SqlParam,
+} from "@/server/db";
 import type {
   ImportResult,
   Staff,
@@ -14,18 +22,21 @@ import type {
   StudentScope,
   StaffScope,
 } from "@/lib/types";
+import { HttpError } from "@/server/http";
+import { refreshMassExpectations } from "@/server/mass";
 
 /**
  * The two master tables hold exactly what the registrar's files hold. Everything
  * else the app shows or filters on is read out of the stored columns in SQL, so
  * nothing derived is stored on a person, and no number is stored twice:
  *
- *   VUG/CSC/18/2633      undergraduate, level 400, department CSC, machine 2633
- *   VPG/PGD/ECO/15/1042  postgraduate, level 700, department ECO, machine 1042
+ *   VUG/2021/2633        undergraduate, machine 2633
+ *   VPG/PGD/2020/1042    postgraduate, machine 1042
  *
- * Undergraduates put the department in the second part (VUG/<dept>/<year>/<id>)
- * and postgraduates in the third (VPG/<award>/<dept>/<year>/<id>), so the
- * department is whichever of those parts is not the award.
+ * The department is the file's own `department` column, kept exactly as written,
+ * rather than a code guessed out of the matric number. The registrar's names are
+ * the authoritative ones ("Peace And Conflict Studies", not "PCS"), so the app
+ * shows and filters on those.
  *
  * The number the machine prints is the last part of the matric number for a
  * student and the digits of the staff number for staff, so a scan is matched
@@ -40,6 +51,8 @@ export type StudentInput = {
   firstName: string | null;
   middleName: string | null;
   level: string | null;
+  department: string | null;
+  maritalStatus: string | null;
 };
 
 export type StaffInput = {
@@ -97,26 +110,17 @@ export function staffNameSql(alias = "f"): string {
   return `TRIM(CONCAT_WS(' ', ${alias}.last_name, ${alias}.first_name, ${alias}.middle_name))`;
 }
 
-function slashCount(alias: string): string {
-  return `(LENGTH(${alias}.matric_no) - LENGTH(REPLACE(${alias}.matric_no, '/', '')))`;
-}
-
 /**
- * The department code inside the matric number, e.g. CSC, ECO, ACC.
+ * The department as the registrar's file writes it, e.g. "Computer and
+ * Information Technology". Kept verbatim: the file's own name is what the app
+ * shows, filters on and reports, so there is no code to fall out of step with
+ * the spelling ("Peace And Conflict Studies", not "PCS").
  *
- * Undergraduates are VUG/<department>/<year>/<id> and postgraduates are
- * VPG/<award>/<department>/<year>/<id>, so the department is the part after the
- * award for a VPG row and the second part otherwise. Checked against all 8,760
- * rows: every one has a department, and no award code ever lands in this slot.
+ * A blank or whitespace-only cell is treated as no department, so it is not
+ * offered as a choice and cannot be selected by mistake.
  */
 export function studentDepartmentSql(alias = "s"): string {
-  const postgraduate = `${alias}.matric_no LIKE 'VPG%'`;
-  const slot = (position: number) =>
-    `NULLIF(UPPER(SUBSTRING_INDEX(SUBSTRING_INDEX(${alias}.matric_no, '/', ${position}), '/', -1)), '')`;
-  return `CASE
-    WHEN ${postgraduate} AND ${slashCount(alias)} >= 4 THEN ${slot(3)}
-    WHEN NOT ${postgraduate} AND ${slashCount(alias)} >= 3 THEN ${slot(2)}
-    ELSE NULL END`;
+  return `NULLIF(TRIM(${alias}.department), '')`;
 }
 
 /** VUG and VUGS are undergraduate, VPG is postgraduate. */
@@ -130,18 +134,18 @@ export function studentCategorySql(alias = "s"): string {
 /**
  * The department a member of staff belongs to, worked out rather than stored.
  *
- * The staff file supplies two columns and they mean the same thing, so they are
- * treated as one: `admin_department` is the department they administer, and
- * `department` is the one they sit in. Someone with no admin department is taken
- * from `department` instead, so all 802 staff with either column get a
- * department and the remaining 4 are the only ones without one.
+ * `department` is the registrar's roster name (staffmapping.txt) and is what the
+ * Mass weekday assignments are keyed on, so it comes first. `admin_department`
+ * is the older export's column and is used only for a person the roster does not
+ * cover, so a staff member is never left without a department when either column
+ * has one.
  *
  * Deriving it means there is no third copy of this to keep in step: a re-upload
  * that changes someone's department changes what every past report says, which is
  * what "expected" is supposed to mean.
  */
 export function staffDepartmentSql(alias = "f"): string {
-  return `COALESCE(NULLIF(TRIM(${alias}.admin_department), ''), NULLIF(TRIM(${alias}.department), ''))`;
+  return `COALESCE(NULLIF(TRIM(${alias}.department), ''), NULLIF(TRIM(${alias}.admin_department), ''))`;
 }
 
 /**
@@ -187,9 +191,7 @@ export function studentScopeWhere(scope: StudentScope, params: SqlParam[], alias
     clauses.push(`${alias}.level = ?`);
     params.push(scope.level);
   }
-  // Upper cased, because the code is worked out from the matric number in upper
-  // case: a lower-case "csc" must still find the CSC students rather than none.
-  const departments = normalizeScopeList(scope.departmentCodes ?? scope.departmentCode, true);
+  const departments = normalizeScopeList(scope.departmentCodes ?? scope.departmentCode);
   if (departments.length > 0) {
     clauses.push(`(${studentDepartmentSql(alias)}) IN (${departments.map(() => "?").join(", ")})`);
     params.push(...departments);
@@ -212,10 +214,9 @@ export function staffScopeWhere(scope: StaffScope, params: SqlParam[], alias = "
 
 /**
  * Clean a department list before it reaches SQL: drop blanks, collapse repeats
- * and trim. Student codes are compared upper case because they are worked out
- * from the matric number in upper case.
+ * and trim.
  */
-export function normalizeScopeList(values: unknown, upper = false): string[] {
+export function normalizeScopeList(values: unknown): string[] {
   if (values === null || values === undefined) return [];
   const list = Array.isArray(values) ? values : [values];
   const out: string[] = [];
@@ -223,8 +224,7 @@ export function normalizeScopeList(values: unknown, upper = false): string[] {
     if (typeof value !== "string") continue;
     const trimmed = value.trim();
     if (trimmed === "") continue;
-    const clean = upper ? trimmed.toUpperCase() : trimmed;
-    if (!out.includes(clean)) out.push(clean);
+    if (!out.includes(trimmed)) out.push(trimmed);
   }
   return out;
 }
@@ -246,9 +246,11 @@ async function audit(
 
 /**
  * Stores an uploaded student list. matric_no is the natural key, so a corrected
- * re-upload updates the same rows instead of creating duplicates. Nothing else
- * is stored: not the file's id column, which repeats the matric number, and not
- * the category or department, which are derived from the matric number.
+ * re-upload updates the same rows instead of creating duplicates. The file's id
+ * column is not stored (it repeats the matric number), and neither is the
+ * category, which is derived from the matric number. The department's full name
+ * and the marital status are stored as the file spells them: they are the file's
+ * own text, kept for display, for scoping and for the Sunday Mass rule.
  */
 export async function importStudents(
   records: StudentInput[],
@@ -262,6 +264,8 @@ export async function importStudents(
       firstName: nullIfBlank(record.firstName),
       middleName: nullIfBlank(record.middleName),
       level: nullIfBlank(record.level),
+      department: nullIfBlank(record.department),
+      maritalStatus: nullIfBlank(record.maritalStatus),
     }));
 
   return transaction(async (connection) => {
@@ -280,15 +284,26 @@ export async function importStudents(
           record.firstName,
           record.middleName,
           record.level,
+          record.department,
+          record.maritalStatus,
+          utcStamp(),
         );
         if (!record.lastName && !record.firstName) skipped += 1;
       }
 
       await connection.query(
         `INSERT INTO students
-           (id, matric_no, last_name, first_name, middle_name, level)
-         VALUES ${placeholders(batch.length, 6)}
-         ${dialect.upsert("matric_no", ["last_name", "first_name", "middle_name", "level"])}`,
+           (id, matric_no, last_name, first_name, middle_name, level, department, marital_status, updated_at)
+         VALUES ${placeholders(batch.length, 9)}
+         ${dialect.upsert("matric_no", [
+           "last_name",
+           "first_name",
+           "middle_name",
+           "level",
+           "department",
+           "marital_status",
+           "updated_at",
+         ])}`,
         values,
       );
       saved += batch.length;
@@ -342,12 +357,13 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
           record.faculty,
           record.department,
           record.adminDepartment,
+          utcStamp(),
         );
       }
 
       await connection.query(
-        `INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department)
-         VALUES ${placeholders(batch.length, 8)}
+        `INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, updated_at)
+         VALUES ${placeholders(batch.length, 9)}
          ${dialect.upsert("staff_no", [
            "last_name",
            "first_name",
@@ -355,6 +371,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
            "faculty",
            "department",
            "admin_department",
+           "updated_at",
          ])}`,
         values,
       );
@@ -371,7 +388,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
         [name],
       );
       await connection.query(
-        "INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department) VALUES (?, NULL, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, updated_at) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)",
         [
           randomUUID(),
           record.lastName,
@@ -380,6 +397,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
           record.faculty,
           record.department,
           record.adminDepartment,
+          utcStamp(),
         ],
       );
       saved += 1;
@@ -391,6 +409,155 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
   });
 }
 
+// Editing a person ------------------------------------------------------------
+
+/** The fields a person can be corrected on, from the master list screen. */
+export type StudentEdit = {
+  lastName?: string | null | undefined;
+  firstName?: string | null | undefined;
+  middleName?: string | null | undefined;
+  level?: string | null | undefined;
+  department?: string | null | undefined;
+  maritalStatus?: string | null | undefined;
+};
+
+export type StaffEdit = {
+  lastName?: string | null | undefined;
+  firstName?: string | null | undefined;
+  middleName?: string | null | undefined;
+  faculty?: string | null | undefined;
+  department?: string | null | undefined;
+  adminDepartment?: string | null | undefined;
+};
+
+/**
+ * Corrects one student, in place.
+ *
+ * The matric number is the natural key and is not editable here: changing it
+ * would break every scan that points at this person, and the registrar's file
+ * is the authority on it anyway. Everything else -- the names, the level, the
+ * department and the marital status -- is the file's own text and can be
+ * corrected by hand when a file arrives wrong.
+ *
+ * A field left out of `input` is not touched. A field given as an empty string
+ * is cleared, because "this person has no department" is a real answer.
+ *
+ * A change of department moves the person between the Mass weekdays, so the
+ * weeks whose expected population is still open are refreshed. The weeks that
+ * already hold attendance keep their snapshot and are named in the result, so
+ * the correction can be applied to them on purpose rather than by accident.
+ */
+export async function updateStudent(
+  id: string,
+  input: StudentEdit,
+  actorId: string,
+): Promise<{ staleWeeks: string[] }> {
+  const sets: string[] = [];
+  const values: SqlParam[] = [];
+  const push = (column: string, value: string | null | undefined) => {
+    if (value === undefined) return;
+    sets.push(`${column} = ?`);
+    values.push(value);
+  };
+  push("last_name", input.lastName === undefined ? undefined : nullIfBlank(input.lastName));
+  push("first_name", input.firstName === undefined ? undefined : nullIfBlank(input.firstName));
+  push("middle_name", input.middleName === undefined ? undefined : nullIfBlank(input.middleName));
+  push("level", input.level === undefined ? undefined : nullIfBlank(input.level));
+  push("department", input.department === undefined ? undefined : nullIfBlank(input.department));
+  push(
+    "marital_status",
+    input.maritalStatus === undefined ? undefined : nullIfBlank(input.maritalStatus),
+  );
+  if (sets.length === 0) return { staleWeeks: [] };
+
+  sets.push("updated_at = ?");
+  values.push(utcStamp());
+  values.push(id);
+
+  await transaction(async (connection) => {
+    const [result] = await connection.execute<{ affectedRows?: number }>(
+      `UPDATE students SET ${sets.join(", ")} WHERE id = ?`,
+      values,
+    );
+    // A database reports no rows changed when the new value is the same as the
+    // old one, so a count of zero does not mean the person is missing. The row
+    // is looked up to tell the two apart.
+    if (!result || result.affectedRows === 0) {
+      const [rows] = await connection.execute<RowDataPacket[]>(
+        "SELECT id FROM students WHERE id = ?",
+        [id],
+      );
+      if (rows.length === 0) {
+        throw new HttpError(404, "That student is no longer in the list.");
+      }
+    }
+    await audit(connection, actorId, "student.updated", "students", { id, ...input });
+  });
+
+  if (input.department === undefined) return { staleWeeks: [] };
+  const refreshed = await refreshMassExpectations("student");
+  return { staleWeeks: refreshed.stale };
+}
+
+/**
+ * Corrects one member of staff, in place. As with a student, the staff number
+ * is the natural key and is not editable: a scan matches on it, so changing it
+ * would lose the person their attendance.
+ *
+ * A change of department moves the person between the Mass weekdays, so the
+ * weeks whose expected population is still open are refreshed.
+ */
+export async function updateStaff(
+  id: string,
+  input: StaffEdit,
+  actorId: string,
+): Promise<{ staleWeeks: string[] }> {
+  const sets: string[] = [];
+  const values: SqlParam[] = [];
+  const push = (column: string, value: string | null | undefined) => {
+    if (value === undefined) return;
+    sets.push(`${column} = ?`);
+    values.push(value);
+  };
+  push("last_name", input.lastName === undefined ? undefined : nullIfBlank(input.lastName));
+  push("first_name", input.firstName === undefined ? undefined : nullIfBlank(input.firstName));
+  push("middle_name", input.middleName === undefined ? undefined : nullIfBlank(input.middleName));
+  push("faculty", input.faculty === undefined ? undefined : nullIfBlank(input.faculty));
+  push("department", input.department === undefined ? undefined : nullIfBlank(input.department));
+  push(
+    "admin_department",
+    input.adminDepartment === undefined ? undefined : nullIfBlank(input.adminDepartment),
+  );
+  if (sets.length === 0) return { staleWeeks: [] };
+
+  sets.push("updated_at = ?");
+  values.push(utcStamp());
+  values.push(id);
+
+  await transaction(async (connection) => {
+    const [result] = await connection.execute<{ affectedRows?: number }>(
+      `UPDATE staff SET ${sets.join(", ")} WHERE id = ?`,
+      values,
+    );
+    // As for a student: a count of zero means the value did not change, not
+    // that the person is missing.
+    if (!result || result.affectedRows === 0) {
+      const [rows] = await connection.execute<RowDataPacket[]>(
+        "SELECT id FROM staff WHERE id = ?",
+        [id],
+      );
+      if (rows.length === 0) {
+        throw new HttpError(404, "That member of staff is no longer in the list.");
+      }
+    }
+    await audit(connection, actorId, "staff.updated", "staff", { id, ...input });
+  });
+
+  if (input.department === undefined) return { staleWeeks: [] };
+  const refreshed = await refreshMassExpectations("staff");
+  return { staleWeeks: refreshed.stale };
+}
+
 // Reads -------------------------------------------------------------------
 
 type StudentRow = RowDataPacket &
@@ -399,6 +566,19 @@ type StudentRow = RowDataPacket &
     student_category: StudentCategory | null;
     department_code: string | null;
   };
+
+/**
+ * The students page sorts by the column *label* it renders ("Matric no",
+ * "Department"), while the API's own vocabulary is the column key. Both are
+ * accepted so either spelling sorts the same way, and anything unrecognised
+ * falls through to the name, which is the default ordering.
+ */
+const STUDENT_SORT_ALIASES: Record<string, string> = {
+  "Matric no": "matric_no",
+  Category: "student_category",
+  Level: "level",
+  Department: "department_code",
+};
 
 export async function listStudents(input: StudentListQuery): Promise<StudentList> {
   const params: SqlParam[] = [];
@@ -412,15 +592,16 @@ export async function listStudents(input: StudentListQuery): Promise<StudentList
   }
   const filter = where.join(" AND ");
 
+  const sortBy = STUDENT_SORT_ALIASES[input.sortBy ?? ""] ?? input.sortBy;
   const sortColumn =
-    input.sortBy === "matric_no"
+    sortBy === "matric_no"
       ? "s.matric_no"
-      : input.sortBy === "student_category"
+      : sortBy === "student_category"
         ? `${studentCategorySql()}`
-        : input.sortBy === "level"
+        : sortBy === "level"
           ? "s.level"
-          : input.sortBy === "department_code"
-            ? `${studentDepartmentSql()}`
+          : sortBy === "department_code"
+            ? studentDepartmentSql()
             : studentNameSql();
   const sortDir = input.sortDir === "desc" ? "DESC" : "ASC";
   const page = input.page && input.page > 0 ? input.page : 1;
@@ -429,7 +610,8 @@ export async function listStudents(input: StudentListQuery): Promise<StudentList
 
   const [rows, totalRow, levels, departments, undergrad, postgrad] = await Promise.all([
     query<StudentRow>(
-      `SELECT s.id, s.matric_no, s.level,
+      `SELECT s.id, s.matric_no, s.last_name, s.first_name, s.middle_name,
+              s.level, s.department, s.marital_status,
               ${studentNameSql()} AS full_name,
               ${studentCategorySql()} AS student_category,
               ${studentDepartmentSql()} AS department_code
@@ -497,7 +679,8 @@ export async function listStaff(input: StaffListQuery): Promise<StaffList> {
 
   const [rows, totalRow, withNoRow] = await Promise.all([
     query<StaffRow>(
-      `SELECT f.id, f.staff_no, ${staffNameSql()} AS full_name, f.faculty, f.department, f.admin_department
+      `SELECT f.id, f.staff_no, f.last_name, f.first_name, f.middle_name,
+              ${staffNameSql()} AS full_name, f.faculty, f.department, f.admin_department
        FROM staff f
        WHERE ${filter}
        ORDER BY ${sortColumn} ${sortDir}
@@ -542,7 +725,7 @@ export async function studentLevels(): Promise<string[]> {
   return rows.map((row) => row.level);
 }
 
-/** Distinct department codes found in the matric numbers. */
+/** Distinct department names found in the registrar's file, for the pickers. */
 export async function studentDepartments(): Promise<string[]> {
   const rows = await query<DepartmentRow>(
     `SELECT DISTINCT ${studentDepartmentSql()} AS code FROM students s

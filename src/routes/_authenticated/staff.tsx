@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -11,9 +12,12 @@ import {
 } from "@/components/ui/select";
 import { DataRow, DataTable, EmptyState, Panel, StatTile } from "@/components/attendance-ui";
 import { MasterImport } from "@/components/MasterImport";
+import { MasterEditDialog, type EditField } from "@/components/MasterEditDialog";
 import { api, type StaffListParams } from "@/lib/api";
 import { useRoles } from "@/lib/useAuth";
-import { Download } from "lucide-react";
+import type { Staff } from "@/lib/types";
+import { Download, Pencil } from "lucide-react";
+import { toast } from "sonner";
 
 export type StaffSearch = {
   search?: string;
@@ -57,6 +61,16 @@ function StaffPage() {
     sortDir: search.sortDir,
   };
   const list = useQuery({ queryKey: ["staff", params], queryFn: () => api.staff(params) });
+  const staffDepartments = useQuery({
+    queryKey: ["staff-departments"],
+    queryFn: () => api.staffDepartments(),
+  });
+  const massDepartments = useQuery({
+    queryKey: ["mass-departments"],
+    queryFn: () => api.massDepartments(),
+  });
+
+  const [editing, setEditing] = useState<Staff | null>(null);
 
   function setFilter(next: Partial<StaffSearch>) {
     void navigate({ to: "/staff", search: { ...search, ...next } });
@@ -79,6 +93,62 @@ function StaffPage() {
   }
 
   const staff = list.data?.staff ?? [];
+
+  // The dropdown offers the departments that have a Community Mass weekday, so
+  // a member of staff moved to one of them is still expected. The departments
+  // already in use are added on top, in case a name is not in the weekday table.
+  const departmentOptions = [
+    ...new Set([
+      ...(massDepartments.data ?? []).map((row) => row.department),
+      ...(staffDepartments.data?.departments ?? []).map((row) => row.department),
+    ]),
+  ].sort((a, b) => a.localeCompare(b));
+
+  const editFields: EditField[] = editing
+    ? [
+        { key: "lastName", label: "Last name", kind: "text", value: editing.last_name },
+        { key: "firstName", label: "First name", kind: "text", value: editing.first_name },
+        { key: "middleName", label: "Middle name", kind: "text", value: editing.middle_name },
+        { key: "faculty", label: "Faculty", kind: "text", value: editing.faculty },
+        {
+          key: "department",
+          label: "Department",
+          kind: "select",
+          value: editing.department,
+          options: departmentOptions,
+          emptyLabel: "No department",
+        },
+        {
+          key: "adminDepartment",
+          label: "Admin department",
+          kind: "select",
+          value: editing.admin_department,
+          options: departmentOptions,
+          emptyLabel: "No admin department",
+        },
+      ]
+    : [];
+
+  async function saveStaff(values: Record<string, string | null>) {
+    if (!editing) return;
+    const result = await api.updateStaff(editing.id, {
+      lastName: values["lastName"] ?? null,
+      firstName: values["firstName"] ?? null,
+      middleName: values["middleName"] ?? null,
+      faculty: values["faculty"] ?? null,
+      department: values["department"] ?? null,
+      adminDepartment: values["adminDepartment"] ?? null,
+    });
+    await queryClient.invalidateQueries({ queryKey: ["staff"] });
+    await queryClient.invalidateQueries({ queryKey: ["staff-departments"] });
+    if (result.staleWeeks.length > 0) {
+      toast.warning(
+        `${editing.full_name || "The member of staff"} was updated. ${result.staleWeeks.join(", ")} already hold attendance, so their expected list was left as it was. Reset the week to apply the new department to it.`,
+      );
+    } else {
+      toast.success(`${editing.full_name || "The member of staff"} was updated.`);
+    }
+  }
 
   return (
     <div className="mx-auto max-w-6xl space-y-6">
@@ -144,7 +214,7 @@ function StaffPage() {
         ) : (
           <>
             <DataTable
-              head={["Name", "Staff no", "Faculty", "Department", "Admin dept."]}
+              head={["Name", "Staff no", "Faculty", "Department", "Admin dept.", ""]}
               sortable={["Name", "Staff no", "Faculty", "Department", "Admin dept."]}
               sortBy={search.sortBy}
               sortDir={search.sortDir}
@@ -167,6 +237,16 @@ function StaffPage() {
                     person.faculty ?? "—",
                     person.department ?? "—",
                     person.admin_department ?? "—",
+                    canEdit ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setEditing(person)}
+                        aria-label={`Edit ${person.full_name}`}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    ) : null,
                   ]}
                 />
               ))}
@@ -174,6 +254,23 @@ function StaffPage() {
           </>
         )}
       </Panel>
+
+      <MasterEditDialog
+        key={editing?.id ?? "none"}
+        open={editing !== null}
+        onOpenChange={(open) => {
+          if (!open) setEditing(null);
+        }}
+        title="Edit member of staff"
+        description="Change what the file should have said. The staff number is the person's key and cannot be edited here."
+        identity={
+          editing
+            ? `${editing.full_name}${editing.staff_no ? ` — ${editing.staff_no}` : " — no staff number"}`
+            : undefined
+        }
+        fields={editFields}
+        onSave={saveStaff}
+      />
     </div>
   );
 }

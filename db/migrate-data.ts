@@ -4,19 +4,32 @@
  *
  * This is the step that proves the desktop build can run on real data. It reads
  * from MariaDB (read-only) and writes to a local SQLite file. Run it with
- * `npm run db:migrate-data`.
+ * `npm run db:migrate-data`, or pass a destination file to write the copy the
+ * desktop installer ships as its starting data:
+ *
+ *     npm run db:migrate-data -- db/seed/attendance.db
  */
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { dirname, resolve } from "node:path";
 import { createPool } from "mysql2/promise";
 import type { RowDataPacket } from "mysql2";
 import { loadServerEnv } from "../src/server/env";
 
 loadServerEnv();
 
-const workdir = fs.mkdtempSync(path.join(os.tmpdir(), "attendance-migrate-"));
-const sqliteFile = path.join(workdir, "attendance.db");
+// Write to the requested destination, or to a throwaway directory when none was
+// given. The desktop build needs a file at a known path so it can be bundled.
+const destination = process.argv[2];
+const workdir = destination
+  ? resolve(dirname(destination))
+  : fs.mkdtempSync(path.join(os.tmpdir(), "attendance-migrate-"));
+const sqliteFile = destination ? resolve(destination) : path.join(workdir, "attendance.db");
+fs.mkdirSync(dirname(sqliteFile), { recursive: true });
+fs.rmSync(sqliteFile, { force: true });
+for (const suffix of ["-wal", "-shm"]) fs.rmSync(sqliteFile + suffix, { force: true });
+
 process.env["DB_DRIVER"] = "sqlite";
 process.env["DB_FILE"] = sqliteFile;
 
@@ -38,6 +51,15 @@ const pool = createPool({
   connectTimeout: 10_000,
 });
 
+/**
+ * Tables the SQLite migrations seed with rows of their own: the three built-in
+ * staff presence overrides and the department-to-weekday map. The live database
+ * carries its own copy of those rows, so a plain INSERT trips the unique key.
+ * Replacing is safe for exactly these two because nothing else refers to them,
+ * so no child row can be cascaded away, and the live row is the one kept.
+ */
+const replaceOnConflict = new Set(["staff_presence_overrides", "mass_department_weekdays"]);
+
 const tableOrder = [
   "users",
   "profiles",
@@ -45,6 +67,7 @@ const tableOrder = [
   "audit_logs",
   "students",
   "staff",
+  "staff_presence_overrides",
   "student_events",
   "student_event_uploads",
   "student_scans",
@@ -56,6 +79,12 @@ const tableOrder = [
   "recurring_schedule_departments",
   "student_event_departments",
   "staff_event_departments",
+  "mass_department_weekdays",
+  "mass_weeks",
+  "mass_week_weekdays",
+  "mass_expected",
+  "mass_uploads",
+  "mass_scans",
 ];
 
 let totalRows = 0;
@@ -74,10 +103,42 @@ for (const table of tableOrder) {
   }
 
   // Build the INSERT.
-  const columns = Object.keys(mariaRows[0]);
+  //
+  // The two schemas are not identical column for column: MySQL's
+  // staff_presence_overrides keeps an `updated_at` that the SQLite table does
+  // not, and a column that only exists on one side cannot be inserted into the
+  // other. So the transfer uses the columns the two tables actually share, and
+  // a column the SQLite side requires but MariaDB does not have is an error
+  // rather than a silent omission.
+  const tableInfo = sqlite.pragma(`table_info(\`${table}\`)`) as {
+    name: string;
+    notnull: number;
+    dflt_value: string | null;
+  }[];
+  const sqliteColumns = new Set(tableInfo.map((column) => column.name));
+  const mariaColumns = Object.keys(mariaRows[0]);
+  const columns = mariaColumns.filter((column) => sqliteColumns.has(column));
+  const missing = tableInfo
+    .filter(
+      (column) =>
+        !mariaColumns.includes(column.name) && column.notnull === 1 && column.dflt_value === null,
+    )
+    .map((column) => column.name);
+  if (missing.length > 0) {
+    console.error(
+      `    ❌ ${table} needs columns the live database does not have: ${missing.join(", ")}`,
+    );
+    totalDifferences += 1;
+    continue;
+  }
+  const skipped = mariaColumns.filter((column) => !sqliteColumns.has(column));
+  if (skipped.length > 0) {
+    console.log(`    (skipped ${table} columns not in the SQLite schema: ${skipped.join(", ")})`);
+  }
   const placeholders = columns.map(() => "?").join(", ");
   const columnList = columns.map((c) => `\`${c}\``).join(", ");
-  const insertSql = `INSERT INTO \`${table}\` (${columnList}) VALUES (${placeholders})`;
+  const verb = replaceOnConflict.has(table) ? "INSERT OR REPLACE" : "INSERT";
+  const insertSql = `${verb} INTO \`${table}\` (${columnList}) VALUES (${placeholders})`;
 
   // For SQLite, we need to transform values:
   // - MariaDB DATETIME/DATE comes as a JS Date in the local timezone (since the
@@ -182,7 +243,7 @@ for (const table of tableOrder) {
 }
 
 await pool.end();
-closeDb();
+await closeDb();
 
 console.log(`\nTransferred ${totalRows} rows across ${tableOrder.length} tables.`);
 if (totalDifferences === 0) {

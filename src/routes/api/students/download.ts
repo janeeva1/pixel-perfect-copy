@@ -8,7 +8,7 @@ import { toCsv } from "@/lib/attendance";
 const downloadSchema = z.object({
   category: z.enum(["undergraduate", "postgraduate"]).optional(),
   level: z.string().trim().max(64).optional(),
-  departmentCode: z.string().trim().max(32).optional(),
+  departmentCode: z.string().trim().max(120).optional(),
   search: z.string().trim().max(120).default(""),
 });
 
@@ -35,10 +35,14 @@ export const Route = createFileRoute("/api/students/download")({
             student.matric_no,
             student.student_category ?? "—",
             student.level ?? "—",
-            student.department_code ?? "—",
+            student.department ?? student.department_code ?? "—",
+            student.marital_status ?? "—",
           ]);
 
-          const csv = toCsv(["Name", "Matric No", "Category", "Level", "Department"], rows);
+          const csv = toCsv(
+            ["Name", "Matric No", "Category", "Level", "Department", "Marital Status"],
+            rows,
+          );
 
           return new Response(csv, {
             headers: {

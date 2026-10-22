@@ -1,9 +1,10 @@
 {
   "name": "attendance-register",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "sideEffects": false,
   "type": "module",
+  "main": "dist-electron/main.cjs",
   "author": "Engr B Clinton (BMX TechdSolution)",
   "engines": {
     "node": ">=22.12.0"
@@ -15,19 +16,26 @@
     "preview": "vite preview",
     "start": "node --env-file-if-exists=.env .output/server/index.mjs",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.electron.json",
     "format": "prettier --write .",
     "db:migrate": "tsx db/migrate.ts",
     "db:backfill-categories": "node db/backfill-event-categories.mjs",
     "db:reset": "tsx db/migrate.ts --fresh --sqlite",
     "db:verify": "tsx --test db/verify-sqlite.ts",
+    "db:verify:sync": "tsx --test db/verify-sync.ts",
     "db:verify:login": "tsx db/verify-login.ts",
     "db:audit-schema": "tsx db/audit-schema.ts",
     "db:migrate-data": "tsx db/migrate-data.ts",
+    "db:seed": "tsx db/migrate-data.ts db/seed/attendance.db",
     "load:master": "node scripts/load-master.mjs",
-    "electron:dev": "vite build --mode development && electron . --no-sandbox",
-    "electron:build": "vite build && electron-builder",
-    "electron:pack": "vite build && electron-builder --dir"
+    "build:electron": "node scripts/build-electron.mjs",
+    "make:icon": "node scripts/make-icon.mjs",
+    "patch:7za": "node scripts/patch-7za.mjs",
+    "electron:dev": "npm run build && npm run build:electron && electron .",
+    "electron:pack": "npm run build && npm run build:electron && npm run patch:7za && electron-builder --dir",
+    "electron:build": "npm run build && npm run build:electron && npm run patch:7za && electron-builder --win nsis portable && node scripts/copy-guide.mjs",
+    "verify:update": "esbuild scripts/verify-update.ts --bundle --platform=node --target=node22 --format=cjs --external:electron --external:electron-updater --outfile=dist-electron/verify-update.cjs && electron dist-electron/verify-update.cjs",
+    "update:prepare": "node scripts/prepare-update-feed.mjs"
   },
   "overrides": {
     "rolldown": "1.2.1"
@@ -53,6 +61,7 @@
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-separator": "^1.1.8",
+    "@radix-ui/react-slider": "^1.4.7",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-switch": "^1.1.10",
     "@radix-ui/react-tabs": "^1.1.13",
@@ -70,9 +79,13 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
+    "electron-updater": "^6.8.9",
     "embla-carousel-react": "^8.6.0",
+    "exceljs": "^4.4.0",
     "input-otp": "^1.4.2",
     "jose": "^6.1.0",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.9",
     "lucide-react": "^0.575.0",
     "mysql2": "^3.15.3",
     "react": "^19.2.0",
@@ -97,8 +110,9 @@
     "@types/react": "^19.2.0",
     "@types/react-dom": "^19.2.0",
     "@vitejs/plugin-react": "^5.2.0",
-    "electron": "^33.0.0",
+    "electron": "^35.7.5",
     "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.2",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.1",
     "eslint-plugin-prettier": "^5.2.6",
@@ -115,13 +129,19 @@
   "build": {
     "appId": "com.attendance.register",
     "productName": "Attendance Register",
-    "copyright": "Copyright © 2026",
+    "copyright": "Copyright Ac 2026 Engr B Clinton (BMX TechdSolution)",
     "directories": {
-      "output": "dist-electron"
+      "output": "dist-electron-build"
     },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://updates.example.com/attendance-register/"
+      }
+    ],
     "files": [
+      "dist-electron/**/*",
       ".output/**/*",
-      "electron/**/*",
       "node_modules/**/*",
       "package.json"
     ],
@@ -129,24 +149,48 @@
       {
         "from": "db/migrations",
         "to": "migrations",
-        "filter": ["**/*"]
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "db/seed",
+        "to": "seed",
+        "filter": [
+          "**/*"
+        ]
       }
     ],
+    "asar": true,
+    "asarUnpack": [
+      "**/*.node"
+    ],
+    "npmRebuild": false,
     "win": {
-      "target": "nsis",
-      "icon": "public/icon.ico"
+      "target": [
+        "nsis",
+        "portable"
+      ],
+      "icon": "public/icon.ico",
+      "sign": false,
+      "verifyUpdateCodeSignature": false
     },
     "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
+      "oneClick": true,
+      "perMachine": false,
+      "runAfterFinish": false,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "Attendance Register"
+      "shortcutName": "Attendance Register",
+      "installerIcon": "public/icon.ico",
+      "uninstallerIcon": "public/icon.ico",
+      "deleteAppDataOnUninstall": false
+    },
+    "portable": {
+      "artifactName": "Attendance-Register-portable-${version}.exe"
     },
     "electronDownload": {
-      "mirrorOptions": {
-        "mirror": "https://npmmirror.com/mirrors/electron/"
-      }
+      "mirror": "https://npmmirror.com/mirrors/electron/"
     }
   }
 }

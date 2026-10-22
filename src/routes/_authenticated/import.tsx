@@ -49,6 +49,8 @@ function ImportPage() {
           firstName: pick(row, "fname", "firstname", "first_name", "givenname"),
           middleName: pick(row, "mname", "middlename", "middle_name", "midname"),
           level: pick(row, "level", "lvl", "year"),
+          department: pick(row, "department", "dept", "dept_name"),
+          maritalStatus: pick(row, "marital_status", "maritalstatus", "marital"),
         }))
         .filter((r) => r.matricNo);
       return api.importStudents({ records: rowsData });
@@ -171,7 +173,8 @@ function ImportPage() {
                   Download Student Template
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  Columns: id, lname, fname, mname, matric_no, level
+                  Columns: student_id, fname, lname, mname, marital_status, matric_no, department,
+                  level
                 </span>
               </CardContent>
             </Card>
@@ -294,7 +297,8 @@ function ImportPage() {
                   Download Staff Template
                 </Button>
                 <span className="text-sm text-muted-foreground">
-                  Columns: id, lname, fname, mname, staff_no, faculty, department, admin_department
+                  Columns: fname, mname, lname, marital_status, staff_no, admin_department,
+                  department, department_category, faculty. Only staff_no is required.
                 </span>
               </CardContent>
             </Card>

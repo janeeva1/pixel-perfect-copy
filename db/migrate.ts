@@ -73,4 +73,4 @@ if (result.applied.length === 0) {
 
 // Close before the process exits so WAL contents are checkpointed into the
 // database file rather than left in a sidecar that a copy might miss.
-closeDb();
+await closeDb();

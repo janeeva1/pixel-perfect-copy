@@ -3,6 +3,7 @@ import { dialect, query, queryOne, type SqlParam } from "@/server/db";
 import { percent, periodKey, periodLabel, periodRange, toCsv } from "@/lib/attendance";
 import { GROUPS, type GroupConfig } from "@/server/events";
 import { staffDepartmentOptions, studentDepartments } from "@/server/masters";
+import { overriddenStaffIdsByEvent } from "@/server/presence-overrides";
 import type {
   EventResult,
   GroupKind,
@@ -79,19 +80,49 @@ function scopeFragment(config: GroupConfig, scope: StudentScope, params: SqlPara
   }
   if (scope.departmentCode) {
     clauses.push(`(${config.department}) = ?`);
-    // A student department is a short code, stored derived in upper case
-    // (`CSC`), so it is matched upper case. A staff department is a free-text
-    // name from the file ("Accounting"), kept as written, and matched under a
-    // case-insensitive collation either way.
-    params.push(
-      config.kind === "student" ? scope.departmentCode.toUpperCase() : scope.departmentCode,
-    );
+    // The department is the file's own name, stored as written, and matched
+    // under a case-insensitive collation.
+    params.push(scope.departmentCode);
   }
   return clauses.join(" AND ");
 }
 
 function asDate(value: string): Date {
   return new Date(`${value}T00:00:00Z`);
+}
+
+/**
+ * The presence grant for the staff events a report covers, keyed by event id.
+ *
+ * The event's own department scope decides who qualifies, which is read from
+ * staff_event_departments rather than from the report's own scope filter: a
+ * report can be narrowed to one department, but a person is granted presence at
+ * an event because the event expected them, not because the report is looking
+ * at their department.
+ */
+async function grantedForPeriod(
+  valid: boolean,
+  options: ReportOptions,
+): Promise<Map<string, string[]>> {
+  if (!valid || options.group !== "staff") return new Map();
+
+  const params: SqlParam[] = [options.from, options.to];
+  const filter = options.eventId ? " AND e.id = ?" : "";
+  if (options.eventId) params.push(options.eventId);
+
+  const events = await query<RowDataPacket & { id: string; departments: string | null }>(
+    `SELECT e.id,
+            (SELECT GROUP_CONCAT(d.department) FROM staff_event_departments d
+              WHERE d.event_id = e.id) AS departments
+     FROM staff_events e
+     WHERE e.event_date BETWEEN ? AND ?${filter}`,
+    params,
+  );
+  const byEvent = new Map<string, string[]>();
+  for (const event of events) {
+    byEvent.set(event.id, event.departments ? event.departments.split(",").filter(Boolean) : []);
+  }
+  return overriddenStaffIdsByEvent(byEvent);
 }
 
 export async function buildReport(options: ReportOptions): Promise<ReportSeries> {
@@ -125,7 +156,7 @@ export async function buildReport(options: ReportOptions): Promise<ReportSeries>
     countParams,
   );
 
-  const [scans, issues, events] = await Promise.all([
+  const [scans, issues, events, granted] = await Promise.all([
     valid
       ? query<ScanRow>(
           `SELECT e.event_date, ${config.personAlias}.id AS person_id,
@@ -163,7 +194,41 @@ export async function buildReport(options: ReportOptions): Promise<ReportSeries>
           eventParams,
         )
       : Promise.resolve([] as Array<RowDataPacket & { id: string; event_date: string }>),
+    // Staff credited present without a scan, for the staff events in this
+    // period. Resolved to a flat (event_date, person_id) list below so it can be
+    // folded into the same buckets the scans feed. A student report gets an
+    // empty map, so nothing here has to branch on the group.
+    grantedForPeriod(valid, options),
   ]);
+
+  // Turn the per-event grant into the rows the bucket loop expects. Department
+  // and level are read back off the person rather than left null, so a grouped
+  // report still adds a granted person to their department.
+  const grantedRows: Array<{
+    event_date: string;
+    person_id: string;
+    department_code: string | null;
+  }> = [];
+  for (const [eventId, staffIds] of granted) {
+    if (staffIds.length === 0) continue;
+    const event = events.find((e) => e.id === eventId);
+    if (!event) continue;
+    const ids = staffIds.map(() => "?").join(", ");
+    const people = await query<
+      RowDataPacket & { person_id: string; department_code: string | null }
+    >(
+      `SELECT id AS person_id, ${config.department} AS department_code
+       FROM ${config.people} ${config.personAlias} WHERE ${config.personAlias}.id IN (${ids})`,
+      staffIds,
+    );
+    for (const person of people) {
+      grantedRows.push({
+        event_date: event.event_date,
+        person_id: person.person_id,
+        department_code: person.department_code,
+      });
+    }
+  }
 
   const expected = Number(expectedRow?.total ?? 0);
 
@@ -218,6 +283,13 @@ export async function buildReport(options: ReportOptions): Promise<ReportSeries>
           : (row.category ?? ""),
       row.person_id,
     );
+  }
+
+  // The granted staff, folded into the same buckets. Both sets are Sets keyed by
+  // person id, so someone who both scanned and was granted is counted once.
+  for (const row of grantedRows) {
+    bucket(periodKey(asDate(row.event_date), options.period)).people.add(row.person_id);
+    addTo(composition.department, row.department_code, row.department_code ?? "", row.person_id);
   }
 
   for (const event of events) {

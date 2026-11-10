@@ -24,6 +24,7 @@ import {
   type MassWeekStatus,
 } from "@/lib/types";
 import { useRoles } from "@/lib/useAuth";
+import { RotateCcw } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/mass/")({
   component: MassWeeksPage,
@@ -50,6 +51,19 @@ function MassWeeksPage() {
     queryFn: api.mass.weeks,
   });
 
+  const queryClient = useQueryClient();
+  const syncWeekdays = useMutation({
+    mutationFn: () => api.syncMassWeekdays(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["mass-departments"] });
+      queryClient.invalidateQueries({ queryKey: ["mass-weeks"] });
+      toast.success(
+        `Synced weekdays: ${result.added} new department${result.added === 1 ? "" : "s"} assigned, ${result.skipped} already had one.`,
+      );
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   return (
     <div className="space-y-6">
       <Panel
@@ -57,9 +71,20 @@ function MassWeeksPage() {
         description="Every weekly record, newest first. Open a week to upload machine scans, change its status or reset it."
         actions={
           canEdit ? (
-            <Link to="/mass/weekdays">
-              <Button variant="outline">Department weekdays</Button>
-            </Link>
+            <>
+              <Link to="/mass/weekdays">
+                <Button variant="outline">Department weekdays</Button>
+              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncWeekdays.mutate()}
+                disabled={syncWeekdays.isPending}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Sync Weekdays
+              </Button>
+            </>
           ) : null
         }
       >

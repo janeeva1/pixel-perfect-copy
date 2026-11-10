@@ -411,11 +411,35 @@ export const api = {
     clearEvents: () => post<{ ok: boolean }>("/api/admin/clear-events"),
     syncStatus: () => request<SyncStatusResult>("/api/admin/sync"),
     runSync: () => post<SyncResult>("/api/admin/sync"),
+    getSyncConfig: () => request<SyncConfigResult>("/api/admin/sync/settings"),
+    saveSyncConfig: (config: SyncConfigInput) => post<{ ok: boolean }>("/api/admin/sync/settings", config),
+    testSyncConnection: (config: SyncConfigInput) => post<SyncTestResult>("/api/admin/sync/test", config),
   },
 };
 
 export type SyncStatusResult = {
   configured: boolean;
+};
+
+export type SyncConfigResult = {
+  host: string;
+  port: number;
+  user: string;
+  database: string;
+  configured: boolean;
+};
+
+export type SyncConfigInput = {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+};
+
+export type SyncTestResult = {
+  ok: boolean;
+  message: string;
 };
 
 export type SyncResult = {

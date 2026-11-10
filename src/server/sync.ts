@@ -45,9 +45,10 @@
 //     fixed correctly.
 
 import { randomUUID } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
 import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
 import type { SqlParam } from "@/server/db";
-import { dialect, query } from "@/server/db";
+import { dialect, query, queryOne, transaction } from "@/server/db";
 import { HttpError } from "@/server/http";
 
 // Hub configuration --------------------------------------------------------
@@ -61,7 +62,13 @@ export type SyncSettings = {
 };
 
 /** The hub, only when the operator has configured one. */
-export function syncSettings(): SyncSettings | null {
+export async function syncSettings(): Promise<SyncSettings | null> {
+  // First try database settings
+  const dbSettings = await getSyncSettingsFromDB();
+  if (dbSettings && dbSettings.host && dbSettings.database) {
+    return dbSettings;
+  }
+  // Fallback to environment variables
   const host = process.env["SYNC_DB_HOST"];
   if (!host) return null;
   const database = process.env["SYNC_DB_NAME"];
@@ -73,6 +80,127 @@ export function syncSettings(): SyncSettings | null {
     password: process.env["SYNC_DB_PASSWORD"] ?? "",
     database,
   };
+}
+
+/** Per-installation encryption key derived from a stable machine fingerprint. */
+function getEncryptionKey(): Buffer {
+  // In a real deployment you might use a hardware-backed key.
+  // Here we derive from a stable file that exists on the machine.
+  const crypto = require("node:crypto");
+  const fs = require("node:fs");
+  const path = require("node:path");
+  const os = require("node:os");
+
+  // Use a combination of machine-id and a fixed salt
+  const machineIdPath = path.join(os.homedir(), ".attendance-sync-key");
+  let machineId: string;
+  if (fs.existsSync(machineIdPath)) {
+    machineId = fs.readFileSync(machineIdPath, "utf8").trim();
+  } else {
+    machineId = randomBytes(32).toString("hex");
+    fs.writeFileSync(machineIdPath, machineId, { mode: 0o600 });
+  }
+  // Derive a 32-byte key using scrypt
+  return scryptSync(machineId, "attendance-sync-salt", 32);
+}
+
+/** Encrypt a string for storage. Returns base64(iv + ciphertext). */
+function encryptPassword(plaintext: string): string {
+  if (!plaintext) return "";
+  const key = getEncryptionKey();
+  const iv = randomBytes(16);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const ciphertext = Buffer.concat([cipher.update(plaintext, "utf8"), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  // Store as: iv (16) + ciphertext + authTag (16), all base64
+  return Buffer.concat([iv, ciphertext, authTag]).toString("base64");
+}
+
+/** Decrypt a stored password. Returns empty string on failure. */
+function decryptPassword(encrypted: string): string {
+  if (!encrypted) return "";
+  try {
+    const key = getEncryptionKey();
+    const data = Buffer.from(encrypted, "base64");
+    if (data.length < 16 + 16) return ""; // iv + authTag minimum
+    const iv = data.subarray(0, 16);
+    const authTag = data.subarray(data.length - 16);
+    const ciphertext = data.subarray(16, data.length - 16);
+    const decipher = createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(authTag);
+    const plaintext = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+    return plaintext.toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
+/** Read sync settings from the local database. */
+export async function getSyncSettingsFromDB(): Promise<SyncSettings | null> {
+  try {
+    const row = await queryOne<{
+      host: string;
+      port: number;
+      user: string;
+      password_enc: string;
+      database: string;
+    }>("SELECT host, port, user, password_enc, database FROM sync_settings WHERE id = 1");
+    if (!row) return null;
+    if (!row.host || !row.database) return null;
+    return {
+      host: row.host,
+      port: row.port,
+      user: row.user,
+      password: decryptPassword(row.password_enc),
+      database: row.database,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Save sync settings to the local database (password encrypted). */
+export function setSyncSettings(input: {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+}): void {
+  transaction(async () => {
+    await query(
+      `UPDATE sync_settings SET host = ?, port = ?, user = ?, password_enc = ?, database = ?, updated_at = ? WHERE id = 1`,
+      [input.host, input.port, input.user, encryptPassword(input.password), input.database, new Date().toISOString().slice(0, 19).replace("T", " ")],
+    );
+  });
+}
+
+/** Test a connection to the hub without saving. */
+export async function testSyncConnection(input: {
+  host: string;
+  port: number;
+  user: string;
+  password: string;
+  database: string;
+}): Promise<{ ok: boolean; message: string }> {
+  const { createPool } = require("mysql2/promise");
+  let pool;
+  try {
+    pool = createPool({
+      host: input.host,
+      port: input.port,
+      user: input.user,
+      password: input.password,
+      database: input.database,
+      connectTimeout: 5000,
+    });
+    await pool.query("SELECT 1");
+    await pool.end();
+    return { ok: true, message: "Connection successful" };
+  } catch (e: any) {
+    if (pool) await pool.end().catch(() => {});
+    return { ok: false, message: e.message ?? "Connection failed" };
+  }
 }
 
 /**
@@ -770,8 +898,9 @@ export async function closeHubPool(): Promise<void> {
   syncStore.__attendanceSyncPool = undefined;
 }
 
-export function syncStatus(): { configured: boolean } {
-  return { configured: syncSettings() !== null };
+export async function syncStatus(): Promise<{ configured: boolean }> {
+  const settings = await syncSettings();
+  return { configured: settings !== null };
 }
 
 /**
@@ -779,7 +908,7 @@ export function syncStatus(): { configured: boolean } {
  * hub is not configured or cannot be reached, so the API can answer honestly.
  */
 export async function runSync(): Promise<SyncResult> {
-  const settings = syncSettings();
+  const settings = await syncSettings();
   if (!settings) {
     throw new HttpError(
       503,

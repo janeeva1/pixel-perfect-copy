@@ -37,7 +37,6 @@ import { Route as AuthenticatedStudentEventsEventIdRouteImport } from './routes/
 import { Route as ApiAdminClearAllRouteImport } from './routes/api/admin/clear-all'
 import { Route as ApiAdminClearEventsRouteImport } from './routes/api/admin/clear-events'
 import { Route as ApiAdminMassWeekdaysRouteImport } from './routes/api/admin/mass-weekdays'
-import { Route as ApiAdminSyncRouteImport } from './routes/api/admin/sync'
 import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
 import { Route as ApiAuthSigninRouteImport } from './routes/api/auth/signin'
 import { Route as ApiAuthSignoutRouteImport } from './routes/api/auth/signout'
@@ -69,6 +68,9 @@ import { Route as ApiUsersRolesRouteImport } from './routes/api/users/roles'
 import { Route as AuthenticatedMassWeekIdIndexRouteImport } from './routes/_authenticated/mass/$weekId/index'
 import { Route as AuthenticatedMassWeekIdReportsRouteImport } from './routes/_authenticated/mass/$weekId/reports'
 import { Route as ApiAdminMassWeekdaysAssignmentIdRouteImport } from './routes/api/admin/mass-weekdays/$assignmentId'
+import { Route as ApiAdminSyncIndexRouteImport } from './routes/api/admin/sync/index'
+import { Route as ApiAdminSyncSettingsRouteImport } from './routes/api/admin/sync/settings'
+import { Route as ApiAdminSyncTestRouteImport } from './routes/api/admin/sync/test'
 import { Route as ApiMassWeeksIndexRouteImport } from './routes/api/mass/weeks/index'
 import { Route as ApiMassWeeksWeekIdRouteImport } from './routes/api/mass/weeks/$weekId'
 import { Route as ApiRecurringTemplateIdGenerateRouteImport } from './routes/api/recurring/$templateId/generate'
@@ -232,11 +234,6 @@ const ApiAdminMassWeekdaysRoute = ApiAdminMassWeekdaysRouteImport.update({
   path: '/api/admin/mass-weekdays',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiAdminSyncRoute = ApiAdminSyncRouteImport.update({
-  id: '/api/admin/sync',
-  path: '/api/admin/sync',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const ApiAuthMeRoute = ApiAuthMeRouteImport.update({
   id: '/api/auth/me',
   path: '/api/auth/me',
@@ -395,6 +392,21 @@ const ApiAdminMassWeekdaysAssignmentIdRoute =
     path: '/$assignmentId',
     getParentRoute: () => ApiAdminMassWeekdaysRoute,
   } as any)
+const ApiAdminSyncIndexRoute = ApiAdminSyncIndexRouteImport.update({
+  id: '/api/admin/sync/',
+  path: '/api/admin/sync/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminSyncSettingsRoute = ApiAdminSyncSettingsRouteImport.update({
+  id: '/api/admin/sync/settings',
+  path: '/api/admin/sync/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiAdminSyncTestRoute = ApiAdminSyncTestRouteImport.update({
+  id: '/api/admin/sync/test',
+  path: '/api/admin/sync/test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiMassWeeksIndexRoute = ApiMassWeeksIndexRouteImport.update({
   id: '/api/mass/weeks/',
   path: '/api/mass/weeks/',
@@ -508,7 +520,6 @@ export interface FileRoutesByFullPath {
   '/api/admin/clear-all': typeof ApiAdminClearAllRoute
   '/api/admin/clear-events': typeof ApiAdminClearEventsRoute
   '/api/admin/mass-weekdays': typeof ApiAdminMassWeekdaysRouteWithChildren
-  '/api/admin/sync': typeof ApiAdminSyncRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/signin': typeof ApiAuthSigninRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
@@ -542,6 +553,8 @@ export interface FileRoutesByFullPath {
   '/api/users/': typeof ApiUsersIndexRoute
   '/mass/$weekId/reports': typeof AuthenticatedMassWeekIdReportsRoute
   '/api/admin/mass-weekdays/$assignmentId': typeof ApiAdminMassWeekdaysAssignmentIdRoute
+  '/api/admin/sync/settings': typeof ApiAdminSyncSettingsRoute
+  '/api/admin/sync/test': typeof ApiAdminSyncTestRoute
   '/api/mass/weeks/$weekId': typeof ApiMassWeeksWeekIdRouteWithChildren
   '/api/recurring/$templateId/generate': typeof ApiRecurringTemplateIdGenerateRoute
   '/api/staff-events/$eventId/export': typeof ApiStaffEventsEventIdExportRoute
@@ -551,6 +564,7 @@ export interface FileRoutesByFullPath {
   '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
   '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
   '/mass/$weekId/': typeof AuthenticatedMassWeekIdIndexRoute
+  '/api/admin/sync/': typeof ApiAdminSyncIndexRoute
   '/api/mass/weeks/': typeof ApiMassWeeksIndexRoute
   '/api/mass/weeks/$weekId/report': typeof ApiMassWeeksWeekIdReportRoute
   '/api/mass/weeks/$weekId/reset': typeof ApiMassWeeksWeekIdResetRoute
@@ -584,7 +598,6 @@ export interface FileRoutesByTo {
   '/api/admin/clear-all': typeof ApiAdminClearAllRoute
   '/api/admin/clear-events': typeof ApiAdminClearEventsRoute
   '/api/admin/mass-weekdays': typeof ApiAdminMassWeekdaysRouteWithChildren
-  '/api/admin/sync': typeof ApiAdminSyncRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/signin': typeof ApiAuthSigninRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
@@ -618,6 +631,8 @@ export interface FileRoutesByTo {
   '/api/users': typeof ApiUsersIndexRoute
   '/mass/$weekId/reports': typeof AuthenticatedMassWeekIdReportsRoute
   '/api/admin/mass-weekdays/$assignmentId': typeof ApiAdminMassWeekdaysAssignmentIdRoute
+  '/api/admin/sync/settings': typeof ApiAdminSyncSettingsRoute
+  '/api/admin/sync/test': typeof ApiAdminSyncTestRoute
   '/api/mass/weeks/$weekId': typeof ApiMassWeeksWeekIdRouteWithChildren
   '/api/recurring/$templateId/generate': typeof ApiRecurringTemplateIdGenerateRoute
   '/api/staff-events/$eventId/export': typeof ApiStaffEventsEventIdExportRoute
@@ -627,6 +642,7 @@ export interface FileRoutesByTo {
   '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
   '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
   '/mass/$weekId': typeof AuthenticatedMassWeekIdIndexRoute
+  '/api/admin/sync': typeof ApiAdminSyncIndexRoute
   '/api/mass/weeks': typeof ApiMassWeeksIndexRoute
   '/api/mass/weeks/$weekId/report': typeof ApiMassWeeksWeekIdReportRoute
   '/api/mass/weeks/$weekId/reset': typeof ApiMassWeeksWeekIdResetRoute
@@ -662,7 +678,6 @@ export interface FileRoutesById {
   '/api/admin/clear-all': typeof ApiAdminClearAllRoute
   '/api/admin/clear-events': typeof ApiAdminClearEventsRoute
   '/api/admin/mass-weekdays': typeof ApiAdminMassWeekdaysRouteWithChildren
-  '/api/admin/sync': typeof ApiAdminSyncRoute
   '/api/auth/me': typeof ApiAuthMeRoute
   '/api/auth/signin': typeof ApiAuthSigninRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
@@ -696,6 +711,8 @@ export interface FileRoutesById {
   '/api/users/': typeof ApiUsersIndexRoute
   '/_authenticated/mass/$weekId/reports': typeof AuthenticatedMassWeekIdReportsRoute
   '/api/admin/mass-weekdays/$assignmentId': typeof ApiAdminMassWeekdaysAssignmentIdRoute
+  '/api/admin/sync/settings': typeof ApiAdminSyncSettingsRoute
+  '/api/admin/sync/test': typeof ApiAdminSyncTestRoute
   '/api/mass/weeks/$weekId': typeof ApiMassWeeksWeekIdRouteWithChildren
   '/api/recurring/$templateId/generate': typeof ApiRecurringTemplateIdGenerateRoute
   '/api/staff-events/$eventId/export': typeof ApiStaffEventsEventIdExportRoute
@@ -705,6 +722,7 @@ export interface FileRoutesById {
   '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
   '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
   '/_authenticated/mass/$weekId/': typeof AuthenticatedMassWeekIdIndexRoute
+  '/api/admin/sync/': typeof ApiAdminSyncIndexRoute
   '/api/mass/weeks/': typeof ApiMassWeeksIndexRoute
   '/api/mass/weeks/$weekId/report': typeof ApiMassWeeksWeekIdReportRoute
   '/api/mass/weeks/$weekId/reset': typeof ApiMassWeeksWeekIdResetRoute
@@ -740,7 +758,6 @@ export interface FileRouteTypes {
     | '/api/admin/clear-all'
     | '/api/admin/clear-events'
     | '/api/admin/mass-weekdays'
-    | '/api/admin/sync'
     | '/api/auth/me'
     | '/api/auth/signin'
     | '/api/auth/signout'
@@ -774,6 +791,8 @@ export interface FileRouteTypes {
     | '/api/users/'
     | '/mass/$weekId/reports'
     | '/api/admin/mass-weekdays/$assignmentId'
+    | '/api/admin/sync/settings'
+    | '/api/admin/sync/test'
     | '/api/mass/weeks/$weekId'
     | '/api/recurring/$templateId/generate'
     | '/api/staff-events/$eventId/export'
@@ -783,6 +802,7 @@ export interface FileRouteTypes {
     | '/api/student-events/$eventId/status'
     | '/api/student-events/$eventId/uploads'
     | '/mass/$weekId/'
+    | '/api/admin/sync/'
     | '/api/mass/weeks/'
     | '/api/mass/weeks/$weekId/report'
     | '/api/mass/weeks/$weekId/reset'
@@ -816,7 +836,6 @@ export interface FileRouteTypes {
     | '/api/admin/clear-all'
     | '/api/admin/clear-events'
     | '/api/admin/mass-weekdays'
-    | '/api/admin/sync'
     | '/api/auth/me'
     | '/api/auth/signin'
     | '/api/auth/signout'
@@ -850,6 +869,8 @@ export interface FileRouteTypes {
     | '/api/users'
     | '/mass/$weekId/reports'
     | '/api/admin/mass-weekdays/$assignmentId'
+    | '/api/admin/sync/settings'
+    | '/api/admin/sync/test'
     | '/api/mass/weeks/$weekId'
     | '/api/recurring/$templateId/generate'
     | '/api/staff-events/$eventId/export'
@@ -859,6 +880,7 @@ export interface FileRouteTypes {
     | '/api/student-events/$eventId/status'
     | '/api/student-events/$eventId/uploads'
     | '/mass/$weekId'
+    | '/api/admin/sync'
     | '/api/mass/weeks'
     | '/api/mass/weeks/$weekId/report'
     | '/api/mass/weeks/$weekId/reset'
@@ -893,7 +915,6 @@ export interface FileRouteTypes {
     | '/api/admin/clear-all'
     | '/api/admin/clear-events'
     | '/api/admin/mass-weekdays'
-    | '/api/admin/sync'
     | '/api/auth/me'
     | '/api/auth/signin'
     | '/api/auth/signout'
@@ -927,6 +948,8 @@ export interface FileRouteTypes {
     | '/api/users/'
     | '/_authenticated/mass/$weekId/reports'
     | '/api/admin/mass-weekdays/$assignmentId'
+    | '/api/admin/sync/settings'
+    | '/api/admin/sync/test'
     | '/api/mass/weeks/$weekId'
     | '/api/recurring/$templateId/generate'
     | '/api/staff-events/$eventId/export'
@@ -936,6 +959,7 @@ export interface FileRouteTypes {
     | '/api/student-events/$eventId/status'
     | '/api/student-events/$eventId/uploads'
     | '/_authenticated/mass/$weekId/'
+    | '/api/admin/sync/'
     | '/api/mass/weeks/'
     | '/api/mass/weeks/$weekId/report'
     | '/api/mass/weeks/$weekId/reset'
@@ -958,7 +982,6 @@ export interface RootRouteChildren {
   ApiAdminClearAllRoute: typeof ApiAdminClearAllRoute
   ApiAdminClearEventsRoute: typeof ApiAdminClearEventsRoute
   ApiAdminMassWeekdaysRoute: typeof ApiAdminMassWeekdaysRouteWithChildren
-  ApiAdminSyncRoute: typeof ApiAdminSyncRoute
   ApiAuthMeRoute: typeof ApiAuthMeRoute
   ApiAuthSigninRoute: typeof ApiAuthSigninRoute
   ApiAuthSignoutRoute: typeof ApiAuthSignoutRoute
@@ -987,7 +1010,10 @@ export interface RootRouteChildren {
   ApiStudentEventsIndexRoute: typeof ApiStudentEventsIndexRoute
   ApiStudentsIndexRoute: typeof ApiStudentsIndexRoute
   ApiUsersIndexRoute: typeof ApiUsersIndexRoute
+  ApiAdminSyncSettingsRoute: typeof ApiAdminSyncSettingsRoute
+  ApiAdminSyncTestRoute: typeof ApiAdminSyncTestRoute
   ApiMassWeeksWeekIdRoute: typeof ApiMassWeeksWeekIdRouteWithChildren
+  ApiAdminSyncIndexRoute: typeof ApiAdminSyncIndexRoute
   ApiMassWeeksIndexRoute: typeof ApiMassWeeksIndexRoute
 }
 
@@ -1187,13 +1213,6 @@ declare module '@tanstack/react-router' {
       path: '/api/admin/mass-weekdays'
       fullPath: '/api/admin/mass-weekdays'
       preLoaderRoute: typeof ApiAdminMassWeekdaysRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/api/admin/sync': {
-      id: '/api/admin/sync'
-      path: '/api/admin/sync'
-      fullPath: '/api/admin/sync'
-      preLoaderRoute: typeof ApiAdminSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/auth/me': {
@@ -1412,6 +1431,27 @@ declare module '@tanstack/react-router' {
       fullPath: '/api/admin/mass-weekdays/$assignmentId'
       preLoaderRoute: typeof ApiAdminMassWeekdaysAssignmentIdRouteImport
       parentRoute: typeof ApiAdminMassWeekdaysRoute
+    }
+    '/api/admin/sync/': {
+      id: '/api/admin/sync/'
+      path: '/api/admin/sync'
+      fullPath: '/api/admin/sync/'
+      preLoaderRoute: typeof ApiAdminSyncIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/sync/settings': {
+      id: '/api/admin/sync/settings'
+      path: '/api/admin/sync/settings'
+      fullPath: '/api/admin/sync/settings'
+      preLoaderRoute: typeof ApiAdminSyncSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/sync/test': {
+      id: '/api/admin/sync/test'
+      path: '/api/admin/sync/test'
+      fullPath: '/api/admin/sync/test'
+      preLoaderRoute: typeof ApiAdminSyncTestRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/mass/weeks/': {
       id: '/api/mass/weeks/'
@@ -1661,7 +1701,6 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminClearAllRoute: ApiAdminClearAllRoute,
   ApiAdminClearEventsRoute: ApiAdminClearEventsRoute,
   ApiAdminMassWeekdaysRoute: ApiAdminMassWeekdaysRouteWithChildren,
-  ApiAdminSyncRoute: ApiAdminSyncRoute,
   ApiAuthMeRoute: ApiAuthMeRoute,
   ApiAuthSigninRoute: ApiAuthSigninRoute,
   ApiAuthSignoutRoute: ApiAuthSignoutRoute,
@@ -1690,7 +1729,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStudentEventsIndexRoute: ApiStudentEventsIndexRoute,
   ApiStudentsIndexRoute: ApiStudentsIndexRoute,
   ApiUsersIndexRoute: ApiUsersIndexRoute,
+  ApiAdminSyncSettingsRoute: ApiAdminSyncSettingsRoute,
+  ApiAdminSyncTestRoute: ApiAdminSyncTestRoute,
   ApiMassWeeksWeekIdRoute: ApiMassWeeksWeekIdRouteWithChildren,
+  ApiAdminSyncIndexRoute: ApiAdminSyncIndexRoute,
   ApiMassWeeksIndexRoute: ApiMassWeeksIndexRoute,
 }
 export const routeTree = rootRouteImport

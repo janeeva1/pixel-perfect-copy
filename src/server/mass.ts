@@ -294,6 +294,72 @@ export async function deleteWeekdayAssignment(
   });
 }
 
+/**
+ * Ensure every department that appears in the live staff roster has a row in
+ * mass_department_weekdays. Departments already present are untouched (an
+ * administrator may have moved them). New departments are assigned to the next
+ * free weekday (Mon=1..Fri=5, cycling), so they immediately become expected at
+ * Community Mass.
+ *
+ * Called automatically after staff import and when a staff member's department
+ * changes. Also exposed as a manual "Sync Weekdays" action for administrators.
+ */
+export async function syncMassWeekdays(actorId: string): Promise<{
+  added: number;
+  skipped: number;
+  departments: Array<{ department: string; day: number }>;
+}> {
+  const stamp = utcStamp();
+
+  // All distinct departments currently on staff (from staffDepartmentSql)
+  const staffDepts = await query<RowDataPacket & { department: string }>(
+    `SELECT DISTINCT ${staffDepartmentSql("f")} AS department
+       FROM staff f
+       WHERE ${staffDepartmentSql("f")} IS NOT NULL
+       ORDER BY department`,
+  );
+
+  // Existing assignments
+  const existing = await query<RowDataPacket & { department_code: string; day_of_week: number }>(
+    "SELECT department_code, day_of_week FROM mass_department_weekdays WHERE is_active = 1",
+  );
+  const existingByDept = new Map(existing.map((r) => [r.department_code.trim().toLowerCase(), r.day_of_week]));
+
+  // Find next free weekday (1..5, cycling)
+  const daysUsed = Array.from(existingByDept.values());
+  let nextDay = 1;
+  while (daysUsed.includes(nextDay)) nextDay = (nextDay % 5) + 1;
+
+  const added: Array<{ department: string; day: number }> = [];
+  let skipped = 0;
+
+  await transaction(async (connection) => {
+    for (const row of staffDepts) {
+      const dept = row.department.trim();
+      const key = dept.toLowerCase();
+      if (existingByDept.has(key)) {
+        skipped++;
+        continue;
+      }
+      const id = randomUUID();
+      await connection.execute(
+        `INSERT INTO mass_department_weekdays (id, department_code, day_of_week, is_active, created_by, created_at, updated_at)
+         VALUES (?, ?, ?, 1, ?, ?, ?)`,
+        [id, dept, nextDay, actorId, stamp, stamp],
+      );
+      await audit(actorId, "mass_weekday.synced", "mass_department_weekdays", id, {
+        departmentCode: dept,
+        dayOfWeek: nextDay,
+      });
+      added.push({ department: dept, day: nextDay });
+      existingByDept.set(key, nextDay);
+      nextDay = (nextDay % 5) + 1;
+    }
+  });
+
+  return { added: added.length, skipped, departments: added };
+}
+
 // Weeks ----------------------------------------------------------------------
 
 function mapWeek(row: WeekRow, weekdays: number[]): MassWeek {

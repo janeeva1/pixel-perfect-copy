@@ -79,8 +79,9 @@ describe("migrations", () => {
       "005_weekly_mass.sql",
       "006_student_department_marital.sql",
       "007_seed_mass_weekdays.sql",
+      "008_staff_machine_id.sql",
     ]);
-    assert.equal(result.version, 7);
+    assert.equal(result.version, 8);
 
     const tables = (
       getDb()
@@ -140,7 +141,7 @@ describe("migrations", () => {
   it("is not applied twice, so a second run is a no-op", () => {
     const result = migrate();
     assert.deepEqual(result.applied, []);
-    assert.equal(result.version, 7);
+    assert.equal(result.version, 8);
   });
 
   it("seeds every staff department with one weekday assignment", () => {

@@ -63,6 +63,7 @@ export type Staff = {
   faculty: string | null;
   department: string | null;
   admin_department: string | null;
+  machine_id: string | null;
 };
 
 export type StudentList = {

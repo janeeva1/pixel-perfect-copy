@@ -135,10 +135,16 @@ CREATE TABLE IF NOT EXISTS staff (
   faculty VARCHAR(120) NULL,
   department VARCHAR(120) NULL,
   admin_department VARCHAR(120) NULL,
+  -- The number the attendance machine prints for this person, from the
+  -- registrar's staff file. Not unique: the machine prints the same number for
+  -- two people, and the name on the scan separates them (see
+  -- src/server/masters.ts, staffScanNumberSql()).
+  machine_id VARCHAR(64) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
   PRIMARY KEY (id),
-  UNIQUE KEY staff_no_unique (staff_no)
+  UNIQUE KEY staff_no_unique (staff_no),
+  KEY staff_machine_id_idx (machine_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Student events ---------------------------------------------------------
@@ -914,6 +920,12 @@ ALTER TABLE user_roles ADD COLUMN IF NOT EXISTS updated_at DATETIME(3) NOT NULL 
 -- only (src/server/mass.ts); weekday Mass is unchanged.
 ALTER TABLE students ADD COLUMN IF NOT EXISTS department VARCHAR(120) NULL;
 ALTER TABLE students ADD COLUMN IF NOT EXISTS marital_status VARCHAR(32) NULL;
+
+-- The number the attendance machine prints for a member of staff, from the
+-- registrar's staff file. Stored rather than derived so a change of staff number
+-- cannot change who a scan means; matching falls back to the digits of staff_no
+-- for rows the file does not cover.
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS machine_id VARCHAR(64) NULL;
 
 -- Widen the department columns from the old 32-character limit (sized for the
 -- short codes CSC, ECO, ...) to hold the registrar's full names, the longest of

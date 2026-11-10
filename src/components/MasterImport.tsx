@@ -17,6 +17,7 @@ type MappedRow = {
   faculty?: string | null;
   department?: string | null;
   adminDepartment?: string | null;
+  machineId?: string | null;
   level?: string | null;
   maritalStatus?: string | null;
 };
@@ -104,13 +105,23 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
                 maritalStatus: pick(row, "marital_status", "maritalStatus", "marital") || null,
               }
             : {
-                staffNo: pick(row, "staff_no", "staffNo", "staff", "Staff No") || null,
+                staffNo:
+                  pick(row, "staff_no", "staffNo", "staff", "Staff No", "Staff Number") || null,
                 lastName: pick(row, "lname", "last_name", "surname") || null,
                 firstName: pick(row, "fname", "first_name") || null,
                 middleName: pick(row, "mname", "middle_name") || null,
                 faculty: pick(row, "faculty", "fac") || null,
                 department: pick(row, "department", "dept", "dept_name") || null,
                 adminDepartment: pick(row, "admin_department", "admin_dept", "admindept") || null,
+                machineId:
+                  pick(
+                    row,
+                    "Staff_ID_on_machine",
+                    "staff_id_on_machine",
+                    "machine_id",
+                    "machineId",
+                    "machine",
+                  ) || null,
               },
         )
         // Staff rows are not filtered: the two staff whose file has no staff

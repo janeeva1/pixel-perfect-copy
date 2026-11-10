@@ -149,9 +149,14 @@ CREATE TABLE IF NOT EXISTS staff (
   faculty VARCHAR(120) NULL,
   department VARCHAR(120) NULL,
   admin_department VARCHAR(120) NULL,
+  machine_id VARCHAR(64) NULL,
   created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- A hub created before the staff machine ID was kept would otherwise reject the
+-- rows a device pushes with that column.
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS machine_id VARCHAR(64) NULL;
 
 CREATE TABLE IF NOT EXISTS student_events (
   id CHAR(36) NOT NULL PRIMARY KEY,

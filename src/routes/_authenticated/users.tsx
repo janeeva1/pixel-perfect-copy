@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useSession } from "@/lib/useAuth";
 import type { AppRole } from "@/lib/types";
@@ -57,6 +58,16 @@ function UsersPage() {
       toast.error(error instanceof Error ? error.message : "Could not change that role"),
   });
 
+  const deleteUser = useMutation({
+    mutationFn: (userId: string) => api.deleteUser(userId),
+    onSuccess: () => {
+      toast.success("User deleted.");
+      queryClient.invalidateQueries({ queryKey: ["users"] });
+    },
+    onError: (error) =>
+      toast.error(error instanceof Error ? error.message : "Could not delete that user"),
+  });
+
   return (
     <div className="mx-auto max-w-5xl space-y-6">
       <header>
@@ -76,6 +87,7 @@ function UsersPage() {
                 <th className="p-3">Name</th>
                 <th className="p-3">Role</th>
                 <th className="p-3">Created</th>
+                <th className="p-3">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -121,6 +133,29 @@ function UsersPage() {
                         <Loader2 className="size-4 animate-spin" />
                       ) : (
                         new Date(row.createdAt).toLocaleDateString()
+                      )}
+                    </td>
+                    <td className="p-3">
+                      {isSelf ? (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      ) : (
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={() => {
+                            if (
+                              window.confirm(
+                                `Delete ${row.email}? This cannot be undone.`,
+                              )
+                            ) {
+                              deleteUser.mutate(row.id);
+                            }
+                          }}
+                          disabled={deleteUser.isPending}
+                        >
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          {deleteUser.isPending ? "Deleting…" : "Delete"}
+                        </Button>
                       )}
                     </td>
                   </tr>

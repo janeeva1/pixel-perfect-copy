@@ -192,6 +192,7 @@ export type ImportStaffInput = {
     faculty?: string | null;
     department?: string | null;
     adminDepartment?: string | null;
+    machineId?: string | null;
   }>;
 };
 
@@ -216,6 +217,7 @@ export type StaffEditInput = {
   faculty?: string | null;
   department?: string | null;
   adminDepartment?: string | null;
+  machineId?: string | null;
 };
 
 export const api = {
@@ -262,6 +264,11 @@ export const api = {
     request<{ departments: StaffDepartmentOption[]; unassigned: number }>("/api/staff-departments"),
   massDepartments: () =>
     request<Array<{ department: string; day: number }>>("/api/mass/departments"),
+  syncMassWeekdays: () =>
+    request<{ added: number; skipped: number; departments: Array<{ department: string; day: number }> }>(
+      "/api/mass/sync-weekdays",
+      { method: "POST" },
+    ),
   importStudents: (input: ImportStudentsInput) => post<ImportResult>("/api/students/import", input),
   importStaff: (input: ImportStaffInput) => post<ImportResult>("/api/staff/import", input),
   updateStudent: (studentId: string, input: StudentEditInput) =>
@@ -312,6 +319,8 @@ export const api = {
     `/api/reports/staff${search({ ...params, format: "csv" })}`,
 
   users: () => request<{ users: AppUser[] }>("/api/users"),
+  deleteUser: (userId: string) =>
+    request<{ ok: boolean }>(`/api/users`, { method: "DELETE", body: JSON.stringify({ userId }) }),
   setUserRole: (userId: string, role: AppRole) =>
     post<{ role: AppRole }>("/api/users/roles", { userId, role }),
 

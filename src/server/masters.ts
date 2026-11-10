@@ -23,7 +23,7 @@ import type {
   StaffScope,
 } from "@/lib/types";
 import { HttpError } from "@/server/http";
-import { refreshMassExpectations } from "@/server/mass";
+import { refreshMassExpectations, syncMassWeekdays } from "@/server/mass";
 
 /**
  * The two master tables hold exactly what the registrar's files hold. Everything
@@ -63,6 +63,7 @@ export type StaffInput = {
   faculty: string | null;
   department: string | null;
   adminDepartment: string | null;
+  machineId: string | null;
 };
 
 type CountRow = RowDataPacket & { total: number };
@@ -159,17 +160,22 @@ export function studentScanNumberSql(alias = "s"): string {
 }
 
 /**
- * The number the machine prints for a member of staff, which is the digits of
- * the staff number: "SA 1188" -> 1188. Verified against the machine exports:
- * of the scans that no student matric number explains, 170 of 187 carry the
- * digits of a staff number in the file.
+ * The number the machine prints for a member of staff: the ID the registrar's
+ * staff file records in its "Staff_ID_on_machine" column ("SA 1188" -> 1188).
  *
- * Deriving it means 62 staff numbers whose digits collide ("497" belongs to two
- * people) have to be told apart by name. matchScanNumber() does that, and
- * leaves the rest unresolved rather than picking one.
+ * The stored `machine_id` comes first because it is the file's own value and a
+ * change of staff number must not change who a scan means. Rows the roster does
+ * not cover have no machine ID and fall back to the digits of the staff number,
+ * which is exactly how every scan was matched before the column existed.
+ *
+ * Verified against the machine exports: of the scans that no student matric
+ * number explains, 170 of 187 carry the digits of a staff number in the file.
+ * The digits still collide for two people in the roster ("39" and "65"), and
+ * matchRow() tells those apart by name, leaving the rest unresolved rather than
+ * picking one.
  */
 export function staffScanNumberSql(alias = "f"): string {
-  return `NULLIF(REGEXP_REPLACE(${alias}.staff_no, '[^0-9]', ''), '')`;
+  return `COALESCE(NULLIF(TRIM(${alias}.machine_id), ''), NULLIF(REGEXP_REPLACE(${alias}.staff_no, '[^0-9]', ''), ''))`;
 }
 
 // Scopes ------------------------------------------------------------------
@@ -229,7 +235,7 @@ export function normalizeScopeList(values: unknown): string[] {
   return out;
 }
 
-async function audit(
+export async function audit(
   connection: DbConnection,
   actorId: string,
   action: string,
@@ -335,6 +341,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
     faculty: nullIfBlank(record.faculty),
     department: nullIfBlank(record.department),
     adminDepartment: nullIfBlank(record.adminDepartment),
+    machineId: nullIfBlank(record.machineId),
   }));
 
   const keyed = parsed.filter((record) => record.staffNo !== null);
@@ -357,13 +364,14 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
           record.faculty,
           record.department,
           record.adminDepartment,
+          record.machineId,
           utcStamp(),
         );
       }
 
       await connection.query(
-        `INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, updated_at)
-         VALUES ${placeholders(batch.length, 9)}
+        `INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, machine_id, updated_at)
+         VALUES ${placeholders(batch.length, 10)}
          ${dialect.upsert("staff_no", [
            "last_name",
            "first_name",
@@ -371,6 +379,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
            "faculty",
            "department",
            "admin_department",
+           "machine_id",
            "updated_at",
          ])}`,
         values,
@@ -388,7 +397,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
         [name],
       );
       await connection.query(
-        "INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, updated_at) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, machine_id, updated_at) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
           randomUUID(),
           record.lastName,
@@ -397,6 +406,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
           record.faculty,
           record.department,
           record.adminDepartment,
+          record.machineId,
           utcStamp(),
         ],
       );
@@ -407,6 +417,9 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
     await audit(connection, actorId, "staff.imported", "staff", { saved, skipped });
     return { saved, skipped };
   });
+
+  // Ensure any new departments from this import get a weekday assignment
+  await syncMassWeekdays(actorId);
 }
 
 // Editing a person ------------------------------------------------------------
@@ -428,6 +441,7 @@ export type StaffEdit = {
   faculty?: string | null | undefined;
   department?: string | null | undefined;
   adminDepartment?: string | null | undefined;
+  machineId?: string | null | undefined;
 };
 
 /**
@@ -528,6 +542,7 @@ export async function updateStaff(
     "admin_department",
     input.adminDepartment === undefined ? undefined : nullIfBlank(input.adminDepartment),
   );
+  push("machine_id", input.machineId === undefined ? undefined : nullIfBlank(input.machineId));
   if (sets.length === 0) return { staleWeeks: [] };
 
   sets.push("updated_at = ?");
@@ -555,6 +570,7 @@ export async function updateStaff(
 
   if (input.department === undefined) return { staleWeeks: [] };
   const refreshed = await refreshMassExpectations("staff");
+  await syncMassWeekdays(actorId);
   return { staleWeeks: refreshed.stale };
 }
 
@@ -648,6 +664,7 @@ type StaffRow = RowDataPacket &
     faculty: string | null;
     department: string | null;
     admin_department: string | null;
+    machine_id: string | null;
   };
 
 export async function listStaff(input: StaffListQuery): Promise<StaffList> {
@@ -680,7 +697,7 @@ export async function listStaff(input: StaffListQuery): Promise<StaffList> {
   const [rows, totalRow, withNoRow] = await Promise.all([
     query<StaffRow>(
       `SELECT f.id, f.staff_no, f.last_name, f.first_name, f.middle_name,
-              ${staffNameSql()} AS full_name, f.faculty, f.department, f.admin_department
+              ${staffNameSql()} AS full_name, f.faculty, f.department, f.admin_department, f.machine_id
        FROM staff f
        WHERE ${filter}
        ORDER BY ${sortColumn} ${sortDir}

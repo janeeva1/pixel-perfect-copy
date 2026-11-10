@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,7 +16,7 @@ import { MasterEditDialog, type EditField } from "@/components/MasterEditDialog"
 import { api, type StaffListParams } from "@/lib/api";
 import { useRoles } from "@/lib/useAuth";
 import type { Staff } from "@/lib/types";
-import { Download, Pencil } from "lucide-react";
+import { Download, Pencil, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 export type StaffSearch = {
@@ -72,6 +72,18 @@ function StaffPage() {
 
   const [editing, setEditing] = useState<Staff | null>(null);
 
+  const syncWeekdays = useMutation({
+    mutationFn: () => api.syncMassWeekdays(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["mass-departments"] });
+      queryClient.invalidateQueries({ queryKey: ["staff-departments"] });
+      toast.success(
+        `Synced Mass weekdays: ${result.added} new department${result.added === 1 ? "" : "s"} assigned, ${result.skipped} already had one.`,
+      );
+    },
+    onError: (err) => toast.error((err as Error).message),
+  });
+
   function setFilter(next: Partial<StaffSearch>) {
     void navigate({ to: "/staff", search: { ...search, ...next } });
   }
@@ -126,6 +138,7 @@ function StaffPage() {
           options: departmentOptions,
           emptyLabel: "No admin department",
         },
+        { key: "machineId", label: "Machine ID", kind: "text", value: editing.machine_id },
       ]
     : [];
 
@@ -138,6 +151,7 @@ function StaffPage() {
       faculty: values["faculty"] ?? null,
       department: values["department"] ?? null,
       adminDepartment: values["adminDepartment"] ?? null,
+      machineId: values["machineId"] ?? null,
     });
     await queryClient.invalidateQueries({ queryKey: ["staff"] });
     await queryClient.invalidateQueries({ queryKey: ["staff-departments"] });
@@ -182,7 +196,7 @@ function StaffPage() {
       {canEdit ? (
         <Panel
           title="Import the staff list"
-          description="Machine scans are matched on the digits inside the staff number, whatever letters or spacing the file uses."
+          description="Machine scans are matched on the Machine ID from the registrar's file, or the digits of the staff number when the ID is absent."
         >
           <MasterImport group="staff" />
         </Panel>
@@ -196,6 +210,17 @@ function StaffPage() {
               <Download className="mr-2 h-4 w-4" />
               Download CSV
             </Button>
+            {canEdit ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => syncWeekdays.mutate()}
+                disabled={syncWeekdays.isPending}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                Sync Weekdays
+              </Button>
+            ) : null}
             <Input
               className="h-9 w-48"
               placeholder="Search name or staff no"
@@ -233,7 +258,14 @@ function StaffPage() {
                   key={person.id}
                   cells={[
                     person.full_name,
-                    <span className="font-mono text-xs">{person.staff_no ?? "—"}</span>,
+                    <span className="flex flex-col">
+                      <span className="font-mono text-xs">{person.staff_no ?? "—"}</span>
+                      {person.machine_id ? (
+                        <span className="text-[11px] text-muted-foreground">
+                          ID {person.machine_id}
+                        </span>
+                      ) : null}
+                    </span>,
                     person.faculty ?? "—",
                     person.department ?? "—",
                     person.admin_department ?? "—",

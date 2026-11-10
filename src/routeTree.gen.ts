@@ -47,6 +47,7 @@ import { Route as ApiDesktopReleaseRouteImport } from './routes/api/desktop/rele
 import { Route as ApiDownloadsPreviewRouteImport } from './routes/api/downloads/preview'
 import { Route as ApiDownloadsReportRouteImport } from './routes/api/downloads/report'
 import { Route as ApiMassDepartmentsRouteImport } from './routes/api/mass/departments'
+import { Route as ApiMassSyncWeekdaysRouteImport } from './routes/api/mass/sync-weekdays'
 import { Route as ApiRecurringIndexRouteImport } from './routes/api/recurring/index'
 import { Route as ApiRecurringTemplateIdRouteImport } from './routes/api/recurring/$templateId'
 import { Route as ApiReportsStaffRouteImport } from './routes/api/reports/staff'
@@ -281,6 +282,11 @@ const ApiMassDepartmentsRoute = ApiMassDepartmentsRouteImport.update({
   path: '/api/mass/departments',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiMassSyncWeekdaysRoute = ApiMassSyncWeekdaysRouteImport.update({
+  id: '/api/mass/sync-weekdays',
+  path: '/api/mass/sync-weekdays',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRecurringIndexRoute = ApiRecurringIndexRouteImport.update({
   id: '/api/recurring/',
   path: '/api/recurring/',
@@ -512,6 +518,7 @@ export interface FileRoutesByFullPath {
   '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
   '/api/downloads/report': typeof ApiDownloadsReportRoute
   '/api/mass/departments': typeof ApiMassDepartmentsRoute
+  '/api/mass/sync-weekdays': typeof ApiMassSyncWeekdaysRoute
   '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
   '/api/reports/staff': typeof ApiReportsStaffRoute
   '/api/reports/students': typeof ApiReportsStudentsRoute
@@ -587,6 +594,7 @@ export interface FileRoutesByTo {
   '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
   '/api/downloads/report': typeof ApiDownloadsReportRoute
   '/api/mass/departments': typeof ApiMassDepartmentsRoute
+  '/api/mass/sync-weekdays': typeof ApiMassSyncWeekdaysRoute
   '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
   '/api/reports/staff': typeof ApiReportsStaffRoute
   '/api/reports/students': typeof ApiReportsStudentsRoute
@@ -664,6 +672,7 @@ export interface FileRoutesById {
   '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
   '/api/downloads/report': typeof ApiDownloadsReportRoute
   '/api/mass/departments': typeof ApiMassDepartmentsRoute
+  '/api/mass/sync-weekdays': typeof ApiMassSyncWeekdaysRoute
   '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
   '/api/reports/staff': typeof ApiReportsStaffRoute
   '/api/reports/students': typeof ApiReportsStudentsRoute
@@ -741,6 +750,7 @@ export interface FileRouteTypes {
     | '/api/downloads/preview'
     | '/api/downloads/report'
     | '/api/mass/departments'
+    | '/api/mass/sync-weekdays'
     | '/api/recurring/$templateId'
     | '/api/reports/staff'
     | '/api/reports/students'
@@ -816,6 +826,7 @@ export interface FileRouteTypes {
     | '/api/downloads/preview'
     | '/api/downloads/report'
     | '/api/mass/departments'
+    | '/api/mass/sync-weekdays'
     | '/api/recurring/$templateId'
     | '/api/reports/staff'
     | '/api/reports/students'
@@ -892,6 +903,7 @@ export interface FileRouteTypes {
     | '/api/downloads/preview'
     | '/api/downloads/report'
     | '/api/mass/departments'
+    | '/api/mass/sync-weekdays'
     | '/api/recurring/$templateId'
     | '/api/reports/staff'
     | '/api/reports/students'
@@ -956,6 +968,7 @@ export interface RootRouteChildren {
   ApiDownloadsPreviewRoute: typeof ApiDownloadsPreviewRoute
   ApiDownloadsReportRoute: typeof ApiDownloadsReportRoute
   ApiMassDepartmentsRoute: typeof ApiMassDepartmentsRoute
+  ApiMassSyncWeekdaysRoute: typeof ApiMassSyncWeekdaysRoute
   ApiRecurringTemplateIdRoute: typeof ApiRecurringTemplateIdRouteWithChildren
   ApiReportsStaffRoute: typeof ApiReportsStaffRoute
   ApiReportsStudentsRoute: typeof ApiReportsStudentsRoute
@@ -1244,6 +1257,13 @@ declare module '@tanstack/react-router' {
       path: '/api/mass/departments'
       fullPath: '/api/mass/departments'
       preLoaderRoute: typeof ApiMassDepartmentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mass/sync-weekdays': {
+      id: '/api/mass/sync-weekdays'
+      path: '/api/mass/sync-weekdays'
+      fullPath: '/api/mass/sync-weekdays'
+      preLoaderRoute: typeof ApiMassSyncWeekdaysRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/recurring/': {
@@ -1651,6 +1671,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiDownloadsPreviewRoute: ApiDownloadsPreviewRoute,
   ApiDownloadsReportRoute: ApiDownloadsReportRoute,
   ApiMassDepartmentsRoute: ApiMassDepartmentsRoute,
+  ApiMassSyncWeekdaysRoute: ApiMassSyncWeekdaysRoute,
   ApiRecurringTemplateIdRoute: ApiRecurringTemplateIdRouteWithChildren,
   ApiReportsStaffRoute: ApiReportsStaffRoute,
   ApiReportsStudentsRoute: ApiReportsStudentsRoute,

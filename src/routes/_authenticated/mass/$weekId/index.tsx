@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,9 +19,11 @@ import {
   MASS_STATUS_LABELS,
   MASS_WEEKDAY_LABELS,
   type MassUploadParticipant,
+  type MassWeekParticipantType,
   type MassWeekStatus,
 } from "@/lib/types";
 import { useRoles } from "@/lib/useAuth";
+import { Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/mass/$weekId/")({
   component: MassWeekPage,
@@ -29,10 +31,17 @@ export const Route = createFileRoute("/_authenticated/mass/$weekId/")({
 
 const STATUS_FLOW: MassWeekStatus[] = ["draft", "active", "completed", "archived"];
 
+/** Plain words for what an upload to this week may contain. */
+function participantDescription(type: MassWeekParticipantType): string {
+  if (type === "staff") return "staff files only";
+  if (type === "students") return "student files only";
+  return "student files and staff files";
+}
+
 function MassWeekPage() {
   const { weekId } = Route.useParams();
   const queryClient = useQueryClient();
-  const { canEdit } = useRoles();
+  const { canEdit, isAdmin } = useRoles();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploadParticipant, setUploadParticipant] = useState<MassUploadParticipant>("student");
   const [uploadLevel, setUploadLevel] = useState("");
@@ -86,6 +95,15 @@ function MassWeekPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  const deleteWeek = useMutation({
+    mutationFn: () => api.mass.deleteWeek(weekId),
+    onSuccess: () => {
+      toast.success("Week deleted");
+      queryClient.invalidateQueries({ queryKey: ["mass-weeks"] });
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const upload = useMutation({
     mutationFn: async (file: File) => {
       const { rows: sheet } = await readSpreadsheet(file);
@@ -110,6 +128,22 @@ function MassWeekPage() {
     },
     onError: (e) => toast.error(e.message),
   });
+
+  // The picker must start on something the week actually covers. A staff-only
+  // week defaulting to "Students" meant the first upload was refused with "its
+  // uploads must be staff files", which reads as if the file were wrong when
+  // the selection was. Chosen once per week, and only corrected when the week's
+  // scope does not include the current choice, so changing it is never undone.
+  const covered: MassUploadParticipant[] =
+    week.data?.participant_type === "both"
+      ? ["student", "staff"]
+      : week.data?.participant_type === "staff"
+        ? ["staff"]
+        : ["student"];
+  useEffect(() => {
+    if (!covered.includes(uploadParticipant)) setUploadParticipant(covered[0] ?? "student");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [week.data?.participant_type]);
 
   if (week.isError) {
     return (
@@ -140,9 +174,30 @@ function MassWeekPage() {
           .filter(Boolean)
           .join(" · ")}
         actions={
-          <Link to="/mass/$weekId/reports" params={{ weekId }}>
-            <Button>Open reports</Button>
-          </Link>
+          <>
+            <Link to="/mass/$weekId/reports" params={{ weekId }}>
+              <Button>Open reports</Button>
+            </Link>
+            {isAdmin && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => {
+                  if (
+                    window.confirm(
+                      "Delete this week? All its uploads, scans and expected snapshots will be permanently removed.",
+                    )
+                  ) {
+                    deleteWeek.mutate();
+                  }
+                }}
+                disabled={deleteWeek.isPending}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                {deleteWeek.isPending ? "Deleting…" : "Delete week"}
+              </Button>
+            )}
+          </>
         }
       >
         {record.notes ? <p className="text-sm text-muted-foreground">{record.notes}</p> : null}
@@ -185,7 +240,7 @@ function MassWeekPage() {
       {canEdit ? (
         <Panel
           title="Upload machine scans"
-          description="Add clock-in, clock-out or re-export files. Every scan is kept and classified present, out of scope or unmatched."
+          description={`Add clock-in, clock-out or re-export files. Every scan is kept and classified present, out of scope or unmatched. This week takes ${participantDescription(record.participant_type)}; the file you choose must be a matching one.`}
         >
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
@@ -254,7 +309,9 @@ function MassWeekPage() {
               disabled={upload.isPending}
               onClick={() => fileRef.current?.click()}
             >
-              {upload.isPending ? "Uploading…" : "Choose machine file"}
+              {upload.isPending
+                ? "Uploading…"
+                : `Choose ${uploadParticipant === "staff" ? "staff" : "student"} file`}
             </Button>
             <span className="text-xs text-muted-foreground">Expected columns: ID, NAME, Time</span>
           </div>

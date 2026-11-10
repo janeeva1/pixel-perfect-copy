@@ -1,0 +1,804 @@
+S/N	STAFF No.	Name	Gender	Designation	Division/Faculty	Department
+1	A7	Ekot Basil,  Akpan	Male	Professor	Social Sciences	Office of the Dean - Social Sciences
+2	A8	Okwara Emmanuel	Male	Associate Professor	Social Sciences	Political Science and Diplomacy
+3	A12	Oton Enobong, Sunday	Male	Librarian I	Library	Library
+4	SA19	Ochei Francis O.	Male	Deputy Registrar	Natural and Applied Sciences	VCs Office
+5	SA27	Emeaba Kalu,Onuoha	Male	Deputy Registrar	Registry	Registry
+6	SATC30	Aregbesola Joseph	Male	Higher Transport Supervisor	Works and Estate	Transport
+7	SA31	Igbazenda Benjamin	Male	Assistant Registrar	Registry	General Studies
+8	SA34	Iliya Ayuba  Lukka	Male	Chief Clerical Officer	Registry	VCs Office
+9	SA35	Dukup Ishaku, Makshwar	Male	Senior Executive Officer	Bursary	Security
+10	SA36	Obiem Abuo, Samson	Male	Higher Executive Officer	Registry	Religious Studies
+11	SA39	Ali Simon Bawa	Male	Asst Chief Personal Secretary	Humanities	Office of the Dean - Education
+12	SW39	Ikpeama Chilotam Francisca	Female	Study and Work	Health Sciences	Nursing
+13	SW40	Ozor Obumneme Francis	Male	Study and Work	Health Sciences	Nursing
+14	SW43	Ebunoha Clare Chinemerem	Female	Study and Work	Chaplaincy	Chaplaincy
+15	SW44	Illimoe Faith	Female	Laboratory Attendant	Natural and Applied Sciences	Microbiology
+16	SW46	Nnaji Kosarachi Amanda	Female	Laboratory Attendant	Natural and Applied Sciences	Microbiology
+17	SW47	Ifeora Chinenye Chisom	Female	Laboratory Attendant	Natural and Applied Sciences	Microbiology
+18	AC49	Eduok-Akpan Maria-Assumpta O.	Female	Lecturer I	Natural and Applied Sciences	Electrical and Electronic Engineering
+19	SW49	Chukwuorji Arinze Christabel	Female	Study and Work	Library	Library
+20	SW50	Eyemese Perpetual Nyeugbe	Female	Study and Work	Social Sciences	Mass Communication
+21	SW51	OGBODO PETER CHIJIOKE	Male	Study and Work	Health Sciences	Medical Laboratory Science
+22	SW54	OKOLO CHISOM	Female	Study and Work	Library	Library
+23	SW55	ONUOHA EMMANUEL	Male	Study and Work	Library	Library
+24	SW56	NYONG EMMANUEL INEMESIT	Male	Study and Work	Chaplaincy	Chaplaincy
+25	SW57	NWOBODO NZUBECHUKWU FAVOUR	Male	Study and Work	Chaplaincy	Chaplaincy
+26	SW58	ADENUGA GLORY FEYISARA	Female	Study and Work	Library	Library
+27	SW59	UMIONG NSIKAKOBONG EMMANUEL	Male	Study and Work	Library	Library
+28	SA65	Idoko Augustine, Ogbochi	Male	Chief Personal Secretary	Humanities	History and International Relations
+29	SAT66	Izuwah Levi	Male	Senior Works Superintendent	Works and Estate	Works and Estate
+30	SA67	Ogbonna Esther	Female	Chief Clerical Officer	Registry	Student Affairs
+31	A85	Nsonwu Modestus, Chidi	Male	Senior Lecturer	Social Sciences	Economics
+32	A86	Dick Angela, Ngozi	Female	Associate Professor	Humanities	English and Literary Studies
+33	A88	Egbe Gabriel, Bassey	Male	Professor	Humanities	Postgraduate School
+34	SA117	Itam Eugene	Male	Chief Laboratory Technologist	Natural and Applied Sciences	Microbiology
+35	A119	AC-Ogbonna Chris	Male	Senior Lecturer	Social Sciences	Economics
+36	SA129	Ogbonna Silas, C	Male	Assistant Registrar	Library	Postgraduate School
+37	A138	Gbakighir Member, Solace	Female	Lecturer I	Social Sciences	Mass Communication
+38	A142	Anyanwu Jane, Chimebere	Female	Librarian I	Library	Library
+39	AC151	Onyenemerem Nkechinyere, Felicia	Female	Assistant Chief Nursing Superintendent	Medical	Health Sciences
+40	SA163	Nwachukwu Prosper, C	Male	Chief Clerical Officer	Registry	Directorate of Research and International Linkages
+41	SA165	Dada Olushola	Female	Higher Executive Officer	Registry	MATHEMATICAL SCIENCES
+42	SA168	Onyeajagwa Calista, Ngozi	Female	Higher Executive Officer	Registry	Registry
+43	SAT169	Madubuko Ikenna, Joe	Male	Principal System Analyst	Social Sciences	Economics
+44	SAT173	Obichi Blessing, Nnah	Male	Higher Transport Supervisor	Works and Estate	Works and Estate
+45	SA174	Amadi Cynthia Ugochi	Female	Chief Personal Secretary	Registry	Health Sciences
+46	SA175	Chukwuma Akudo, Angela	Female	Chief Personal Secretary	Registry	Registry
+47	A185	Anweting Kevin, Ibok	Male	Lecturer I	Humanities	Philosophy
+48	SA188	Iwuji Augustina, C	Female	Chief Nursing Superintendent	Medical	Medical Centre
+49	A201	Abenga Raymond C.	Male	Senior Lecturer	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+50	SA204	Uluocha Sussana, Ugonma	Female	Principal Accountant	Medical	Medical Centre
+51	SA234	Bitrus B , Alheri	Female	Executive Officer	Registry	Science Education
+52	SA243	Emelife Ifeoma	Female	Principal Executive Officer II	Bursary	SIWES Unit
+53	SAT245	Okoro Zephy, Godfrey	Male	Principal Sport Coach	Registry	Student Affairs
+54	SAT248	Anaeto-Ubah Lydia, Uchechukwu	Female	Principal Experimental Officer	Engineering	Office of the Dean - Faculty of Engineering
+55	A250	Ebiekpe Victor, Edet	Male	Lecturer I	Natural and Applied Sciences	Pure and Applied Chemistry
+56	A251	Ozoude Theresa, Obiageli	Female	Lecturer I	Natural and Applied Sciences	Microbiology
+57	AT253	Okonkwo Peter, Ikechukwu	Male	Lecturer I	Humanities	Theology
+58	SA258	Okonkwo Tochukwu, Francisca	Female	Secretary	Registry	Office of the Dean - Humanities
+59	A261	Oguchi Benjamin, Chinweuba	Male	Lecturer I	Social Sciences	Economics
+60	AC269	Bitrus Christiana Ka Aniyang	Female	Lecturer I	Education	Arts and Social Science Education
+61	SA274	Ekwere Nseobong, Simeon	Male	Senior Executive Officer	Registry	Biochemistry
+62	A299	Uchechukwu Michael Opara	Male	Lecturer I	Natural and Applied Sciences	MATHEMATICAL SCIENCES
+63	A300	Ayeni-Daniyan Abiodun, Comfort	Female	Senior Lecturer	Humanities	English and Literary Studies
+64	A301	Aye Aondongu Joseph	Male	Lecturer I	Humanities	Philosophy
+65	A302	Olaniyi Theresa	Female	Lecturer I	Natural and Applied Sciences	Biotechnology/Environmental Biology
+66	A305	Oluwatosin Olushola Solomon	Male	Senior Lecturer	Social Sciences	Economics
+67	SAT306	Dodo Felicity Nashia	Female	Principal System Analyst	Natural and Applied Sciences	Computer Science
+68	SAC307	Agbi Samuel Rose	Female	Chief Matron	Registry	Student Affairs
+69	JT309	Tanko Yari	Male	Chief Driver	VCs Office	VCs Office
+70	A310	Ugwuja Dennis Amobi	Male	Lecturer I	Law	Law
+71	AC312	Amadi Igbokwe Anthony	Male	Senior Lecturer	Humanities	Religious Studies
+72	SAT315	Ogri Bernard Onah	Male	Chief Driver	Bursary	Registry
+73	A317	Kussah Terwase Kimbir	Male	Lecturer I	Social Sciences	Political Science and Diplomacy
+74	J322	Ayenajeyi Shaibu	Male	Assistant Chief Driver	Works and Estate	Philosophy
+75	SA325	Abimbola Chibuzor Patience	Female	Principal Executive Officer I	Registry	Computer Engineering
+76	SA329	Gangwari Yadoso, Martin	Male	Executive Officer	Social Sciences	VCs Office
+77	SA330	Salama Adrian	Male	Executive Officer	Law	Law
+78	A335	Yisa Benjamin, Nma	Male	Lecturer I	Natural and Applied Sciences	Biochemistry
+79	A338	Ekpe Ini, Patrick	Female	Associate Professor	Natural and Applied Sciences	Biochemistry
+80	A340	Korinya Moses, Tivlumun	Male	Lecturer I	Humanities	History and International Relations
+81	J347	Opara Stella	Female	Cleaner Supervisor	Registry	Student Affairs
+82	SATC354	Uwadiale Chris	Male	Chief Laboratory Technologist	Natural and Applied Sciences	Pure and Applied Chemistry
+83	AC357	Gwaza Terhemba	Male	Lecturer II	Social Sciences	Economics
+84	AV359	Olaniyi Oyinlola	Male	Visiting Professor	Social Sciences	Economics
+85	A363	Dikedi Patrick	Male	Lecturer I	Natural and Applied Sciences	SIWES Unit
+86	ATC364	Amaefule Mary Marcella, C	Female	Senior Lecturer	Counselling	Sandwich Programme
+87	A365	Shimawua Dominic	Male	Professor	Management Sciences	Public Administration
+88	A369	Shabayang Barnabas	Male	Senior Lecturer	Humanities	Theology
+89	AV370	Obansa Joseph, Sumaila.A	Male	Visiting Professor	Social Sciences	Economics
+90	J375	Daniel Tani	Female	Cleaner	Medical	Medical Centre
+91	SA376	Uchenna Anastacia, Adiole	Female	Chief Nursing Superintendent	Medical	Nursing
+92	SA377	Ushie Grace, Imaji	Female	Deputy Registrar	Registry	Registry
+93	A381	Jooji Innocent	Male	Associate Professor	Social Sciences	Political Science and Diplomacy
+94	AV384	Ugwudioha Ofili, Matthias	Male	Visiting Professor	Management Sciences	Accounting
+95	SAT385	Ogbaji Francis, Ogbudu	Male	Principal System Analyst	Registry	English and Literary Studies
+96	AT390	Bijimi Ashia G.	Female	Lecturer II	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+97	SA393	Cephas Barde, Iliya	Male	Senior Assistant Registrar	Registry	Registry
+98	A394	Wale-Odunaiya Enitan, Grace	Female	Lecturer I	Management Sciences	Economics
+99	SA396	Eneji Agnes, Ozaohu	Female	Assistant Chief Executive Officer	Registry	Debt Recovery Office
+100	SAT399	Odunukwe Adaora,D	Female	Planning Officer I	Registry	Academic Planning
+101	J400	Hassan Laraba, Babajika	Female	Head Messenger	Counselling	Counselling
+102	SA402	Bawa Happiness	Female	CHEW	Medical	Medical Centre
+103	A409	Onuh Samuel	Male	Senior Lecturer	Management Sciences	Political Science and Diplomacy
+104	SA411	Ali Paulinus, Ogbonna	Male	Assistant Registrar	Registry	Student Affairs
+105	SA412	Diji Livinus, Clinton	Male	Assistant Registrar	Registry	Public Administration
+106	SAT417	Ajuebishi Anomuogharan, Victoria	Female	Senior System Analyst	Registry	Software Engineering
+107	SA420	Abah Alice	Female	Senior Nursing Officer	Medical	Medical Centre
+108	SA421	Idem Ignatius, Ernest	Male	Assistant Registrar	Humanities	Office of the Dean - Education
+109	AV422	Akusu Patrick	Male	Associate Professor	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+110	A423	Enem Eucharia, Uchenna	Female	Senior Lecturer	Education	GUIDANCE AND COUNSELLING
+111	SA427	Paddy-Okoye Rose, Uju	Female	Principal Medical Officer I	Medical	Medical Centre
+112	SAT428	Okereke Nkeiru, Rose	Female	Laboratory Technologist II	Medical	Microbiology
+113	SA429	Otusanya Esther	Female	Senior Assistant Registrar	Medicine	Medicine
+114	A431	Toluhi Kayode, David	Male	Lecturer II	Social Sciences	Economics
+115	A436	Olaniyi Kizito, Babatunde	Male	Lecturer I	Management Sciences	Entrepreneurship
+116	A437	Anyanwu Christiantus, Izuchukwu	Male	Senior Lecturer	Social Sciences	Political Science and Diplomacy
+117	JT440	Barnabas Paul	Male	Senior Driver	Works and Estate	Transport
+118	JT442	Yunana Samson	Male	Senior Driver	VCs Office	Transport
+119	SA443	Unongo Charity, Dooshima	Female	Senior Assistant Registrar	Registry	Health Sciences
+120	SA446	Igweze Kenechukwu, Jude	Male	Principal Executive Officer I	Chaplaincy	Chaplaincy
+121	SA447	Aniagolu Fabian, Maduka	Male	Senior Assistant Registrar	Security	Security
+122	SAC448	Uzoma Edmund C.	Male	Administrative Officer II	Internal Audit	Internal Audit
+123	SAC449	Chiaha Michael, N.O	Male	Administrative Officer II	Registry	Educational Foundation
+124	SA452	Eze Lovelyn C.	Female	Principal Executive Officer I	Registry	Economics
+125	SA453	Ugbe Richard	Male	Assistant Registrar	Pharmaceutical Sciences	Pharmaceutical Science
+126	AV454	Uwaleke Joseph Uchenna	Male	Visiting Professor	Management Sciences	Accounting
+127	SA462	Uba Chinonso, Augustine	Male	Principal Sport Coach	Registry	VCs Office
+128	A466	Amana Anthony, Lordson	Male	Lecturer I	Natural and Applied Sciences	Computer Engineering
+129	J470	Ezugwu-Odoh Rachael Nwakaego	Female	Senior Clerical Officer	Registry	Office of the Dean - Management Sciences
+130	AV471	Imalerio Thomas, Ivie	Male	Senior Lecturer	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+131	AC472	Ogharandukun Martin, Oshof	Male	Senior Lecturer	Natural and Applied Sciences	Academic Planning
+132	A473	Nyam Isaac, Imo-Ter	Male	Senior Lecturer	Social Sciences	Mass Communication
+133	AC474	Sambe John, Ahire	Male	Professor	Social Sciences	Mass Communication
+134	A478	Ayeh Roseline, Inikpi	Female	Lecturer I	Social Sciences	Public Administration
+135	SA479	Ndubuka Nancy, Udo	Female	Senior Executive Officer	Pharmaceutical Sciences	Pharmaceutical Science
+136	A480	Ukandu Maxwell	Male	Lecturer I	Humanities	Religious Studies
+137	A484	Iorhemen Peter I	Male	Lecturer I	Social Sciences	Public Administration
+138	A486	Fadipe Michael B	Male	Senior Lecturer	Education	Science Education
+139	A487	Chibuzor Okwuchi Flora	Female	Lecturer I	Registry	Biochemistry
+140	SAT489	Auta Martins.Danjuma	Male	Senior Technical Officer	Works and Estate	Works and Estate
+141	A491	Izuegbu Ikechukwu	Male	Lecturer I	Natural and Applied Sciences	Software Engineering
+142	A494	Okafor Ijeoma Chinaeme	Female	Lecturer I	Social Sciences	History and International Relations
+143	A495	Bazza Micheal	Male	Senior Lecturer	Social Sciences	History and International Relations
+144	AT497	Bitrus Lucia	Female	Lecturer II	Humanities	English and Literary Studies
+145	A502	Okey-Ndeche NGOZIKA .F.	Female	Senior Lecturer	Natural and Applied Sciences	Microbiology
+146	SA504	Odoh Juliana	Female	Engineer Grade I	Registry	Theology
+147	SAT507	Bugah Billy O.	Male	Senior Technical Officer	Works and Estate	Works and Estate
+148	AT511	Mathews-Amune Christiana	Female	Lecturer I	Natural and Applied Sciences	Pure and Applied Chemistry
+149	A512	Mkpojiogu Emmanuel	Male	Senior Lecturer	Natural and Applied Sciences	Software Engineering
+150	A517	Ojo Michael O	Male	Lecturer I	Education	Arts and Social Science Education
+151	SAT518	Nuhu Dennis	Male	Laboratory Technologist I	Natural and Applied Sciences	Microbiology
+152	AT521	Bakwaph Peter. K	Male	Associate Professor	Education	Office of the Dean - Education
+153	SA526	Daniel Anthony. S	Male	Senior Executive Officer	Bursary	Bursary
+154	SA529	James Joy, Ozichi	Female	Administrative Officer II	Natural and Applied Sciences	Banking and Finance
+155	SAC534	Soronnadi Augustina	Female	Principal Executive Officer II	Registry	English and Literary Studies
+156	AT538	Haruna Yahaya. Polycarp	Male	Graduate Assistant	Humanities	General Studies
+157	AC539	Egar Emmanuel	Male	Senior Lecturer	Humanities	English and Literary Studies
+158	AT542	Agbaghare Daniel. Enajeme	Male	Assistant Lecturer	Natural and Applied Sciences	Pure and Applied Chemistry
+159	AT543	Oyegue Anthonia. Osato	Female	Assistant Lecturer	Natural and Applied Sciences	Microbiology
+160	SA544	Ezekafor Tochukwu	Female	Personal Secretary	Registry	Works and Estate
+161	AT545	Obanure Cyril	Male	Senior Lecturer	Humanities	Theology
+162	AV546	Egbunu Audu. Dangana	Male	Professor	Management Sciences	Business Administration
+163	AC547	Ihuoma Anthony. A	Male	Senior Lecturer	Social Sciences	Economics
+164	A553	Uko Ofe	Male	Associate Professor	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+165	SAT554	Abu Adamu	Male	Assistant Registrar	Registry	Library
+166	SA556	Azati Blessing. Iveren	Female	Accting  Internal Auditor	Internal Audit	Internal Audit
+167	A557	Musa Success	Male	Professor	Management Sciences	Accounting
+168	SA561	Akwen Paul. Iorkegh	Male	Assistant Registrar	Registry	Office of the Dean - Social Sciences
+169	A562	Eze Chika Eucharia	Female	Associate Professor	Education	GUIDANCE AND COUNSELLING
+170	SA563	Iwu Fidelis Ogechukwu	Male	Senior Executive Officer	Medical	Student Affairs
+171	SAT564	Onah Juliana	Female	Higher Technical Officer	ICT	ICT
+172	A572	Success Blessing. Ejura	Female	Senior Lecturer	Management Sciences	Banking and Finance
+173	A574	Opara Eucharia, Ugochi	Female	Lecturer I	Humanities	Religious Studies
+174	AC576	Edet Joyce, David	Female	Lecturer II	GST	General Studies
+175	A582	Otegwu Isaac	Male	Senior Lecturer	Social Sciences	Political Science and Diplomacy
+176	SAT584	Odunukwe Pius. Ikenna	Male	Senior Technical Officer	Works and Estate	Works and Estate
+177	SA586	Uche Anthonia. Odilile	Female	Principal Executive Officer I	Counselling	Counselling
+178	A589	Okoh Samuel. Ejime	Male	Lecturer I	Social Sciences	Mass Communication
+179	SA596	Ibrahim Catherine	Female	Executive Officer	Registry	Sandwich Programme
+180	A600	Boyi Solomon	Male	Lecturer II	Humanities	History and International Relations
+181	A601	Eze Emmanuel. Obumneme	Male	Lecturer I	Social Sciences	Mass Communication
+182	AC603	Ojo Francis R.	Male	Lecturer I	Education	Science Education
+183	A605	Udourioh Godwin A.	Male	Senior Lecturer	Natural and Applied Sciences	General Studies
+184	A607	Mba Paschal N.	Female	Lecturer I	Social Sciences	Public Administration
+185	A608	Amaechi Dennis	Male	Senior Lecturer	Natural and Applied Sciences	Biochemistry
+186	JT609	Suleiman Felix. Funsho	Male	Assistant Technical Officer	Works and Estate	Works and Estate
+187	A612	Uche Theophilus. Okechukwu	Male	Lecturer I	Social Sciences	Public Administration
+188	SAT614	Oketa Patrick. O	Male	Laboratory Technologist I	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+189	JT615	Markus Rifkatu. Bawa	Female	Assistant Library Officer	Library	Library
+190	SAT616	Ibrahim Yushau Danbako	Male	Architect I	Works and Estate	Works and Estate
+191	A617	Onyenze Ugochukwu	Male	Lecturer I	Natural and Applied Sciences	Pure and Applied Chemistry
+192	SAT622	Ushie Peter. Ochiche	Male	Senior Technical Officer	Natural and Applied Sciences	Biotechnology/Environmental Biology
+193	J623	Nkom Alice	Female	Assistant Library Officer	Library	Library
+194	AV625	Atakpa Moses E.	Male	Senior Lecturer	Management Sciences	Public Administration
+195	J626	Echema Onyinyechi	Female	Assistant Library Officer	Library	Library
+196	SAT627	Agi Theresa. Oludo	Female	Senior Technical Officer	Works and Estate	Works and Estate
+197	SA630	Ige Grace	Female	Secretary	Registry	Entrepreneurship
+198	SA634	Nzekwe Adeyinka Precious	Female	Senior Personal Secretary	VCs Office	VCs Office
+199	SA635	Ogharandukun Judith. Temitope	Female	Chief Nursing Superintendent	Medical	Medical Centre
+200	SAT643	Nnolim Lucia. Chidinma	Female	Laboratory Technologist I	Natural and Applied Sciences	Biochemistry
+201	SA647	Ishaya Linda. Purity	Female	Administrative Officer I	Registry	Accounting
+202	A648	Ibeh Emmanuella. Onyinye	Female	Lecturer I	Natural and Applied Sciences	Biotechnology/Environmental Biology
+203	AV649	Saleh Abubakar. Sadiq	Male	Visiting Professor	Management Sciences	Banking and Finance
+204	SAT651	Okeke Ugo. Virginia	Female	Senior Medical Laboratory Technician	Pharmaceutical Sciences	Pharmaceutical Science
+205	AC658	Agbazue Vitus, Eze	Male	Associate Professor	Natural and Applied Sciences	Pure and Applied Chemistry
+206	A659	Kusugh Ternenge Joseph	Male	Senior Lecturer	Social Sciences	Mass Communication
+207	AT661	Tsebee Kenneth Asor	Male	Professor	Social Sciences	Mass Communication
+208	AT665	Iyala Felix. Emeka	Male	Senior Lecturer	Education	Educational Foundation
+209	SA667	Otene Christopher	Male	Assistant Registrar	Registry	Registry
+210	SA669	Andrew Loveth	Female	Executive Officer	Student Affairs	Student Affairs
+211	SA671	Chukwuneta Chukwuebuka. Cyprian	Male	Assistant Registrar	Registry	Office of the Dean - Humanities
+212	AC672	Onukwuba Martin	Male	Lecturer I	Religious Studies	VCs Office
+213	AT673	Bahago Samaila  Benedict	Male	Senior Lecturer	Education	GUIDANCE AND COUNSELLING
+214	SAT674	Aghedo Agbonlahor  Anthony	Male	Director	Works and Estate	Works and Estate
+215	SA675	Hassan Nyawosa, Gaba	Male	Higher Executive Officer	Registry	Registry
+216	SAC676	Ichoku Hyacinth, Eme	Male	Vice-Chancellor	VCs Office	VCs Office
+217	SAC677	Akoje Margaret Ejima	Female	Bursar	Bursary	Bursary
+218	AV680	Rinji David, Gowon	Male	Professor	Education	Arts and Social Science Education
+219	SA687	Titus Chinedu, Eze	Male	Assistant Registrar	Registry	Office of the Dean - Faculty of Natural and Applied Sciences
+220	SA690	Jeremiah John	Male	Assistant Registrar	Registry	Pure and Applied Chemistry
+221	AT691	Lebechi Chibugo, Ogechi	Female	Senior Lecturer	Humanities	Theology
+222	SA693	SULAYMAN MUHAMMED	Male	Senior Executive Officer	ICT	ICT
+223	J696	Igwurube Joy. Ozoemena	Female	Hall Administrator	Student Affairs	Student Affairs
+224	JT697	Okoh Stephen, Michael	Male	Foreman	Works and Estate	Works and Estate
+225	SAT698	Okike Reuben	Male	Science Laboratory Technologist II	Natural and Applied Sciences	Computer Science
+226	AC700	Uhomoibhi Martin. Ihoeghian	Male	Senior Lecturer	Humanities	History and International Relations
+227	AT701	Oleh Cyril. Onyemaechi	Male	Lecturer I	Social Sciences	Mass Communication
+228	SAC706	Okonkwo Stella Chizoba	Female	Registrar	Registry	Registry
+229	SA709	Omogbai Racheal. Temitope	Female	Principal Executive Officer II	Registry	Registry
+230	SA710	Osogwu Sonny. Emmanuel	Male	Principal Executive Officer II	Student Affairs	Student Affairs
+231	AT711	Essien Joe	Male	Associate Professor	Natural and Applied Sciences	Computer Science
+232	AT713	Omopariola Adebola Victor	Male	Lecturer II	Natural and Applied Sciences	Computer Science
+233	AT714	AGUEGBOH NNAEMEKA STANLEY	Male	Lecturer II	Natural and Applied Sciences	MATHEMATICAL SCIENCES
+234	SA715	James Muaza. Shedrack	Male	Administrative Officer I	Registry	Pure and Applied Physics/Mathematics
+235	AT718	Onota Emmanuella. Ozavize	Female	Lecturer II	Social Sciences	Political Science and Diplomacy
+236	AT719	Thaddeus Blessing. Iveren	Female	Lecturer II	Humanities	History and International Relations
+237	SA721	Obanigwe Joy. Ishioma	Female	Senior Library Officer	Library	Library
+238	AT722	Nnedu Stanley. Chinonso	Male	Lecturer II	Management Sciences	Accounting
+239	AC726	Nzeako Anthony. N	Male	Professor	Engineering	Electrical and Electronic Engineering
+240	AT730	Ibe Angela. Chinaenye	Female	Lecturer II	Management Sciences	Accounting
+241	SA731	Andem Rebecca. Remy	Female	Administrative Officer I	Registry	Entrepreneurship
+242	AT732	Alozieuwa Uchenna. Blessing	Female	Lecturer I	Natural and Applied Sciences	Biochemistry
+243	SA744	Ajogwu Patricia. Ejuojo	Female	Principal Accountant	Registry	Postgraduate School
+244	AV759	Akin-Osanaiyer Bukola. Catherine	Female	Professor	Natural and Applied Sciences	Biochemistry
+245	AT761	Tor Grahams. Mimingu	Male	Assistant Lecturer	Education	Educational Foundation
+246	JT762	Osim Monday	Male	Carpenter	Works and Estate	Works and Estate
+247	JT764	Isuwa Philimon	Male	Generator Operator	Works and Estate	Works and Estate
+248	JT765	Musa Peter Moses	Male	Water Operator	Works and Estate	Works and Estate
+249	AT766	Azuwike Anthony	Male	Senior Lecturer	Law	Law
+250	AC767	Amdii Isa. Erii Sam	Male	Professor	Social Sciences	Political Science and Diplomacy
+251	AC770	Sasa Michael. S	Male	Deputy Vice-Chancellor	Humanities	Philosophy
+252	SA771	Ogbuji Kenneth. Nnaemeka	Male	Administrative Officer I	Registry	Philosophy
+253	AT773	Adidi Timothy. Dokpesi	Male	Lecturer II	Humanities	Philosophy
+254	SAT774	Orbih Sunday	Male	Audio/Visual Technician	Social Sciences	Mass Communication
+255	SA776	Obineche Calista Uchechukwu	Female	Senior Nursing Officer	Medical	Medical Centre
+256	SAT777	Umoren Nse Titus	Male	Laboratory Technologist I	Natural and Applied Sciences	Pure and Applied Chemistry
+257	AT778	Kamai Peter Hassan	Male	Senior Lecturer	Humanities	Theology
+258	AT779	Chikezie Ifeanyichukwu Nnamdi	Male	Lecturer II	Management Sciences	Business Administration
+259	AT780	Okhiria Esi Joy	Female	Assistant Lecturer	Education	Arts and Social Science Education
+260	AV784	Adeboye Oluseye. Olusegun	Male	Lecturer I	Humanities	English and Literary Studies
+261	JT785	Danladi Samuel B	Male	Generator Operator	Works and Estate	Works and Estate
+262	AT786	Oyekan Margaret	Female	Lecturer II	Management Sciences	Business Administration
+263	AT788	Ezigbo Eucharia, Chizoba	Female	Lecturer II	Natural and Applied Sciences	Biotechnology/Environmental Biology
+264	AT789	Adewumi Nwakego, Chizoma	Female	Senior Lecturer	Natural and Applied Sciences	Pure and Applied Chemistry
+265	AT790	Udoekpo Michael, Ufok	Male	Professor	Humanities	Theology
+266	AC793	Okwute Simon. Koma	Male	Professor	Natural and Applied Sciences	Office of the Dean - Faculty of Natural and Applied Sciences
+267	SA796	Abu Precious-Chidi	Male	Auditor I	VCs Office	Internal Audit
+268	AT799	Ibbi Patrick-Sunday	Male	Assistant Lecturer	Humanities	English and Literary Studies
+269	AT800	Obi Leonard-Kelechukwu	Male	Assistant Lecturer	Natural and Applied Sciences	Pure and Applied Chemistry
+270	AT801	Otiko Ugochukwu-Nnamdi	Male	Lecturer I	Management Sciences	Accounting
+271	AT802	Agbudu Genesis-Onah	Male	Lecturer II	Education	Educational Foundation
+272	JT804	Ugwuanyi Emmanuel C	Male	Plumber	Works and Estate	Works and Estate
+273	SA807	Onoja Francis	Male	Editor Grade I	Social Sciences	Mass Communication
+274	J809	Ahmadu Gad	Male	Senior Library Assistant	Library	Library
+275	SA812	Maianguwa Emmanuel	Male	Administrative Officer II	Registry	Student Affairs
+276	AT814	Maichiki Anslem  Sylvester	Male	Assistant Lecturer	Natural and Applied Sciences	Microbiology
+277	AT 817	Gotip Nehemiah  Wokji	Male	Lecturer II	Education	Arts and Social Science Education
+278	AV827	James Nda Jacob	Male	Professor	Humanities	Political Science and Diplomacy
+279	J828	Bitrus Lydia Bege	Female	Senior Library Assistant	Library	Library
+280	JT829	Irimiya Samson	Male	Assistant Chief Driver	Transport	Transport
+281	AC834	Kwanashie Michael	Male	Professor	Social Sciences	Economics
+282	SA836	Okemeta Abiodun  Irekpitan	Female	Senior Executive Officer	Library	Library
+283	SA837	Njoku Ikechukwu Festus	Male	Hostel Administrator I	Student Affairs	Student Affairs
+284	SA838	Onyeji Jude Ikechukwu	Male	Hostel Administrator I	Student Affairs	Student Affairs
+285	SA842	Anyanwu Adaeze Glory	Female	Senior Executive Officer	JUPEB	Consultancy
+286	AT847	Uloko Felix Oshiorenoya	Male	Lecturer II	Natural and Applied Sciences	Computer Science
+287	AT848	Okoroafor Okey Francis	Male	Lecturer II	Social Sciences	Economics
+288	SA849	Uyanwune Stephen Izuchukwu	Male	Administrative Officer I	Registry	Mass Communication
+289	SA851	Ukwuani Amaka Racheal	Female	Assistant Registrar	Humanities	Registry
+290	SA852	Odiwo Sarah Omo	Female	Senior Library Officer	Library	Library
+291	SA853	Nwosu Ukamaka Christiana	Female	Administrative Officer I	Management Sciences	Office of the Dean - Management Sciences
+292	SA854	Madu Constance Chibugo	Female	Higher Executive Officer	Natural and Applied Sciences	Office of the Dean - Faculty of Natural and Applied Sciences
+293	SA855	Ifendu Obewu Kalu	Male	Administrative Officer II	Student Affairs	Student Affairs
+294	SA856	Ajolore Rebecca Moses	Female	Administrative Officer II	Social Sciences	Political Science and Diplomacy
+295	AT857	Opara Nnamdi Austin	Male	Assistant Lecturer	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+296	J858	Aneke Sunday	Male	Senior Driver	Transport	Transport
+297	AT859	Osamo Caleb Kehinde	Male	Lecturer I	Management Sciences	Banking and Finance
+298	AT860	Odoeme Victor Chukwudi	Male	Senior Lecturer	Law	Law
+299	AT863	Agbonhese James Eromosele	Male	Lecturer I	Law	Law
+300	AT864	Itodo Simon John	Male	Lecturer I	Management Sciences	Accounting
+301	AT865	Odiba Paul Simon	Male	Lecturer I	Management Sciences	Accounting
+302	AT866	Ayogu Gabriel Igwebuike	Male	Lecturer I	Management Sciences	Public Administration
+303	AV868	Saaondo Marcellinus Aondohemba	Male	Lecturer II	Education	GUIDANCE AND COUNSELLING
+304	AC870	Nweze Carole Chibuzo	Female	Professor	Natural and Applied Sciences	Biochemistry
+305	AV872	Nwaorgu Chuks  Sylvester	Male	Senior Lecturer	Humanities	English and Literary Studies
+306	AT874	Ogbonna Nnanna Chukwudi	Male	Assistant Lecturer	Natural and Applied Sciences	Computer Science
+307	AC876	Idachaba Armstrong Aduku A	Male	Professor	Social Sciences	Mass Communication
+308	AT884	Ezeokeke Gregory Ekene	Male	Lecturer I	Humanities	Theology
+309	AC885	Idornigie Paul Obo	Male	Professor	Law	Law
+310	AT886	Agbonika Josephine Aladi Achor	Female	Professor	Law	Law
+311	AT887	Jibrin Isaac Ogwu	Male	Graduate Assistant	Natural and Applied Sciences	Engineering
+312	AT888	Abosede Peter Joy	Female	Lecturer II	Education	Educational Foundation
+313	AT889	Attah Eleojo Vincent	Male	Lecturer I	Management Sciences	Banking and Finance
+314	AT890	Anya Augustine Igwebuike	Male	Lecturer I	Natural and Applied Sciences	MATHEMATICAL SCIENCES
+315	AT892	Echude Ohiemi	Male	Lecturer II	Natural and Applied Sciences	MATHEMATICAL SCIENCES
+316	JT893	Okorie David	Female	Foreman	Works and Estate	Works and Estate
+317	SAT894	Usman Vincent	Male	Senior Technical Officer	Works and Estate	Works and Estate
+318	AC895	Idakwoji Sunday Bene	Male	Lecturer I	Education	Educational Foundation
+319	SA896	Okafor Ekene Edwinkenn	Male	Assistant Registrar	Law	Law
+320	AT897	Lawrence Linus Bodams	Male	Lecturer II	Education	Educational Foundation
+321	SA899	Kura Ushalunum	Male	Editor Grade II	Social Sciences	Mass Communication
+322	SA900	Uhiene Ernest	Male	Deputy Chief Accountant	Bursary	Bursary
+323	AC901	Okonkwo Thomas Mmuoemene	Male	Professor	Management Sciences	Entrepreneurship
+324	AT902	Ekumankama Dennis Ude	Male	Senior Lecturer	Law	Law
+325	AV903	Okenwa Gabriel Obiamaraije Chinedum	Male	Visiting Professor	Management Sciences	Business Administration
+326	AT904	Ngang Bassey Ngang	Male	Senior Lecturer	Natural and Applied Sciences	Electrical and Electronic Engineering
+327	AT905	Kinga-Upaa Tyolumun	Male	Assistant Lecturer	Humanities	Religious Studies
+328	AC906	Onah Fidelis Ikechukwu	Male	Senior Lecturer	Natural and Applied Sciences	Computer Engineering
+329	AT907	Pilani Michael Paul	Male	Lecturer I	Humanities	Theology
+330	SAT908	Imoh Jimmy	Male	Technical Officer	Works and Estate	Works and Estate
+331	SA913	Stephen Modupe Stephanie	Female	Administrative Officer I	Registry	Pharmaceutical Science
+332	AT914	Attah Chukwudumebi Norbert	Male	Lecturer I	Humanities	Theology
+333	SA917	Tsenongo Comfort Shimadoo	Female	Senior Executive Officer	Student Affairs	Student Affairs
+334	SA918	Aguoru Florence Nnenna	Female	Senior Executive Officer	Student Affairs	Student Affairs
+335	SA922	Ahaneku Clinton Chinazaekpere	Male	Administrative Officer I	Registry	Law
+336	AT923	Calistus Chimezie Chinedu	Male	Lecturer I	Natural and Applied Sciences	ICT
+337	ATC924	Ekoja Andrew Ajegba	Male	Professor	Education	GUIDANCE AND COUNSELLING
+338	SA925	Anyanwu Chinwe Tessy	Female	Senior Nursing Superintendent	Medical	Medical Centre
+339	AT926	Akaigwe Michael Uchechukwu	Male	Lecturer II	Humanities	Theology
+340	AC928	Utubaku Ashang B	Male	Senior Lecturer	Natural and Applied Sciences	Biochemistry
+341	AT929	Fidelis Ada Dami	Female	Lecturer II	Social Sciences	Mass Communication
+342	AT930	Kanu Ikechukwu Anthony	Male	Professor	Postgraduate School	Postgraduate School
+343	AT931	Uzondu Celestine Chibueze	Male	Senior Lecturer	Humanities	Philosophy
+344	AT932	Ezeh Chisom Cynthia	Female	Assistant Lecturer	Natural and Applied Sciences	Pure and Applied Chemistry
+345	AT933	Adamaku Bulus Danladi	Male	Graduate Assistant	Natural and Applied Sciences	MATHEMATICAL SCIENCES
+346	SA934	Ogabo Esther Hadassah	Female	Procurement Officer	Enterprise	Bursary
+347	SA935	Bajeh Emmanuel	Male	Laboratory Technologist II	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+348	SA936	Salifu Patience Maquile	Female	Senior Executive Officer	Registry	Computer Science
+349	SA937	Ahamefula Chinyere Grace	Female	Senior Executive Officer	Student Affairs	Student Affairs
+350	SAT938	Onwuegekpe Chinwendu	Male	Assistant  Operation Manager	ICT	ICT
+351	SA939	Vangarba Joy Rilanga	Female	Senior Executive Officer	Registry	Debt Recovery Office
+352	AT940	Gokum Richard Emmanuel	Male	Lecturer I	Humanities	Theology
+353	SA941	Ignatius Vivian Joshua	Male	Senior Executive Officer	Student Affairs	Student Affairs
+354	J943	Idagba Helen Onwu	Female	STEWARD	Registry	Registry
+355	SA944	Tsehemba Joseph Mgbakwagh	Male	Senior System Analyst	ICT	ICT
+356	AV946	Okon Benjamin John	Male	Lecturer II	Humanities	Philosophy
+357	AT948	Pillah Tyodzer Patrick	Male	Senior Lecturer	Management Sciences	Public Administration
+358	SA950	Nwachukwu Lucy Onyinye	Female	Senior Executive Officer	Registry	Pharmaceutical Science
+359	AT951	Adama Joshua Adegbe	Male	Graduate Assistant	Management Sciences	Public Administration
+360	SA952	Amadi Vincent Chinomnso	Male	Senior Executive Officer	Chaplaincy	Chaplaincy
+361	AV953	Makolo Daniel	Male	Lecturer I	Natural and Applied Sciences	Microbiology
+362	JT954	Odoh Gilbert Felix	Male	Foreman	Works and Estate	Works and Estate
+363	AT956	Kama Mary Ofuru	Female	Lecturer II	Natural and Applied Sciences	Software Engineering
+364	SA957	Elom Justina Ijeoma	Female	Medical Laboratory Assistant	Natural and Applied Sciences	Medical Centre
+365	AT958	Usoh Ikouwem Ufort	Male	Assistant Lecturer	Natural and Applied Sciences	Software Engineering
+366	AT959	Edoh Francis	Male	Assistant Lecturer	Natural and Applied Sciences	Computer Science
+367	AC963	Obiora Vin Chukwumba	Male	Lecturer I	Social Sciences	Mass Communication
+368	AT964	Akinwande Oladayo Tosin	Male	Lecturer II	Natural and Applied Sciences	Software Engineering
+369	AT965	Dako Dickson Apaleokhai	Male	Lecturer II	Natural and Applied Sciences	Software Engineering
+370	AT966	Osuagwu Linus	Male	Professor	Management Sciences	Marketing
+371	SA967	Sanni Christopher Ozaovehe	Male	Principal Executive Officer II	Student Affairs	Student Affairs
+372	SA968	Okongor Sylvia Oni	Female	Senior Executive Officer	Management Sciences	Entrepreneurship
+373	SA969	Danjuma Dangana D Gora	Male	Senior Executive Officer	Student Affairs	Student Affairs
+374	AT970	Augustine Ajibogu Ahmadu	Male	Professor	Pharmaceutical Sciences	Pharmaceutical Science
+375	SA971	Agwu Nelly Ibe	Female	Laboratory Technologist I	Natural and Applied Sciences	Software Engineering
+376	SA973	Agba Pius Ogah	Male	Laboratory Technologist I	Natural and Applied Sciences	Software Engineering
+377	SA975	Onyekwere Christiana Ozioma	Female	Accountant I	Bursary	Bursary
+378	JT976	Bitrus Thomas	Male	Senior Driver	Transport	Transport
+379	SAT978	Egbe Emmanuel Ntami	Male	System Administrator I	ICT	ICT
+380	SAT979	Onoyima Boniface Chikwado	Male	System Administrator I	ICT	ICT
+381	AT981	Wilfred-Bonse Kate Uzoamaka	Female	Senior Lecturer	Education	Arts and Social Science Education
+382	SA983	Orkuma Barnabas Tersur	Male	Administrative Officer I	Registry	Registry
+383	SA984	Osuji Udoka Geraldine	Female	Assistant Registrar	Registry	Registry
+384	J985	Ajeh Rebecca	Female	Foreman	Natural and Applied Sciences	Microbiology
+385	AT986	Ojonimi Enoch Daniel	Male	Graduate Assistant	Natural and Applied Sciences	Computer Science
+386	AT987	Emenogu Shekinah Pius	Female	Lecturer II	Social Sciences	Mass Communication
+387	AT 988	Baidoo Thomas Enesi	Male	Graduate Assistant	Natural and Applied Sciences	Computer Science
+388	AT991	Ajobiewe Joseph O.	Male	Senior Lecturer	Health Sciences	Medical Laboratory Science
+389	SAC993	Adalikwu Vivian Ogar	Male	Chief Medical Director	Medical	Medical Centre
+390	AT994	Longkang Emmanuel Longwul	Male	Assistant Lecturer	Natural and Applied Sciences	Computer Science
+391	AT997	Aondonengen Sesugh Michael	Male	Graduate Assistant	Natural and Applied Sciences	Microbiology
+392	AV998	Ngwai Yakubu Boyi	Male	Visiting Professor	Health Sciences	Pharmaceutical Science
+393	SAC999	Oche Ogori Innocent	Male	Chief Medical Laboratory Scientist	Health Sciences	Medical Laboratory Science
+394	AT1000	Nwokorie Kelechukwu Sylvester	Male	Lecturer II	Health Sciences	Medical Laboratory Science
+395	SAT1003	Yakubu Ayuba	Male	Engineer Grade I	Works and Estate	Works and Estate
+396	SA1004	Philip Abigail	Female	Laboratory Technologist I	Health Sciences	Medical Laboratory Science
+397	AV1007	Okore Vincent Chima	Male	Visiting Professor	Health Sciences	Pharmaceutical Science
+398	SA1008	Umeh Glory Nkechinyere	Female	Hostel Administrator II	Student Affairs	Student Affairs
+399	AT1009	Kaluma Mwende Teresia	Female	Graduate Assistant	Management Sciences	Entrepreneurship
+400	SA1012	Anyanwu Amarachi Addline	Female	Hall Administrator	Student Affairs	Student Affairs
+401	SA1013	Isah Sylvester Bako	Male	Laboratory Technologist II	Natural and Applied Sciences	Pure and Applied Chemistry
+402	AV1014	Makut Makwin Danladi	Male	Professor	Natural and Applied Sciences	Microbiology
+403	AC1015	Ehinmidu Olorunmola Joseph	Male	Professor	Health Sciences	Pharmaceutical Science
+404	AC1016	Okolo Raymond Ugochukwu	Male	Visiting Associate Professor	Medicine	Medicine
+405	SA1017	Alonge Segun Junior	Male	Higher Executive Officer	VCs Office	Debt Recovery Office
+406	AV1022	Ogedengbe John Onimisi	Male	Visiting Associate Professor	Medicine	Medicine
+407	SA1026	Danladi Augustine	Male	Executive Officer	Medical	Medical Centre
+408	SA1027	John Mary	Female	Health Superintendent	Medical	ICT
+409	AV1028	Builders Philip Fafowara	Male	Visiting Professor	Health Sciences	Pharmaceutical Science
+410	AT1030	Ozor Charles Chibuzo	Male	Graduate Assistant	Natural and Applied Sciences	Pure and Applied Chemistry
+411	AV1031	Aniah Julius Akomaye	Male	Visiting Senior Lecturer	Medicine	Medicine
+412	J1033	Musa Tabitha	Female	Library Assistant	Library	Library
+413	J1034	Obadiah Haruna Solomon	Male	Senior Driver	Transport	Transport
+414	AC1035	Agada Emmanuel Oloche	Male	Associate Professor	Natural and Applied Sciences	Microbiology
+415	SA1036	Danlami Gloria	Female	Medical Laboratory Technologist	Medical	Medical Centre
+416	SA1037	Agu Agnes Epiabuna	Female	CHEW	Medical	Medicine
+417	AT1038	Mamah Ovid Rotenna	Male	Lecturer I	Natural and Applied Sciences	Engineering
+418	SAT1040	Christopher Lawrence Ojor	Male	System Programmer II	ICT	ICT
+419	AT1042	Onalo Sunday Musa	Male	Lecturer I	Management Sciences	Business Administration
+420	AT1043	Inyang Vivian Patrick	Female	Assistant Lecturer	Humanities	History and International Relations
+421	AT1044	Ukonu Ifeanyichukwu Ojeka	Female	Lecturer I	Management Sciences	Business Administration
+422	SA1045	Eja Rita Fidelis	Female	Staff Nurse	Medical	Medical Centre
+423	SA1046	Bulus-Omopariola Gift	Female	Staff Nurse	Medical	Medical Centre
+424	SA1047	Yohanna Ann	Female	Hostel Administrator II	Student Affairs	Student Affairs
+425	SA1048	Ogbe Blessing Alice	Female	Hostel Administrator II	Student Affairs	Student Affairs
+426	SA1049	Okoro Harrison Emeka	Male	Hostel Administrator II	Student Affairs	Student Affairs
+427	SA1050	Adede Iduh Simon	Male	Hostel Administrator II	Student Affairs	Student Affairs
+428	SA1051	Izuwah Tochi Levi	Male	Hostel Administrator II	Student Affairs	Student Affairs
+429	SA1052	Fidelis Akomaye Akunke	Male	Hostel Administrator II	Student Affairs	Student Affairs
+430	SA1053	Jagaba Rejoice Atnazhi	Female	Account Officer	Water Factory	Water Factory
+431	SAC1054	Abin Augustine Tobias	Male	Chaplain	Chaplaincy	Chaplaincy
+432	AV1055	Jonathan Showbin Maiangwa	Male	Associate Professor	Natural and Applied Sciences	Microbiology
+433	AT1056	Aderinto Suebu Iyanda Abiodun	Male	Lecturer II	Humanities	English and Literary Studies
+434	SAC1057	Illikah-Ilozue Blessing Therese	Female	Assistant Chief Nursing Superintendent	Medical	Medical Centre
+435	AT1058	Onwe Chukwuemeka Christian	Male	Lecturer II	Management Sciences	Business Administration
+436	SA1060	Julius Barnabas	Male	Laboratory Technologist II	Natural and Applied Sciences	Software Engineering
+437	SA1061	Nwachukwu Eze Jacob	Male	Auditor I	Internal Audit	Internal Audit
+438	SA1062	Adebayo Kehinde Oluwaseun	Male	Accountant I	Bursary	Bursary
+439	SAT1063	Akwute Sylvester Ojonuma	Male	Engineer Grade II	Works and Estate	Works and Estate
+440	JT1064	Ode Chukwuma Christian	Male	Assistant Technical Officer	Works and Estate	Works and Estate
+441	J1065	Akawu Luka Shidayi	Male	Artisan I	Works and Estate	Works and Estate
+442	AT1066	Olajire Julius Ademola Oladepo	Male	Senior Lecturer	Natural and Applied Sciences	Software Engineering
+443	J1067	Peter Patricia	Female	Messenger	Medical	Medical Centre
+444	AV1069	Ugbabe Grace Eyinehi	Female	Visiting Senior Lecturer	Natural and Applied Sciences	Pharmaceutical Science
+445	AV1070	Kunle Oluyemisi Folashade	Male	Visiting Professor	Natural and Applied Sciences	Pharmaceutical Science
+446	SA1071	Abuh Enoch	Male	Technical Officer	VCs Office	VCs Office
+447	SA1072	Ushie Onyinye Joan	Female	Senior Executive Officer	Registry	Debt Recovery Office
+448	J1073	Tanko Ezekiel	Male	Assistant Chief Driver	Transport	Transport
+449	AC1075	Okwori Joseph A,E	Male	Associate Professor	Health Sciences	Medical Laboratory Science
+450	AV1076	Abochol Simon Itine	Male	Professor	Humanities	English and Literary Studies
+451	SAT1079	Ugwu Fabian Onyebuchi	Male	Engineer Grade I	Works and Estate	Works and Estate
+452	AT1080	Chukwu Geraldine Amarachi	Female	Lecturer II	Health Sciences	Medical Laboratory Science
+453	AC1081	Tor Ayenga	Male	Associate Professor	Humanities	History and International Relations
+454	AT1082	Omenoba Theodora Chioma	Female	Lecturer II	Pharmaceutical Sciences	Pharmaceutical Science
+455	AT1083	Adakole Chinenye Obiageli Umealajekwu	Female	Lecturer II	Pharmaceutical Sciences	Pharmaceutical Science
+456	AT1084	Wycliff Samuel	Male	Lecturer II	Humanities	History and International Relations
+457	AT1085	Ikpo Valentine Chibueze	Male	Lecturer I	Engineering	Software Engineering
+458	AT1086	Musa Haliru	Male	Lecturer I	Natural and Applied Sciences	Microbiology
+459	AT1087	Blessing Simon	Female	Assistant Lecturer	Humanities	History and International Relations
+460	AT1088	Uwanta Justus Okezie	Male	Graduate Assistant	Natural and Applied Sciences	Biochemistry
+461	AT1089	Vincent Chinaza Okafor	Male	Graduate Assistant	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+462	SA1090	Godwin Promise Shekwoaga	Female	Higher Executive Officer	Registry	Office of the Dean - Social Sciences
+463	SA1091	Uchenna Amarachukwu Mary-Simona	Female	Higher Executive Officer	Registry	Biotechnology/Environmental Biology
+464	SA1092	Danladi Emmanuel Ayuba	Male	Higher Executive Officer	Registry	Medical Laboratory Science
+465	SAT1093	Emuejeoboghene Ogheneruno Excel	Male	Architect Grade II	Works and Estate	Works and Estate
+466	AV1094	Fredrick Christy Chinyere	Female	Visiting Senior Lecturer	Health Sciences	Medical Laboratory Science
+467	AT1095	Edobor Hope Dike	Female	Assistant Lecturer	Medicine	Medicine
+468	SA1096	Osamwonyi Idahosa Godspower	Male	Accountant I	Works and Estate	Works and Estate
+469	AT1098	Folorunso Bamikole Ayoola Paul	Male	Lecturer II	Law	Law
+470	AT1100	Unogwu Charity Ene	Female	Lecturer I	Law	Law
+471	AT1101	Ilorah Joseph Okechukwu	Male	Lecturer II	Law	Law
+472	SA1103	Itanyi Mercy Eleojo	Female	Higher Education Officer	Natural and Applied Sciences	Computer Science
+473	SA1104	Anaeto Chinaza Daniella	Female	Assistant Planning Officer	Registry	Academic Planning
+474	AT1105	Ukpai Chinwe Jemimah	Female	Assistant Lecturer	Medicine	Medicine
+475	AT1106	Dafiel Grace Perpetual	Female	Lecturer I	Law	Law
+476	SA1110	Gabriel Victor	Male	Higher Education Officer	Registry	Electrical and Electronic Engineering
+477	SA1111	Faith Amarachi Nancy	Female	Higher Executive Officer	Registry	Registry
+478	AV1112	John-Africa Lucy Binda	Female	Associate Professor	Pharmaceutical Sciences	Pharmaceutical Science
+479	AT1113	Ujong Jesam Abam	Male	Lecturer II	Engineering	Engineering
+480	AT1114	Nworie Amos	Male	Professor	Health Sciences	Medical Laboratory Science
+481	SA1115	Eze Oluchukwu Anthonia	Female	Secretary	ZZZ	Business Administration
+482	AT1116	Isaac Augustine Vasumu	Male	Lecturer II	Humanities	Theology
+483	SA1117	Ushang Boniface Ushang	Male	Technologist II	Engineering	Electrical and Electronic Engineering
+484	SA1118	Bassey Ngang Bassey	Male	Laboratory Technologist II	Natural and Applied Sciences	Computer Science
+485	SA1119	Dikko Lazarus Zuma	Male	Technologist II	Natural and Applied Sciences	Computer Science
+486	SA1120	Nnadi Uchenna Valentine	Male	Higher Executive Officer	Registry	Nursing
+487	SA1121	Obidike Godswill Chibuike	Male	Technologist II	Medicine	Medicine
+488	SA1122	Alor Nicholas Ojonimi	Male	Higher Education Officer	Works and Estate	Works and Estate
+489	AT1124	Ocheme Joy Emmanuel Enogbe	Female	Assistant Lecturer	Natural and Applied Sciences	Pure and Applied Chemistry
+490	SAT1125	Haruna Ibrahim Isaac	Male	Programmer II	ICT	ICT
+491	AT1126	Mustapha Hafiz Bola	Male	Lecturer II	Engineering	Software Engineering
+492	JT1128	Tanko Amos	Male	Water Operator	Works and Estate	Works and Estate
+493	AT1131	Nuhu Gideon	Male	Assistant Lecturer	Natural and Applied Sciences	Computer Science
+494	SA1133	Oche Ursula Mabel	Female	Administrative Officer I	VCs Office	VCs Office
+495	SA1134	Jonathan Monica Shekwoyemi	Female	Medical Laboratory Technician	Health Sciences	Medical Laboratory Science
+496	SA1135	Ayuba Blessing	Female	Medical Laboratory Technician	Health Sciences	Medical Laboratory Science
+497	J1136	John Thank God	Male	Library Assistant	Library	Library
+498	AV1138	Ejimofor Chijioke	Male	Visiting Senior Lecturer	Engineering	Electrical and Electronic Engineering
+499	SAC1139	Hassan Aishatu	Female	Assistant Chief Nursing Superintendent	Health Sciences	Nursing
+500	AT1140	Ali Vitalis Terfa	Male	Graduate Assistant	Social Sciences	Economics
+501	J1144	Peter Friday Ushesho	Male	Laboratory Attendant	Natural and Applied Sciences	Pure and Applied Chemistry
+502	SA1145	Chika Blessing Onyinye	Female	Senior Executive Officer	VCs Office	VCs Office
+503	AT1146	Ezekwudo Celestina Chinenye,	Female	Graduate Assistant	Education	Science Education
+504	AT1148	Akanni Ifeoluwa Olufunmilola	Female	Lecturer I	Health Sciences	Pharmaceutical Science
+505	SA1149	Ekoja Oloche Martins	Male	Administrative Officer I	Registry	Counselling
+506	SA1150	Agande Benjamin	Male	Principal Assistant Registrar	VCs Office	VCs Office
+507	SA1151	Nwankwo Onyekachi Alexander	Male	Senior Library Officer	Library	Library
+508	SA1152	Hassan Andrew	Male	Higher Executive Officer	Medicine	Medicine
+509	AT1153	Anaba Merith  Ifeoma	Female	Lecturer II	Management Sciences	Marketing
+510	AT1154	Gimba John Toro	Male	Lecturer I	Management Sciences	Business Administration
+511	AT1155	Ikegwu Anayo Chukwu	Male	Lecturer I	Natural and Applied Sciences	Software Engineering
+512	AT1156	Agbede Olumide Olawale	Male	Lecturer I	Education	Educational Foundation
+513	AT1159	Onoja Emmanuel Danjuma	Male	Assistant Lecturer	Natural and Applied Sciences	Computer Science
+514	AV1160	Kunle Olobayo Olufunsho	Male	Visiting Professor	Health Sciences	Pharmaceutical Science
+515	AV 1162	Sani Samuel Ali	Male	Visiting Senior Lecturer	Medicine	Medicine
+516	AV1164	Otunyo Victoria Obiajuru	Female	Visiting chief Technologist	Medicine	Medicine
+517	AT1165	Ubiedi Esiri Lucy	Female	Assistant Lecturer	Pharmaceutical Sciences	Pharmaceutical Science
+518	AV1166	Egbunu Aishat Joyce	Female	Visiting Deputy university libarian	Library	Library
+519	AV1167	Nwaocha Vivian Ogochukwu	Female	Visiting Associate Professor	Natural and Applied Sciences	Computer Science
+520	AT1168	Orjinta Nancy Kenechi	Female	Senior Lecturer	Medicine	Medicine
+521	AC1169	Chukwuanukwu Titus Osita	Male	Provost	Medicine	Medicine
+522	AV1170	Elijah Sunday Okon	Male	Visiting Senior Lecturer	Medicine	Medicine
+523	AV1171	Toryila Joseph Emberga	Male	Visiting Associate Professor	Medicine	Medicine
+524	AC1172	Yalo Bala	Male	Principal Security Officer	Security	Security
+525	AC1173	Uchu Monday	Female	Senior Security Officer	Security	Security
+526	AV1175	Ashikeni Matthew Abu	Male	Visiting Senior Lecturer	Medicine	Medicine
+527	SA1176	Omosayin Deborah  Omolara	Female	Laboratory Technologist II	Pharmaceutical Sciences	Pharmaceutical Science
+528	AT1177	Ogbu Anayochukwu	Male	Assistant Lecturer	Health Sciences	Medical Laboratory Science
+529	AT1178	Agbo Friday Ojonugwa	Male	Lecturer I	Law	Law
+530	SA1179	Akor John	Male	Hostel Administrator II	Student Affairs	Student Affairs
+531	SA1180	Kekere Shedrack Foriti	Male	Hostel Administrator II	Student Affairs	Student Affairs
+532	SA1181	Ogbu David Egbe	Male	Hostel Administrator II	Student Affairs	Student Affairs
+533	AT1182	Oguh Victor Chidera	Male	Assistant Lecturer	Management Sciences	Entrepreneurship
+534	AT1184	Alfa Stephen Agada	Male	Lecturer II	Education	Arts and Social Science Education
+535	SA1185	Amdii Banyo Sokokaye	Male	Higher Executive Officer	Counselling	Theology
+536	AT1186	Okunnu Alexander Odeyemi	Male	Graduate Assistant	Humanities	Theology
+537	SA1187	Eriki Grace Ifeyinwa	Male	Hostel Administrator II	Student Affairs	Student Affairs
+538	SA1188	Gbenyi Doowuese Benedicta	Female	Hostel Administrator II	Student Affairs	Student Affairs
+539	AT1189	Dagogot Charles Naánman	Male	Lecturer I	Pharmaceutical Sciences	Pharmaceutical Science
+540	AT1190	Essien Ekema Sifon	Female	Lecturer II	Pharmaceutical Sciences	Pharmaceutical Science
+541	AV1191	Adelakun Tiwalade Adegoke	Male	Visiting Senior Lecturer	Pharmaceutical Sciences	Pharmaceutical Science
+542	AV1192	Eziechila Joseph Chukwuma	Male	Visiting Senior Lecturer	Medicine	Medicine
+543	AT1193	Amaku Amaku Effiong	Male	Lecturer I	Natural and Applied Sciences	Computer Science
+544	J1194	Iliya Reuben Mabo	Male	Driver	Transport	Transport
+545	SA1195	Okeke Scholastica Nkechukwu	Female	Laboratory Technologist I	Pharmaceutical Sciences	Pharmaceutical Science
+546	AT1196	Acheme Samuel Owoicho-Oche	Male	Assistant Lecturer	Natural and Applied Sciences	Computer Science
+547	AV1197	Nwobodo Edwin	Male	Visiting Professor	Medicine	Medicine
+548	AT1198	Orjiako Rosemary Ndidiamaka	Female	Assistant Lecturer	Health Sciences	Medicine
+549	SA1199	Asanaenyi Quincey Efiong	Female	Assistant Registrar	Registry	Office of the Dean - Management Sciences
+550	SA1200	Moses Joshua	Male	CHEW	Medical	Medical Centre
+551	AT1203	Chukwuemeka Andrew	Male	Assistant Lecturer	Health Sciences	Medical Laboratory Science
+552	AV1204	Osanaiye Opeyemi Ayokunle	Male	Visiting Professor	Natural and Applied Sciences	Computer Science
+553	AV1205	Obiniyi Afolayan Ayodele	Male	Visiting Professor	Natural and Applied Sciences	Computer Science
+554	AV1206	Esew Ntim Gyakari	Male	Visiting Professor	Social Sciences	Political Science and Diplomacy
+555	SA1207	Oriba Raymond	Male	Assistant Editor	Social Sciences	Mass Communication
+556	AV1211	Mustapha Bagiwa Aminu	Male	Visiting Associate Professor	Natural and Applied Sciences	Computer Science
+557	AV1212	ukwuije Uche Tina	Female	Visiting Senior Lecturer	Medicine	Medicine
+558	AV1213	ukwuije Francis	Male	Visiting Senior Lecturer	Medical	Medicine
+559	J1214	Alhaji Ladi Ojimaojo	Female	Senior Clerical Officer	Medical	Medical Centre
+560	AT1215	Adebayo Francis Olayemi	Male	Senior Lecturer	Medicine	Medicine
+561	AV1217	Okpanachi Joshua	Male	Visiting Professor	Management Sciences	Accounting
+562	SA1218	Aselem Bonaventure Amuche	Male	Laboratory Technologist I	Natural and Applied Sciences	Software Engineering
+563	SA1219	DANJUMA DAVID FAVOUR	Male	Higher Executive Officer	Education	Registry
+564	SA1220	MICHEAL HAPPY NUSKAYA	Female	Accountant II	Bursary	Bursary
+565	AT1223	ENIAYEYE JOYCE AYODEJI	Female	Lecturer I	Education	Science Education
+566	AT1224	ANENE AMBROSE ONYEKA	Male	Lecturer I	Religious Studies	Theology
+567	ATC1225	OFODEME CHRISTIAN NNAEMEKA	Male	Senior Lecturer	Health Sciences	Medical Laboratory Science
+568	AT1232	OKONKWO ISIOMA LUCKY	Male	Assistant Lecturer	Natural and Applied Sciences	Software Engineering
+569	AT1233	IBEKWE PERPETUA UCHECHI	Female	Visiting Associate Professor	Medicine	Medicine
+570	AV1234	ALUKO-OLOKUN BAYO	Male	Visiting Professor	Medicine	Medicine
+571	SA1237	NWANA CHETACHUKWU AUGUSTINE	Male	Higher Library Officer	Library	Library
+572	SA1239	AZUAMA CHIDOZIE DANIEL	Male	Principal Experimental Officer	Medicine	Medicine
+573	SA1240	DANJUMA SHEKOLO	Male	Technical Officer	Social Sciences	Mass Communication
+574	SJ1241	ADAMU SAMAILA	Male	Senior Laboratory Supervisor	Medicine	Medicine
+575	SA1242	AYODELE TAIWO GREAT	Male	Medical Laboratory Technologist	Medicine	Medicine
+576	AT1243	OKECHUKWU EMMANUEL  IFEABUNIKE	Male	Senior Lecturer	Medicine	Medicine
+577	SA1244	INNAZO TAPIYADI	Female	Administrative Officer I	Registry	Academic Planning
+578	AT1245	ONOJA BONIFACE ADAKOLE	Male	Lecturer I	Medicine	Medicine
+579	AC1246	INUNDUH SUEGA PETERU	Male	Senior Lecturer	Medicine	Medicine
+580	AT1247	EKE KALU OKEREKE	Male	Senior Lecturer	Medicine	Medicine
+581	AT1248	AGADA ALI SAMUEL	Male	Senior Lecturer	Medicine	Medicine
+582	AT1249	MGBEDIMMA AUGUSTA IFEYINWA	Male	Senior Lecturer	Medicine	Medicine
+583	AT1250	OHAMMAH LAWRENCE MADU	Male	Senior Lecturer	Medicine	Medicine
+584	SA1251	OKARAGA ZENAS ADEIZA	Male	Higher Executive Officer	Registry	Office of the Dean - Faculty of Engineering
+585	SA1252	ANYAKU ANTHONIA NNEKA	Female	Higher Executive Officer	Medical	Medicine
+586	SA1253	ALOZIEUWA IKECHUKWU MICHAEL	Male	Higher Executive Officer	Medicine	Medicine
+587	SA1254	ABAKI SAMUEL	Male	Executive Officer	Medicine	Medicine
+588	SA1255	AWONIYI DAYO SUNDAY	Male	Higher Executive Officer	Medicine	Medicine
+589	SA1256	AZUBUGWU JENNIFER IFUNANYA	Female	Senior Laboratory Technologist	Medicine	Medicine
+590	SA1257	EKWENTA JUDE EKENE	Female	Higher Executive Officer	Medicine	Medicine
+591	AT1258	AKERELE ISAAC OLUBANJO	Male	Senior Lecturer	Medicine	Medicine
+592	AV1259	INYANG BASSEY ATTE	Male	Visiting Senior Lecturer	Medicine	Medicine
+593	SA1260	EMERUWA CHIOMA JANET	Female	Senior Laboratory Technologist	Medicine	Medicine
+594	AT1261	JOHNSAM YETUNDE OLAMIDE	Male	Senior Lecturer	Medicine	Medicine
+595	AV1262	ONYEKWELU ANGUS CHUKWUEMEKA	Male	Senior Lecturer	Medicine	Medicine
+596	AT1264	EGESIMBA MARTHA CHITURU	Male	Senior Lecturer	Medicine	Medicine
+597	SA1265	OKEKWU BENJAMIN	Male	Senior Laboratory Technologist	Medicine	Medicine
+598	SA1266	ISHAKU BLESSING	Female	Executive Officer	Registry	Medicine
+599	SA1267	BOBAI FRANCIS	Male	Senior Laboratory Supervisor	Medicine	Medicine
+600	AV1269	ABDUL OLUWASESAN ADELOWO	Male	Visiting Senior Lecturer	Medicine	Medicine
+601	AT1270	YOHANNA VERONICA	Female	Assistant Lecturer	Education	Arts and Social Science Education
+602	SA1271	YUDA ABIGAIL	Female	Senior Laboratory Supervisor	Pharmaceutical Sciences	Pharmaceutical Science
+603	AT1273	MCGARVEY KATHLEEN ANNE	Female	Lecturer I	Social Sciences	Theology
+604	AV1274	AJAYI RUTH FEYISAYO	Male	Visiting Senior Lecturer	Pharmaceutical Sciences	Pharmaceutical Science
+605	SA1275	DAHEL JACOB YOILA	Male	Senior Laboratory Technologist	Pharmaceutical Sciences	Pharmaceutical Science
+606	SA1276	UBOH FELIX	Female	Senior Laboratory Technologist	Pharmaceutical Sciences	Pharmaceutical Science
+607	AV1277	DANIEL-EBUNE ONYILOKO ENE	Female	Visiting Senior Lecturer	Pharmaceutical Sciences	Pharmaceutical Science
+608	AT1279	IBUKUN-OBARO OLUWASEYI OMONIYI	Male	Senior Lecturer	Medicine	Medicine
+609	AT1280	ADEDIRAN OLANREWAJU MOSES	Male	Senior Lecturer	Medicine	Medicine
+610	AT1282	OKEKE NZUBE EMMANUEL	Male	Lecturer II	Medicine	Medicine
+611	AV1283	AKUKWE MARCEL	Male	Visiting Senior Lecturer	Medicine	Medicine
+612	SA1284	JAMES JADABA MERCY	Female	Senior Laboratory Supervisor	Pharmaceutical Sciences	Pharmaceutical Science
+613	JA1285	MUSA SARAH AMBA JUMMAI ISHAKU	Female	Senior Laboratory Supervisor	Pharmaceutical Sciences	Pharmaceutical Science
+614	SA1287	BITRUS ISTIFANUS KAKA	Female	CHEW	Medical	Medical Centre
+615	SA1288	JOSEPH THADDEUS ISHAYA	Male	Senior Medical Laboratory Technician	Medical	Medical Centre
+616	AT1289	OKOYE ONYEDKA GODFREY	Male	Senior Lecturer	Medicine	Medicine
+617	SA1290	ALLY MARTINA ATIMANU	Female	Staff Nurse	Medical	Medical Centre
+618	SA1291	OGBONNA NGOZI	Female	Medical Laboratory Scientist	Health Sciences	Medical Laboratory Science
+619	SA1292	OKEKE CHRISTOPHER CHINEMEREM	Male	Medical Laboratory Scientist	Health Sciences	Medical Laboratory Science
+620	SA1293	ADEYEYE EKUNDAYO LIZZY	Female	Pharmacy Technician	Medical	Medical Centre
+621	SAC1294	OMOTESHO EBUNOLA JUMOKE	Female	Assistant Chief Nursing Superintendent	Medical	Medical Centre
+622	SAC1295	BASSEY GLORY EDETET	Female	Senior Nursing Officer	Health Sciences	Nursing
+623	ATC1296	UMOH EKAETTE FABIAN	Female	Lecturer I	Health Sciences	Nursing
+624	AT1297	IGWE NNAMDI HENRY	Male	Graduate Assistant	Natural and Applied Sciences	Microbiology
+625	SAC1298	ATOGWE IREKHEGBE JOHN	Male	Chief Foresty Superintendent	Pharmaceutical Sciences	Pharmaceutical Science
+626	ATC1301	SALAWU OLUWAKANYINSOLA ADEOLA	Female	Professor	Pharmaceutical Sciences	Pharmaceutical Science
+627	ATC1302	TOR SALOME SHIDEN	Female	Lecturer I	Health Sciences	Nursing
+628	SA1303	SANNI ANTHONY ITOPA	Male	Senior Executive Officer	Registry	Debt Recovery Office
+629	SA1304	MAKUN MOJIBOLA JANET	Female	Principal Quantity Surveyor	Works and Estate	Works and Estate
+630	AT1305	YUSUF ZARIYI	Male	Assistant Lecturer	Pharmaceutical Sciences	Pharmaceutical Science
+631	SA1306	DOMINIC EMMANUELLA UTEWUOJO	Female	Higher Executive Officer	Registry	Pharmaceutical Science
+632	AT1307	ONAGHINOR-ODUH IYONU JOAN	Female	Lecturer I	Medicine	Medicine
+633	AT1308	OGWUCHE LEONARD ACHILE	Male	Lecturer I	Management Sciences	Business Administration
+634	AT1309	OKOLI EMMANUEL  CHIBUZO	Male	Senior Lecturer	Management Sciences	Marketing
+635	AT1310	DUROTOLUWA IBIKUMLE MOSES	Male	Senior Lecturer	Medicine	Medicine
+636	SA1312	OGIJO MOSES OJONUGWA	Male	Engineer Grade II	Engineering	Electrical and Electronic Engineering
+637	SA1313	SOLOMON CAROL NKOM	Male	Engineer Grade II	Engineering	Electrical and Electronic Engineering
+638	AT1314	UDEH PRINCE CHUKWUDI	Male	Lecturer II	Engineering	Electrical and Electronic Engineering
+639	AT1315	SUBERU BELLO MOMOH	Male	Lecturer II	Engineering	Electrical and Electronic Engineering
+640	SA1316	ADIKWU ANTHONY ACHANYA	Male	Chief Driver	Transport	Transport
+641	AV1317	IGYUVE ANTHONIA IORVER	Male	Visiting Professor	Social Sciences	Mass Communication
+642	AT1318	EFFIONG EMMANUEL  EDET	Male	Lecturer II	Engineering	Electrical and Electronic Engineering
+643	SA1319	ZEKERI TIMOTHY OGBAJE AWODI	Male	Higher Executive Officer	Student Affairs	Student Affairs
+644	SAC1326	INYANG PRUDENCE PATRICK	Female	Higher Executive Officer	Student Affairs	Student Affairs
+645	SAC1327	OTOBA ABRAHAM	Male	Higher Executive Officer	Student Affairs	Student Affairs
+646	SAC1328	BUHARI PETER DANTATA	Male	Higher Executive Officer	Student Affairs	Student Affairs
+647	ATC1331	OYEKU OYEDELE MATTHEW	Male	Senior Lecturer	Management Sciences	Entrepreneurship
+648	AT1332	EZIECHILA BESSIE CHINWE	Male	Senior Lecturer	Medicine	Medicine
+649	JA1333	AUDU ROBO	Male	Assistant Chief Driver	Transport	Transport
+650	AT1334	UZODIMMA GERALDINE CHIMBUOYIM	Female	Lecturer II	Religious Studies	Theology
+651	ATC1335	KWASKEBE JUSTINA	Male	Lecturer I	Health Sciences	Nursing
+652	AT1336	OKONKWO OKECHUKWU	Male	Lecturer I	Management Sciences	Accounting
+653	AT1337	EZE EVELYN NGOZIKA	Female	Assistant Lecturer	Humanities	English and Literary Studies
+654	AT1339	ACHUSI IZUCHUKWU BENERDIN	Male	Senior Lecturer	Medicine	Medicine
+655	AT1340	ATTAH EMMANUEL YUSUF	Male	Senior Lecturer	Management Sciences	Business Administration
+656	AV1341	OGBUOKEBE STANISLAUS	Male	Lecturer I	Engineering	Electrical and Electronic Engineering
+657	SAC1342	ONYILUKA MARIA CHINWE CONSOLATRICE	Female	Principal Executive Officer I	Student Affairs	Student Affairs
+658	AT1343	SHUTTI MUSIRAFAT ADEPEJU	Female	Lecturer II	Health Sciences	Nursing
+659	SAC1344	IDOKO JOHN	Male	Chief Medical Laboratory Scientist	Health Sciences	Medical Laboratory Science
+660	SAC1346	OGOH IDOGA EMMANUEL	Male	Chief Security Officer	Security	Security
+661	AV1347	UMEH ERIC OKECHUKWU	Male	Visiting Professor	Medicine	Medicine
+662	AV1349	OKWUTE OJONOMA LORETTA	Female	Associate Professor	Natural and Applied Sciences	Microbiology
+663	SA1350	USMAN JOYCE	Female	Senior Laboratory Supervisor	Medicine	Medicine
+664	SA1351	GAKWARANG REBECCA BALA	Female	Higher Library Officer	Library	Library
+665	SA1352	ABBA ALFRED OKPE	Male	Deputy Chief Security Officer	Security	Security
+666	SAC1353	AJIBILI DANJUMA ONU	Male	University Librarian	Library	Library
+667	AT1354	AMANA ENEMALI AUGUSTINE	Male	Lecturer II	Management Sciences	Banking and Finance
+668	AT1355	ROBERTS ANYA NKATA	Male	Lecturer II	Social Sciences	Political Science and Diplomacy
+669	AT1357	ADENIYI OLASUPO	Male	Visiting Professor	Medicine	Medicine
+670	ATV1358	NWAZE ERIC OKORIE	Male	Visiting Senior Lecturer	Medicine	Medicine
+671	AT1359	OMALE PROSPER ELIJAH	Male	Graduate Assistant	Natural and Applied Sciences	MATHEMATICAL SCIENCES
+672	SA1361	OYEDERE OLUTAYO STEPHEN	Male	Higher Executive Officer	Registry	Debt Recovery Office
+673	SA1362	ALIKALI INNOCENT IDOKO	Male	Senior Medical Laboratory Technician	Natural and Applied Sciences	Pure and Applied Chemistry
+674	SA1364	NWACHUKWU GIFT UGOCHI	Female	Medical Laboratory Scientist	Health Sciences	Medical Laboratory Science
+675	SJ1365	EMMANUEL SOLOMON	Male	Water Operator	Works and Estate	Works and Estate
+676	ATC1366	APOCHI JAMES OCHEME	Male	Senior Lecturer	Management Sciences	Entrepreneurship
+677	SA1368	EKPONG JUSTINA MOSHI	Female	Higher Executive Officer	Registry	Microbiology
+678	SA1369	JAMES OJONUGWA AMOS	Male	System Administrator II	ICT	ICT
+679	AT1370	UMAR HABIBA	Female	Lecturer II	Health Sciences	Nursing
+680	AT1371	GEORGE UDUAK	Female	Lecturer II	Health Sciences	Nursing
+681	AT1372	NNAMDI NNADOZIE REGINALD	Male	Associate Professor	Religious Studies	Philosophy
+682	AT1374	ABISOYE OPEYEMI ADERIIKE	Female	Associate Professor	Natural and Applied Sciences	Software Engineering
+683	AT1375	OJIAKOR ANGELA UKAMAKA	Female	Graduate Assistant	Management Sciences	Marketing
+684	AT1376	OMOBHUDE IFEOMA ANNE	Female	Lecturer II	Natural and Applied Sciences	Pure and Applied Chemistry
+685	AT1377	LAWRENCE MARY OLAJUMOKE	Female	Graduate Assistant	Education	Educational Foundation
+686	ATC1379	NWOSU HAROLD UGOCHUKWU	Male	Professor	Engineering	Office of the Dean - Faculty of Engineering
+687	ATC1380	OGBOGU NELSON ODINAKA	Male	Senior Lecturer	Natural and Applied Sciences	Electrical and Electronic Engineering
+688	ATC1381	GALI REBECCA MTAKU	Male	Professor	Health Sciences	Medical Laboratory Science
+689	AT1382	MARINANA MUHAMMED SAÁD	Male	Lecturer II	Engineering	Electrical and Electronic Engineering
+690	AT1383	EJEMBI EMMANUEL	Male	Senior Lecturer	Natural and Applied Sciences	Electrical and Electronic Engineering
+691	AT1385	OGIDINTA CHARLES EGWUCHUKWU	Male	Lecturer I	Health Sciences	Nursing
+692	SA1386	ONUCHE DAMIAN ENEMONA	Male	Assistant Editor	VCs Office	VCs Office
+693	SAT1387	ONEN IBIANG IBIANG	Male	Principal Engineer	Works and Estate	Works and Estate
+694	SA1388	BULUS DANKAKA GLORY	Male	Chief Driver	Transport	Transport
+695	SA1389	IBRAHIM YAKUBU	Male	Accountant II	Bursary	Bursary
+696	AT1390	CHEKWAS CHIKEZIE IFEANYI	Male	Lecturer II	Engineering	Computer Engineering
+697	JA1391	URAH GIDEON	Male	Driver	Transport	Transport
+698	AV1392	NWAODU NNAMDI OKECHUKWU	Male	Visiting Professor	Social Sciences	Political Science and Diplomacy
+699	JA1393	IRIMIYA NASARA VICTOR	Male	Hall Administrator	Registry	Registry
+700	AT1394	AMU MESUUR SANDRA	Female	Graduate Assistant	Natural and Applied Sciences	Biochemistry
+701	AT1395	MSAR SOLOMON BEM	Male	Lecturer II	Social Sciences	Political Science and Diplomacy
+702	SA1396	UGBEMEH ANNETTE CHINYERE	Female	Accountant II	Bursary	Bursary
+703	AT1397	OCHAI DONATUS PETER	Male	Lecturer I	Education	Educational Foundation
+704	AT1399	ALI ESTHER EMIKE	Female	Assistant Lecturer	Education	GUIDANCE AND COUNSELLING
+705	AV1400	EWANG ESSIEN  SAMPSON	Male	Senior Lecturer	Natural and Applied Sciences	Electrical and Electronic Engineering
+706	AV1401	OLOWONEFA GRACE SIMADI	Female	Associate Professor	Education	Educational Foundation
+707	SA1402	TAIWO OLALEKAN OLAOLUWA	Male	Accountant II	Bursary	Bursary
+708	SA1403	OLOWODALU MARY OLUWASEYI	Female	Laboratory Technologist II	Pharmaceutical Sciences	Pharmaceutical Science
+709	SJ1404	JAMES AWYETU	Male	Assistant Laboratory Technologist	Pharmaceutical Sciences	Pharmaceutical Science
+710	AT1405	OKORONKWO MBA OGBUREKE	Male	Professor	Health Sciences	Medical Laboratory Science
+711	AV1406	OLORUKOOBA AMINA BUSOLA	Male	Visiting Associate Professor	Pharmaceutical Sciences	Pharmaceutical Science
+712	SAC1407	EWAOCHE AARON EMMANUEL	Male	Chief Medical Laboratory Scientist	Pharmaceutical Sciences	Pharmaceutical Science
+713	SA1409	ODAMA MARGARET-MARY AKWUNUFO	Female	Laboratory Technologist II	Medicine	Medicine
+714	SAC1410	MOTUNBADE JOHN OLUSHOLA	Male	Chief Science Laboratory Technologist	Pharmaceutical Sciences	Pharmaceutical Science
+715	SA1411	EKWUTA JOHN EKWUTA	Male	Laboratory Technologist I	Pharmaceutical Sciences	Pharmaceutical Science
+716	SA1412	AZUBUIKE RITA AMARACHUKWU	Female	Staff Nurse	Medical	Medical Centre
+717	SA1413	NDUKA CHIMDI ELEANYA	Male	Laboratory Technologist II	Engineering	Computer Engineering
+718	AV1415	ODUNMOSU PATRICIA OCHIMUNUNA	Female	Visiting Professor	Pharmaceutical Sciences	Pharmaceutical Science
+719	SAC1416	OBAH VICTOR ODEOSOMIMHE	Male	Assistant Chief Executive Officer	ICT	ICT
+720	SA1417	IWUCHUKWU DORISANNIE CHINAGOROM	Female	Medical Laboratory Scientist	Medical	Medical Centre
+721	AT1418	EKWE FAITH KELECHI	Female	Lecturer I	Law	Law
+722	SA1419	SULE ANDREW	Male	Chief Science Laboratory Technologist	Pharmaceutical Sciences	Pharmaceutical Science
+723	SA1420	OFODILE AGATHA IFEAYICHUKWU	Female	Senior Executive Officer	Bursary	Bursary
+724	SA1421	AJODO VICTOR ACHILE	Male	STEWARD	Bursary	Bursary
+725	SA1422	JAMES ALFRED NAMANG	Male	Technologist II	Pharmaceutical Sciences	Pharmaceutical Science
+726	ATS1424	PETER BAUNA TANKO	Male	Professor	Social Sciences	Arts and Social Science Education
+727	SA1425	IWEHA CHINAZOR JUSTINA	Female	Accountant I	Bursary	Bursary
+728	AT1427	ATAGHER JOHN AONDOHEMBA	Male	Lecturer II	Natural and Applied Sciences	Pure and Applied Chemistry
+729	SAC1428	OLUWANISHOLA MOTUNRAYO TAIYE	Male	Senior Executive Officer	Student Affairs	Student Affairs
+730	AT1429	IGBA MNZUGHULGA DAVID	Male	Lecturer I	Humanities	History and International Relations
+731	AT1430	ODOALA FINIAN KELECHI	Male	Senior Lecturer	Pharmaceutical Sciences	Pharmaceutical Science
+732	AT1431	JOHN ILEMONA	Male	Lecturer II	Humanities	History and International Relations
+733	SAC1432	ACHO TERUNGWA	Male	Chief Medical Officer	Medical	Medical Centre
+734	SA1433	AMADI CHIAMAKA MIRIAN	Female	CHEW	Medical	Medical Centre
+735	SA1434	OHANUKA HERMAS CHINEDU	Male	Principal Medical Officer I	Medical	Medical Centre
+736	AT1435	JOHN MWANLE TELE	Male	Lecturer II	Humanities	History and International Relations
+737	AT1436	UFARUNA SARAH AZI	Female	Lecturer II	Humanities	History and International Relations
+738	SAC1437	ADEKUNLE OLUFEMI ADEOLA	Male	Senior Executive Officer	Student Affairs	Student Affairs
+739	SAC1438	ONAGA PRINCE UGONNA	Male	Senior Executive Officer	Student Affairs	Student Affairs
+740	SAC1439	ASOLIBE UGOCHI ASSUMPTA	Female	Higher Executive Officer	Student Affairs	Student Affairs
+741	SA1440	IBEAWUCHI UZODIMMA JOSEPH	Male	Laboratory Technologist II	Engineering	Computer Engineering
+742	ATC1441	APYA NONGONAN HYACINTH	Male	Associate Professor	Humanities	History and International Relations
+743	SAC1442	ONYILO GODWIN ONYILO	Male	Chief Technologist	Natural and Applied Sciences	Pure and Applied Physics/Mathematics
+744	AT1443	ADESHINA IBUKUNOLUWA SUNDAY	Male	Assistant Lecturer	Pharmaceutical Sciences	Software Engineering
+745	AT1444	AYAMBA VICTOR NDOMA	Male	Graduate Assistant	Natural and Applied Sciences	Software Engineering
+746	AT1445	JADI MAITALA BINAWA	Male	Lecturer I	Management Sciences	Accounting
+747	AT1446	ONYILO BENEDICT OYIFIODA	Male	Professor	Education	GUIDANCE AND COUNSELLING
+748	AT1447	PAUL-EBIAI RICHARD ESIJOLOMI	Male	Senior Lecturer	Medicine	Medicine
+749	SA1448	AVONG STANLEY AGHU	Male	Deputy Chief Accountant	Bursary	Bursary
+750	AT1449	NNAJI DANIEL NDUBUISI	Male	Lecturer I	Medicine	Medicine
+751	AT1450	BILA HASSAN ALI	Male	Lecturer I	Pharmaceutical Sciences	Pharmaceutical Science
+752	ATC1451	IHEANACHO CHARITY UDO	Female	Senior Lecturer	Health Sciences	Medical Laboratory Science
+753	AT1452	IGWEBUIKE JOICE CHINYERE	Female	Lecturer II	Management Sciences	Marketing
+754	SA1453	SULE THOMAS APROLUWANG	Male	Higher Executive Officer	Medicine	Medicine
+755	AT1454	ONYEMKPA KELECHI CHIENYENWA	Female	Senior Lecturer	Medicine	Medicine
+756	SA1455	JOHN LAWRENCE	Male	Higher Education Officer	Medicine	Medicine
+757	SA1456	MARK DEBORAH JAMES	Female	Executive Officer	Medicine	Medicine
+758	ATC1457	INWELEGBU OBIKWERLU	Male	Senior Lecturer	Natural and Applied Sciences	Software Engineering
+759	AT1458	DIALOKE IKENNA CALISTUS	Male	Senior Lecturer	Natural and Applied Sciences	Computer Engineering
+760	AT1459	EGBOGA IKECHUKWU	Male	Lecturer I	Management Sciences	Marketing
+761	ATS1460	OKPOKAM DORATHY CHIOMA	Female	Associate Professor	Health Sciences	Medical Laboratory Science
+762	SA1461	OBINNA ADANNA CHISOM	Female	Higher Executive Officer	Medicine	Medicine
+763	AT1462	OLIGBI MAXWELL	Male	Lecturer II	Engineering	Computer Engineering
+764	SAC1463	MICHAEL PATIENCE OCHANYA	Female	Senior Executive Officer	Student Affairs	Student Affairs
+765	SAC1464	ADIKWU MARTHA OJO	Female	Senior Executive Officer	Student Affairs	Student Affairs
+766	SAC1465	JETHRO SHADA	Male	Senior Executive Officer	Student Affairs	Student Affairs
+767	SAC1466	UGWU FELICIA OLUCHI	Female	Higher Executive Officer	Student Affairs	Student Affairs
+768	AT1467	MOMMOH JOSHUA SOKOWONCI	Male	Lecturer II	Engineering	Computer Engineering
+769	SAC1468	INNOCENT PHILIPA	Female	Senior Executive Officer	Student Affairs	Student Affairs
+770	SAC1469	OTALUWA SUNDAY	Male	Senior Executive Officer	Student Affairs	Student Affairs
+771	SAC1470	CHINEDU RAPHAEL LAZARUS	Male	Senior Executive Officer	Student Affairs	Student Affairs
+772	ATC1471	GIDADO MAXWELL MICHAEL	Male	Professor	Law	Law
+773	AT1472	EZEKAFOR OLUCHI SCHOLASTICA	Female	Lecturer II	Engineering	Computer Engineering
+774	SAC1473	HARUNA JOASH JONATHAN	Male	Senior Executive Officer	Student Affairs	Student Affairs
+775	SAC1474	AZUBUIKE HENRY OKPANI	Male	Cleaner	Pharmaceutical Sciences	Pharmaceutical Science
+776	AT1475	JIMOH NAFISA OPEMI	Female	Lecturer II	Engineering	Computer Engineering
+777	SAC1476	LINUS VINCENT DANLITI	Male	Higher Education Officer	Student Affairs	Student Affairs
+778	AT1478	BOYI JIMOH	Male	Professor	Engineering	Electrical and Electronic Engineering
+779	ATC1479	KOLAWOLE SAMUEL FARAYOLA	Male	Professor	Engineering	Computer Engineering
+780	AT1480	MBAH ELOCHUKWU VICTOR	Male	Lecturer II	Engineering	Computer Engineering
+781	SAC1481	MEJABI VICTOR ADEBAYO	Male	Hostel Administrator I	Student Affairs	Student Affairs
+782	SAC1482	ONIMISI GLORY OMAYOZA	Female	Higher Executive Officer	Student Affairs	Student Affairs
+783	SAC1483	OBI JOSEPH NTEN	Male	Hostel Administrator I	Student Affairs	Student Affairs
+784	SAC1484	OLOJA KENNETH ADAH	Male	Hall Administrator	Student Affairs	Student Affairs
+785	SAC1485	KWALNE NITMUN  LONGS	Female	Hall Administrator	Student Affairs	Student Affairs
+786	SAC1486	IBRAHIM JEMILAT ALIYU	Female	Associate Professor	Pharmaceutical Sciences	Pharmaceutical Science
+787	SAC1487	JOHN WILLIAMS TUKURA	Male	Health Superintendent	Medicine	Medicine
+788	JS1488	JEREMIAH JULIUS SHEBI	Male	Health Attendant	Medicine	Medicine
+789	SA1489	ANI AMARACHI ESTHER	Female	Higher Executive Officer	Medicine	Medicine
+790	ATV1490	ILEGOGIE ANTHONY OKHUMEODE	Male	Senior Lecturer	Health Sciences	Medical Laboratory Science
+791	ATV1491	AUTA TITUS TANK0	Male	Associate Professor	Health Sciences	Nursing
+792	AT1492	WUGAMSO FIDELIA RAPHAEL	Female	Graduate Assistant	Education	GUIDANCE AND COUNSELLING
+793	AT1493	ODEH JOHN OWOICHO	Male	Lecturer II	Chaplaincy	Computer Science
+794	AT1494	BASSA NATHAN GABRIEL	Male	Graduate Assistant	Natural and Applied Sciences	Computer Science
+795	AV1495	ADAMU ALIYU	Male	Visiting Senior Lecturer	Natural and Applied Sciences	Pure and Applied Chemistry
+796	SA1496	PATRICK DINAH NNAI	Female	Senior Laboratory Technologist	Natural and Applied Sciences	Computer Science
+797	SA1497	ALOZIE MARYANN OMOAYENA	Female	Administrative Officer II	Natural and Applied Sciences	Software Engineering
+798	AT1498	MBAH EMMANUEL ONYIYECHI	Male	Graduate Assistant	Social Sciences	Political Science and Diplomacy
+799	AT1499	OLUWADE DORCAS OMAUYO	Female	Professor	Management Sciences	Business Administration
+800	AC1501	OLORUNFEMI PATRICk OLADELE	Male	Professor	Pharmaceutical Sciences	Pharmaceutical Science
+801	ATC1503	IHEMELANDU JOHN CHIGBU	Male	Lecturer I	Engineering	Computer Engineering
+802	AT1504	EKERIN ODUNAYO STEPHEN	Male	Lecturer II	Engineering	Computer Engineering
+803	AT15022	EJABEFIO BERNICE OGHENETEJIRI	Female	Graduate Assistant	Management Sciences	Public Administration

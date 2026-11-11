@@ -11,10 +11,10 @@ jobs:
     timeout-minutes: 60
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v4.1.0
         with:
           node-version: "24"
           cache: "npm"
@@ -24,9 +24,12 @@ jobs:
 
       - name: Build Windows installer
         run: npm run electron:build
+        shell: cmd
+        env:
+          CI: true
 
       - name: Upload installer artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.3.0
         with:
           name: attendance-register-installer
           path: dist-electron-build/*.exe
@@ -34,7 +37,7 @@ jobs:
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v2.2.1
         with:
           files: dist-electron-build/*.exe
           generate_release_notes: true

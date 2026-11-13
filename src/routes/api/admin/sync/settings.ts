@@ -19,7 +19,7 @@ export const Route = createFileRoute("/api/admin/sync/settings")({
         handleRoute(async () => {
           const session = await requireSession();
           await requireAdmin(session);
-          const settings = getSyncSettingsFromDB();
+          const settings = await getSyncSettingsFromDB();
           return json({
             host: settings?.host ?? "",
             port: settings?.port ?? 3306,
@@ -33,7 +33,7 @@ export const Route = createFileRoute("/api/admin/sync/settings")({
           const session = await requireSession();
           await requireAdmin(session);
           const body = parse(settingsSchema, await readJson(request));
-          setSyncSettings(body);
+          setSyncSettings({ ...body, password: body.password ?? "" });
           return json({ ok: true });
         }),
     },

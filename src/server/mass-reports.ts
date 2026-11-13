@@ -20,7 +20,12 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { toCsv } from "@/lib/attendance";
 import { massResult } from "@/server/mass";
-import type { EventResult, MassUploadParticipant } from "@/lib/types";
+import type {
+  EventResult,
+  MassReportGroupBy,
+  MassResult,
+  MassUploadParticipant,
+} from "@/lib/types";
 
 /**
  * The institution's name, as the reports print it. The application has no
@@ -285,6 +290,147 @@ const WEEKDAY_NAMES: Record<number, string> = {
   5: "Friday",
 };
 
+const GROUP_LABELS: Record<Exclude<MassReportGroupBy, "none">, string> = {
+  department: "Department",
+  level: "Level",
+  category: "Category",
+  weekday: "Mass weekday",
+};
+
+type GroupableMassRow = {
+  person_no: string | null;
+  full_name?: string | null;
+  department: string | null;
+  level: string | null;
+  day_of_week?: number | null;
+};
+
+/** The group a Mass report row belongs to, and the label the export prints. */
+function massGroupFor(
+  row: GroupableMassRow,
+  groupBy: Exclude<MassReportGroupBy, "none">,
+  participantType: MassUploadParticipant,
+): { key: string; label: string } {
+  if (groupBy === "department") {
+    const department = row.department?.trim();
+    return department
+      ? { key: `department:${department.toLowerCase()}`, label: department }
+      : { key: "department:none", label: "No department" };
+  }
+  if (groupBy === "level") {
+    return row.level
+      ? { key: `level:${row.level}`, label: `Level ${row.level}` }
+      : { key: "level:none", label: "No level" };
+  }
+  if (groupBy === "weekday") {
+    const day = row.day_of_week ?? null;
+    return day === null
+      ? { key: "weekday:none", label: "No Mass weekday" }
+      : { key: `weekday:${day}`, label: WEEKDAY_NAMES[day] ?? String(day) };
+  }
+  if (participantType === "staff") return { key: "category:staff", label: "Staff" };
+  const matric = (row.person_no ?? "").toUpperCase();
+  if (matric.startsWith("VUG")) return { key: "category:undergraduate", label: "Undergraduate" };
+  if (matric.startsWith("VPG")) return { key: "category:postgraduate", label: "Postgraduate" };
+  return { key: "category:none", label: "Uncategorised" };
+}
+
+function sortByMassGroup<T extends GroupableMassRow>(
+  rows: T[],
+  groupBy: Exclude<MassReportGroupBy, "none">,
+  participantType: MassUploadParticipant,
+): T[] {
+  return [...rows].sort((left, right) => {
+    const leftGroup = massGroupFor(left, groupBy, participantType).label;
+    const rightGroup = massGroupFor(right, groupBy, participantType).label;
+    return (
+      leftGroup.localeCompare(rightGroup, undefined, { numeric: true }) ||
+      (left.full_name ?? "").localeCompare(right.full_name ?? "")
+    );
+  });
+}
+
+type MassGroupBucket = {
+  label: string;
+  expected: number;
+  present: number;
+  absent: number;
+  out_of_scope: number;
+};
+
+/**
+ * The summary report as a per-group breakdown: one row per department, level,
+ * category or Mass weekday, with the same present/absent/percentage figures as
+ * the overall summary. Unmatched scans belong to no person group, so they get
+ * their own row rather than being hidden.
+ */
+function groupedMassTable(
+  result: MassResult,
+  participantType: MassUploadParticipant,
+  groupBy: Exclude<MassReportGroupBy, "none">,
+  title: string,
+  meta: Array<[string, string]>,
+): ReportTable {
+  const buckets = new Map<string, MassGroupBucket>();
+  const bucketFor = (row: GroupableMassRow): MassGroupBucket => {
+    const { key, label } = massGroupFor(row, groupBy, participantType);
+    let bucket = buckets.get(key);
+    if (!bucket) {
+      bucket = { label, expected: 0, present: 0, absent: 0, out_of_scope: 0 };
+      buckets.set(key, bucket);
+    }
+    return bucket;
+  };
+
+  for (const row of result.presentList) {
+    const bucket = bucketFor(row);
+    bucket.present += 1;
+    bucket.expected += 1;
+  }
+  for (const row of result.absentList) {
+    const bucket = bucketFor(row);
+    bucket.absent += 1;
+    bucket.expected += 1;
+  }
+  for (const row of result.outOfScopeList) {
+    bucketFor(row).out_of_scope += 1;
+  }
+
+  const rows: Array<Array<string | number>> = [...buckets.values()]
+    .sort((left, right) => left.label.localeCompare(right.label, undefined, { numeric: true }))
+    .map((bucket) => [
+      bucket.label,
+      bucket.expected,
+      bucket.present,
+      bucket.absent,
+      bucket.out_of_scope,
+      0,
+      bucket.expected === 0
+        ? "—"
+        : `${Math.round((bucket.present / bucket.expected) * 1000) / 10}%`,
+    ]);
+
+  if (result.unmatched > 0) {
+    rows.push(["Unmatched scans (no person group)", 0, 0, 0, 0, result.unmatched, "—"]);
+  }
+  rows.push([
+    "Total",
+    result.expected,
+    result.present,
+    result.absent,
+    result.out_of_scope,
+    result.unmatched,
+    result.percent === null ? "—" : `${result.percent}%`,
+  ]);
+
+  return {
+    title,
+    meta,
+    columns: ["Group", "Expected", "Present", "Absent", "Out of scope", "Unmatched", "Percent"],
+    rows,
+  };
+}
+
 function weekdaysWord(weekdays: number[], scope: string): string {
   if (scope === "sunday") return "Sunday Mass (all departments)";
   return weekdays.map((day) => WEEKDAY_NAMES[day] ?? String(day)).join(", ") || "—";
@@ -307,12 +453,20 @@ export async function buildMassReport(
   level: string | null,
   category: MassReportCategory,
   format: ReportFormat,
+  groupBy: MassReportGroupBy = "none",
 ): Promise<{ body: Buffer | string; contentType: string; filename: string }> {
   const result = await massResult(weekId, participantType, level);
   const { week } = result;
   const categoryWord = CATEGORY_TITLES[category];
   const participantLabel = participantType === "student" ? "Students" : "Staff";
-  const title = `${week.name} — ${categoryWord} ${participantLabel} Report`;
+  // Unmatched scans carry no person, so there is nothing to group them by.
+  const grouping = category === "unmatched" || groupBy === "none" ? null : groupBy;
+  const groupLabel = grouping ? GROUP_LABELS[grouping] : null;
+  const title = groupLabel
+    ? category === "summary"
+      ? `${week.name} — Attendance by ${groupLabel} — ${participantLabel} Report`
+      : `${week.name} — ${categoryWord} ${participantLabel} Report (by ${groupLabel})`
+    : `${week.name} — ${categoryWord} ${participantLabel} Report`;
   const studentColumns = participantType === "student";
   const numberColumn = studentColumns ? "Matric no" : "Staff no";
 
@@ -328,9 +482,12 @@ export async function buildMassReport(
         (result.percent !== null ? ` · ${result.percent}% present` : ""),
     ],
   ];
+  if (groupLabel) meta.push(["Grouped by", groupLabel]);
 
   let table: ReportTable;
-  if (category === "summary") {
+  if (grouping && category === "summary") {
+    table = groupedMassTable(result, participantType, grouping, title, meta);
+  } else if (category === "summary") {
     table = {
       title,
       meta,
@@ -350,11 +507,15 @@ export async function buildMassReport(
       ],
     };
   } else if (category === "present") {
+    const rows = grouping
+      ? sortByMassGroup(result.presentList, grouping, participantType)
+      : result.presentList;
     table = {
       title,
       meta,
       columns: [
         "S/N",
+        ...(grouping ? ["Group"] : []),
         numberColumn,
         "Name",
         "Department",
@@ -363,8 +524,9 @@ export async function buildMassReport(
         "First scan",
         "Last scan",
       ],
-      rows: result.presentList.map((row, index) => [
+      rows: rows.map((row, index) => [
         index + 1,
+        ...(grouping ? [massGroupFor(row, grouping, participantType).label] : []),
         row.person_no ?? "",
         row.full_name ?? "",
         row.department ?? "",
@@ -375,19 +537,24 @@ export async function buildMassReport(
       ]),
     };
   } else if (category === "absent") {
+    const rows = grouping
+      ? sortByMassGroup(result.absentList, grouping, participantType)
+      : result.absentList;
     table = {
       title,
       meta,
       columns: [
         "S/N",
+        ...(grouping ? ["Group"] : []),
         numberColumn,
         "Name",
         "Department",
         ...(studentColumns ? ["Level"] : []),
         "Assigned weekday",
       ],
-      rows: result.absentList.map((row, index) => [
+      rows: rows.map((row, index) => [
         index + 1,
+        ...(grouping ? [massGroupFor(row, grouping, participantType).label] : []),
         row.person_no ?? "",
         row.full_name ?? "",
         row.department ?? "",
@@ -396,19 +563,24 @@ export async function buildMassReport(
       ]),
     };
   } else if (category === "out_of_scope") {
+    const rows = grouping
+      ? sortByMassGroup(result.outOfScopeList, grouping, participantType)
+      : result.outOfScopeList;
     table = {
       title,
       meta,
       columns: [
         "S/N",
+        ...(grouping ? ["Group"] : []),
         numberColumn,
         "Name",
         "Department",
         ...(studentColumns ? ["Level"] : []),
         "Scans",
       ],
-      rows: result.outOfScopeList.map((row, index) => [
+      rows: rows.map((row, index) => [
         index + 1,
+        ...(grouping ? [massGroupFor(row, grouping, participantType).label] : []),
         row.person_no ?? "",
         row.full_name ?? "",
         row.department ?? "",
@@ -441,10 +613,11 @@ export async function buildMassReport(
 
   const { body, contentType } = await renderReport(table, format);
   const levelPart = level ? `-${level}` : "";
+  const groupPart = grouping ? `-by-${grouping}` : "";
   return {
     body,
     contentType,
-    filename: `${slug(week.name)}-${category}-${participantType}${levelPart}.${format}`,
+    filename: `${slug(week.name)}-${category}-${participantType}${levelPart}${groupPart}.${format}`,
   };
 }
 

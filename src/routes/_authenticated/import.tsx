@@ -82,6 +82,10 @@ function ImportPage() {
           faculty: pick(row, "faculty", "fac"),
           department: pick(row, "department", "dept", "dept_name"),
           adminDepartment: pick(row, "admin_department", "admin_dept", "admindept"),
+          machineId: pick(row, "machine_id", "machineId", "machine_id"),
+          staffIdOnMachine: pick(row, "staff_id_on_machine", "staffIdOnMachine", "machine_id"),
+          designation: pick(row, "designation", "Designation"),
+          staffCategory: pick(row, "staff_category", "staffCategory", "Staff Category"),
         }))
         .filter((r) => r.staffNo || (r.lastName && r.firstName));
       return api.importStaff({ records: rowsData });

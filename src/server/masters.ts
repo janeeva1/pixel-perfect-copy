@@ -64,6 +64,9 @@ export type StaffInput = {
   department: string | null;
   adminDepartment: string | null;
   machineId: string | null;
+  staffIdOnMachine: string | null;
+  designation: string | null;
+  staffCategory: string | null;
 };
 
 type CountRow = RowDataPacket & { total: number };
@@ -175,7 +178,7 @@ export function studentScanNumberSql(alias = "s"): string {
  * picking one.
  */
 export function staffScanNumberSql(alias = "f"): string {
-  return `COALESCE(NULLIF(TRIM(${alias}.machine_id), ''), NULLIF(REGEXP_REPLACE(${alias}.staff_no, '[^0-9]', ''), ''))`;
+  return `COALESCE(NULLIF(TRIM(${alias}.staff_id_on_machine), ''), NULLIF(TRIM(${alias}.machine_id), ''), NULLIF(REGEXP_REPLACE(${alias}.staff_no, '[^0-9]', ''), ''))`;
 }
 
 // Scopes ------------------------------------------------------------------
@@ -251,12 +254,84 @@ export async function audit(
 // Imports -----------------------------------------------------------------
 
 /**
+ * The registrar's student file does not carry a department column, but the
+ * department is encoded in the matric number: VUG/<department>/... for
+ * undergraduates and VPG/<programme>/<department>/... for postgraduates. These
+ * are the codes seen in the university's own files, mapped to the department
+ * spellings the staff file uses so both lists meet at the same weekday.
+ */
+const STUDENT_DEPARTMENT_BY_CODE: Record<string, string> = {
+  ACC: "Accounting",
+  ANA: "Medical Sciences",
+  ARI: "Software Engineering",
+  BCH: "Biochemistry",
+  BFN: "Finance",
+  BNS: "Nursing Sciences",
+  BST: "Theology",
+  BUS: "Business Administration",
+  CEG: "Computer Engineering",
+  CHM: "Pure and Applied Chemistry",
+  CSC: "Computer and Information Technology",
+  CYS: "Computer and Information Technology",
+  DSC: "Software Engineering",
+  EBU: "Science Education",
+  ECH: "Science Education",
+  ECS: "Science Education",
+  EEC: "Arts and Social Science Education",
+  EEM: "Educational Foundations",
+  EEN: "Arts and Social Science Education",
+  EEG: "Electrical and Electronic Engineering",
+  ENG: "English and Literary Studies",
+  ENT: "Entrepreneurship",
+  GCE: "Guidance and Counselling",
+  GPY: "Guidance and Counselling",
+  HIS: "History and International Relations",
+  HIR: "History and International Relations",
+  IFS: "Computer and Information Technology",
+  LAW: "Law",
+  MAC: "Mass Communication",
+  MBS: "Medical Sciences",
+  MCB: "Microbiology",
+  MDS: "Medical Sciences",
+  MLS: "Medical Laboratory Sciences",
+  MKT: "Marketing",
+  PCS: "Peace And Conflict Studies",
+  PHL: "Philosophy",
+  PHM: "Pharmacy",
+  PHY: "Pure and Applied Physics",
+  PIO: "Medical Sciences",
+  POL: "Political Science and Diplomacy",
+  PUB: "Public Administration",
+  RCS: "Religion and Intercultural Studies",
+  RED: "Arts and Social Science Education",
+  SEN: "Software Engineering",
+  THA: "Theatre Arts",
+  THE: "Theology",
+};
+
+/** The department a student record belongs to, from the file or the matric number. */
+function studentDepartment(matricNo: string, provided: string | null): string | null {
+  const given = nullIfBlank(provided);
+  if (given) return STUDENT_DEPARTMENT_BY_CODE[given.toUpperCase()] ?? given;
+
+  const parts = matricNo
+    .toUpperCase()
+    .split("/")
+    .map((part) => part.trim());
+  const prefix = parts[0];
+  const code =
+    prefix === "VUG" || prefix === "VUGS" ? parts[1] : prefix === "VPG" ? parts[2] : undefined;
+  return code ? (STUDENT_DEPARTMENT_BY_CODE[code] ?? null) : null;
+}
+
+/**
  * Stores an uploaded student list. matric_no is the natural key, so a corrected
  * re-upload updates the same rows instead of creating duplicates. The file's id
  * column is not stored (it repeats the matric number), and neither is the
  * category, which is derived from the matric number. The department's full name
  * and the marital status are stored as the file spells them: they are the file's
- * own text, kept for display, for scoping and for the Sunday Mass rule.
+ * own text, kept for display, for scoping and for the Sunday Mass rule. When the
+ * file has no department, the matric number supplies it.
  */
 export async function importStudents(
   records: StudentInput[],
@@ -264,17 +339,20 @@ export async function importStudents(
 ): Promise<ImportResult> {
   const parsed = records
     .filter((record) => record.matricNo.trim() !== "")
-    .map((record) => ({
-      matric: record.matricNo.trim(),
-      lastName: nullIfBlank(record.lastName),
-      firstName: nullIfBlank(record.firstName),
-      middleName: nullIfBlank(record.middleName),
-      level: nullIfBlank(record.level),
-      department: nullIfBlank(record.department),
-      maritalStatus: nullIfBlank(record.maritalStatus),
-    }));
+    .map((record) => {
+      const matric = record.matricNo.trim();
+      return {
+        matric,
+        lastName: nullIfBlank(record.lastName),
+        firstName: nullIfBlank(record.firstName),
+        middleName: nullIfBlank(record.middleName),
+        level: nullIfBlank(record.level),
+        department: studentDepartment(matric, record.department),
+        maritalStatus: nullIfBlank(record.maritalStatus),
+      };
+    });
 
-  return transaction(async (connection) => {
+  const result = await transaction(async (connection) => {
     let saved = 0;
     let skipped = 0;
 
@@ -318,6 +396,10 @@ export async function importStudents(
     await audit(connection, actorId, "students.imported", "students", { saved, skipped });
     return { saved, skipped };
   });
+
+  // Ensure any new departments from this import get a weekday assignment.
+  await syncMassWeekdays(actorId);
+  return result;
 }
 
 /**
@@ -342,12 +424,15 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
     department: nullIfBlank(record.department),
     adminDepartment: nullIfBlank(record.adminDepartment),
     machineId: nullIfBlank(record.machineId),
+    staffIdOnMachine: nullIfBlank(record.staffIdOnMachine),
+    designation: nullIfBlank(record.designation),
+    staffCategory: nullIfBlank(record.staffCategory),
   }));
 
   const keyed = parsed.filter((record) => record.staffNo !== null);
   const unkeyed = parsed.filter((record) => record.staffNo === null && personName(record));
 
-  return transaction(async (connection) => {
+  const result = await transaction(async (connection) => {
     let saved = 0;
 
     for (let index = 0; index < keyed.length; index += STAFF_CHUNK) {
@@ -365,13 +450,16 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
           record.department,
           record.adminDepartment,
           record.machineId,
+          record.staffIdOnMachine,
+          record.designation,
+          record.staffCategory,
           utcStamp(),
         );
       }
 
       await connection.query(
-        `INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, machine_id, updated_at)
-         VALUES ${placeholders(batch.length, 10)}
+        `INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, machine_id, staff_id_on_machine, designation, staff_category, updated_at)
+         VALUES ${placeholders(batch.length, 13)}
          ${dialect.upsert("staff_no", [
            "last_name",
            "first_name",
@@ -380,6 +468,9 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
            "department",
            "admin_department",
            "machine_id",
+           "staff_id_on_machine",
+           "designation",
+           "staff_category",
            "updated_at",
          ])}`,
         values,
@@ -397,7 +488,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
         [name],
       );
       await connection.query(
-        "INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, machine_id, updated_at) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?)",
+        "INSERT INTO staff (id, staff_no, last_name, first_name, middle_name, faculty, department, admin_department, machine_id, staff_id_on_machine, designation, staff_category, updated_at) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         [
           randomUUID(),
           record.lastName,
@@ -407,6 +498,9 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
           record.department,
           record.adminDepartment,
           record.machineId,
+          record.staffIdOnMachine,
+          record.designation,
+          record.staffCategory,
           utcStamp(),
         ],
       );
@@ -418,8 +512,9 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
     return { saved, skipped };
   });
 
-  // Ensure any new departments from this import get a weekday assignment
+  // Ensure any new departments from this import get a weekday assignment.
   await syncMassWeekdays(actorId);
+  return result;
 }
 
 // Editing a person ------------------------------------------------------------
@@ -442,6 +537,9 @@ export type StaffEdit = {
   department?: string | null | undefined;
   adminDepartment?: string | null | undefined;
   machineId?: string | null | undefined;
+  staffIdOnMachine?: string | null | undefined;
+  designation?: string | null | undefined;
+  staffCategory?: string | null | undefined;
 };
 
 /**

@@ -19,6 +19,7 @@ const bodySchema = z.object({
         scanNumber: nullable,
         name: nullable,
         scannedAt: nullable,
+        machineId: nullable,
       }),
     )
     .min(1, "There is nothing to upload.")

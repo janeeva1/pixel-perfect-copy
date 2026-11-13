@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
 import { Link, useNavigate, useLocation } from "@tanstack/react-router";
+import { PageHeader } from "@/components/PageHeader";
 import {
   BarChart3,
   CalendarCheck,
   CalendarDays,
-  CalendarClock,
   ChevronDown,
   Church,
   FileText,
@@ -40,9 +40,13 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 
-const nav = [
-  { to: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { to: "/mass/weekdays", label: "Mass department days", icon: CalendarClock },
+const nav = [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] as const;
+
+/**
+ * The people the register is about. They sit below Community Mass, which is
+ * the weekly job an operator does with them.
+ */
+const peopleNav = [
   { to: "/students", label: "Students", icon: GraduationCap },
   { to: "/staff", label: "Staff", icon: Users },
 ] as const;
@@ -119,8 +123,12 @@ export function AppShell({ children }: { children: ReactNode }) {
   const reportsOpen =
     location.pathname.startsWith("/reports/students") ||
     location.pathname.startsWith("/reports/staff");
-  const massOpen =
-    location.pathname.startsWith("/mass") && !location.pathname.startsWith("/mass/weekdays");
+  const massOpen = location.pathname.startsWith("/mass");
+  const peopleOpen =
+    location.pathname === "/students" ||
+    location.pathname.startsWith("/students/") ||
+    location.pathname === "/staff" ||
+    location.pathname.startsWith("/staff/");
 
   return (
     <SidebarProvider>
@@ -144,6 +152,44 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {item.label}
               </Link>
             ))}
+
+            <NavGroup label="Weekly Mass" icon={Church} open={massOpen}>
+              <Link
+                to="/mass"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Weekly Mass
+              </Link>
+              <Link
+                to="/mass/weekdays"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Mass department days
+              </Link>
+              <Link
+                to="/mass/reports"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Weekly Mass Reports
+              </Link>
+            </NavGroup>
+
+            <NavGroup label="People" icon={Users} open={peopleOpen}>
+              {peopleNav.map((item) => (
+                <Link
+                  key={item.to}
+                  to={item.to}
+                  activeProps={{ className: ACTIVE_CLASS }}
+                  className={`${NESTED_LINK_CLASS} gap-2`}
+                >
+                  <item.icon className="size-4" />
+                  {item.label}
+                </Link>
+              ))}
+            </NavGroup>
 
             <NavGroup label="Events" icon={CalendarCheck} open={eventsOpen}>
               <Link
@@ -176,23 +222,6 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={NESTED_LINK_CLASS}
               >
                 Staff reports
-              </Link>
-            </NavGroup>
-
-            <NavGroup label="Weekly Mass" icon={Church} open={massOpen}>
-              <Link
-                to="/mass"
-                activeProps={{ className: ACTIVE_CLASS }}
-                className={NESTED_LINK_CLASS}
-              >
-                Weekly Mass
-              </Link>
-              <Link
-                to="/mass/reports"
-                activeProps={{ className: ACTIVE_CLASS }}
-                className={NESTED_LINK_CLASS}
-              >
-                Weekly Mass Reports
               </Link>
             </NavGroup>
           </nav>
@@ -273,19 +302,20 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
-        <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4">
-          <SidebarTrigger className="-ml-1" aria-label="Toggle sidebar" />
-          <div className="flex-1" />
-          <div className="flex items-center gap-4 text-sm">
-            <span className="text-muted-foreground hidden sm:block">
-              {user?.fullName ?? user?.email}
-            </span>
-            <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={signOut.isPending}>
-              <LogOut className="mr-2 size-4" /> Sign out
-            </Button>
-          </div>
-        </header>
+<SidebarInset>
+          <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-background px-4">
+            <SidebarTrigger className="-ml-1" aria-label="Toggle sidebar" />
+            <PageHeader />
+            <div className="flex-1" />
+            <div className="flex items-center gap-4 text-sm">
+              <span className="text-muted-foreground hidden sm:block">
+                {user?.fullName ?? user?.email}
+              </span>
+              <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={signOut.isPending}>
+                <LogOut className="mr-2 size-4" /> Sign out
+              </Button>
+            </div>
+          </header>
         <main className="flex-1 p-4 lg:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>

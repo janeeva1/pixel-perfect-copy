@@ -46,6 +46,9 @@
 
 import { randomUUID } from "node:crypto";
 import { createCipheriv, createDecipheriv, randomBytes, scryptSync } from "node:crypto";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
 import type { SqlParam } from "@/server/db";
 import { dialect, query, queryOne, transaction } from "@/server/db";
@@ -86,10 +89,6 @@ export async function syncSettings(): Promise<SyncSettings | null> {
 function getEncryptionKey(): Buffer {
   // In a real deployment you might use a hardware-backed key.
   // Here we derive from a stable file that exists on the machine.
-  const crypto = require("node:crypto");
-  const fs = require("node:fs");
-  const path = require("node:path");
-  const os = require("node:os");
 
   // Use a combination of machine-id and a fixed salt
   const machineIdPath = path.join(os.homedir(), ".attendance-sync-key");
@@ -183,7 +182,6 @@ export async function testSyncConnection(input: {
   password: string;
   database: string;
 }): Promise<{ ok: boolean; message: string }> {
-  const { createPool } = require("mysql2/promise");
   let pool;
   try {
     pool = createPool({

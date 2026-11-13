@@ -21,7 +21,12 @@ import {
   formatDateTime,
 } from "@/components/attendance-ui";
 import { api } from "@/lib/api";
-import { MASS_WEEKDAY_LABELS, type MassUploadParticipant } from "@/lib/types";
+import {
+  MASS_REPORT_GROUP_OPTIONS,
+  MASS_WEEKDAY_LABELS,
+  type MassReportGroupBy,
+  type MassUploadParticipant,
+} from "@/lib/types";
 
 export const Route = createFileRoute("/_authenticated/mass/$weekId/reports")({
   component: MassWeekReportsPage,
@@ -42,6 +47,7 @@ function MassWeekReportsPage() {
   const { weekId } = Route.useParams();
   const [participant, setParticipant] = useState<MassUploadParticipant>("student");
   const [level, setLevel] = useState("");
+  const [groupBy, setGroupBy] = useState<MassReportGroupBy>("none");
   const [format, setFormat] = useState<(typeof FORMATS)[number]["value"]>("csv");
 
   const week = useQuery({
@@ -87,20 +93,27 @@ function MassWeekReportsPage() {
       level: level || null,
       category: which,
       format,
+      groupBy,
     });
 
   return (
     <div className="space-y-6">
       <Panel
         title={`Reports — ${week.data?.name ?? "…"}`}
-        description="Read the tables on screen, or download the same numbers as CSV, Excel or PDF."
+        description="Read the tables on screen, or download the same numbers as CSV, Excel or PDF. Grouping applies to the downloaded file."
       >
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <Label htmlFor="report-participant">Who</Label>
             <Select
               value={participant}
-              onValueChange={(value) => setParticipant(value === "staff" ? "staff" : "student")}
+              onValueChange={(value) => {
+                const next = value === "staff" ? "staff" : "student";
+                setParticipant(next);
+                if (next === "staff" && (groupBy === "level" || groupBy === "category")) {
+                  setGroupBy("none");
+                }
+              }}
             >
               <SelectTrigger id="report-participant" className="w-36">
                 <SelectValue />
@@ -118,7 +131,10 @@ function MassWeekReportsPage() {
           {participant === "student" ? (
             <div className="space-y-1">
               <Label htmlFor="report-level">Level</Label>
-              <Select value={level} onValueChange={setLevel}>
+              <Select
+                value={level === "" ? "all" : level}
+                onValueChange={(value) => setLevel(value === "all" ? "" : value)}
+              >
                 <SelectTrigger id="report-level" className="w-32">
                   <SelectValue placeholder="All levels" />
                 </SelectTrigger>
@@ -133,6 +149,25 @@ function MassWeekReportsPage() {
               </Select>
             </div>
           ) : null}
+
+          <div className="space-y-1">
+            <Label htmlFor="report-group">Group by</Label>
+            <Select
+              value={groupBy}
+              onValueChange={(value) => setGroupBy(value as MassReportGroupBy)}
+            >
+              <SelectTrigger id="report-group" className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MASS_REPORT_GROUP_OPTIONS[participant].map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           <div className="space-y-1">
             <Label htmlFor="report-format">Download as</Label>

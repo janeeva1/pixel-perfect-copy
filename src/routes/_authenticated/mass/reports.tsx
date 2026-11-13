@@ -14,8 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { EmptyState, Panel } from "@/components/attendance-ui";
 import { api } from "@/lib/api";
 import {
+  MASS_REPORT_GROUP_OPTIONS,
   MASS_STATUS_LABELS,
   MASS_WEEKDAY_LABELS,
+  type MassReportGroupBy,
   type MassWeek,
   type MassWeekParticipantType,
 } from "@/lib/types";
@@ -49,6 +51,7 @@ type Format = (typeof FORMATS)[number]["value"];
 function MassReportsHubPage() {
   const [format, setFormat] = useState<Format>("csv");
   const [participant, setParticipant] = useState<"student" | "staff">("student");
+  const [groupBy, setGroupBy] = useState<MassReportGroupBy>("none");
 
   const weeks = useQuery({
     queryKey: ["mass-weeks"],
@@ -59,14 +62,20 @@ function MassReportsHubPage() {
     <div className="space-y-6">
       <Panel
         title="Weekly Mass Reports"
-        description="Every weekly Mass record. Download the list of those present or the list of those absent, in the format you choose."
+        description="Every weekly Mass record. Download the list of those present or the list of those absent, in the format and grouping you choose."
       >
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <Label htmlFor="hub-participant">Who</Label>
             <Select
               value={participant}
-              onValueChange={(value) => setParticipant(value === "staff" ? "staff" : "student")}
+              onValueChange={(value) => {
+                const next = value === "staff" ? "staff" : "student";
+                setParticipant(next);
+                if (next === "staff" && (groupBy === "level" || groupBy === "category")) {
+                  setGroupBy("none");
+                }
+              }}
             >
               <SelectTrigger id="hub-participant" className="w-36">
                 <SelectValue />
@@ -74,6 +83,24 @@ function MassReportsHubPage() {
               <SelectContent>
                 <SelectItem value="student">Students</SelectItem>
                 <SelectItem value="staff">Staff</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="hub-group">Group by</Label>
+            <Select
+              value={groupBy}
+              onValueChange={(value) => setGroupBy(value as MassReportGroupBy)}
+            >
+              <SelectTrigger id="hub-group" className="w-44">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {MASS_REPORT_GROUP_OPTIONS[participant].map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -114,7 +141,13 @@ function MassReportsHubPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {weeks.data.weeks.map((week) => (
-            <WeekReportCard key={week.id} week={week} format={format} participant={participant} />
+            <WeekReportCard
+              key={week.id}
+              week={week}
+              format={format}
+              participant={participant}
+              groupBy={groupBy}
+            />
           ))}
         </div>
       )}
@@ -126,10 +159,12 @@ function WeekReportCard({
   week,
   format,
   participant,
+  groupBy,
 }: {
   week: MassWeek;
   format: Format;
   participant: "student" | "staff";
+  groupBy: MassReportGroupBy;
 }) {
   const covers = PARTICIPANT_LABELS[week.participant_type].toLowerCase();
   const applies = week.participant_type === "both" || week.participant_type === participant;
@@ -139,12 +174,14 @@ function WeekReportCard({
     level: null,
     category: "present",
     format,
+    groupBy,
   });
   const absentUrl = api.mass.reportUrl(week.id, {
     participantType: participant,
     level: null,
     category: "absent",
     format,
+    groupBy,
   });
 
   return (

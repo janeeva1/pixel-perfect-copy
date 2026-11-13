@@ -12,10 +12,11 @@ import { loadServerEnv } from "./env";
  * has to keep working against the MariaDB install it already has while the
  * desktop build moves to a single local file.
  *
- *   DB_DRIVER=mysql    (default) MariaDB, configured by DB_HOST/DB_PORT/DB_USER/
- *                      DB_PASSWORD/DB_NAME. This is what the running app used
- *                      before the desktop work, so it stays the default.
- *   DB_DRIVER=sqlite   one file at DB_FILE, for the packaged desktop app.
+ *   DB_DRIVER=sqlite   (default) one file at DB_FILE. This is the local-first
+ *                      database the app and its installer are built around.
+ *   DB_DRIVER=mysql    MariaDB, configured by DB_HOST/DB_PORT/DB_USER/
+ *                      DB_PASSWORD/DB_NAME. Opt in for a hosted deployment that
+ *                      keeps its data in MariaDB.
  *
  * Call sites use `query()` / `queryOne()` / `transaction()` and, where the two
  * engines spell something differently, the `dialect` helpers below. Nothing else
@@ -41,13 +42,15 @@ type SqlParams = SqlParam[];
 export type Driver = "mysql" | "sqlite";
 
 /**
- * Which engine to use. MySQL unless `DB_DRIVER` says otherwise, because that is
- * the database the existing deployment already has its accounts and history in.
+ * Which engine to use. SQLite unless `DB_DRIVER` says otherwise, because the
+ * app is local-first and an installed copy must work with no database server.
+ * A hosted deployment that already keeps its accounts and history in MariaDB
+ * opts in with `DB_DRIVER=mysql`.
  */
 export function activeDriver(): Driver {
   loadServerEnv();
-  const configured = (process.env["DB_DRIVER"] ?? "mysql").toLowerCase();
-  return configured === "sqlite" ? "sqlite" : "mysql";
+  const configured = (process.env["DB_DRIVER"] ?? "sqlite").toLowerCase();
+  return configured === "mysql" ? "mysql" : "sqlite";
 }
 
 function usingSqlite(): boolean {

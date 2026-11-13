@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/admin/sync/test")({
           const session = await requireSession();
           await requireAdmin(session);
           const body = parse(settingsSchema, await readJson(request));
-          return json(await testSyncConnection(body));
+          return json(await testSyncConnection({ ...body, password: body.password ?? "" }));
         }),
     },
   },

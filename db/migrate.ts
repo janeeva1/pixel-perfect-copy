@@ -4,11 +4,14 @@
  *   npm run db:migrate          apply anything outstanding
  *   npm run db:reset            start the SQLite file again (destroys its data)
  *
- * MySQL (the default, and what the running app uses) has its schema in
- * `db/schema.sql`, applied by `db/migrate.mjs`. That file is idempotent: every
- * statement in it is `IF NOT EXISTS`. `migrate()` also runs automatically the
- * first time the app opens a SQLite database, so an installed copy needs no
- * setup step; this script is for development and for the `--fresh` case.
+ * SQLite is the default and has numbered migrations in `db/migrations`.
+ * `migrate()` also runs automatically the first time the app opens a SQLite
+ * database, so an installed copy needs no setup step; this script is for
+ * development and for the `--fresh` case.
+ *
+ * MySQL is opt-in with `DB_DRIVER=mysql`. It has its schema in `db/schema.sql`,
+ * applied by `db/migrate.mjs`. That file is idempotent: every statement in it is
+ * `IF NOT EXISTS`.
  *
  * `--sqlite` forces the SQLite file regardless of DB_DRIVER, which is how
  * `db:reset` stays a safe "throw away the local file" command on every platform
@@ -28,7 +31,7 @@ try {
 const fresh = process.argv.includes("--fresh");
 const sqlite =
   process.argv.includes("--sqlite") ||
-  (process.env["DB_DRIVER"] ?? "mysql").toLowerCase() === "sqlite";
+  (process.env["DB_DRIVER"] ?? "sqlite").toLowerCase() !== "mysql";
 
 if (!sqlite) {
   // `--fresh` drops the database. That is a reasonable thing to ask for a

@@ -295,14 +295,15 @@ export async function deleteWeekdayAssignment(
 }
 
 /**
- * Ensure every department that appears in the live staff roster has a row in
- * mass_department_weekdays. Departments already present are untouched (an
- * administrator may have moved them). New departments are assigned to the next
- * free weekday (Mon=1..Fri=5, cycling), so they immediately become expected at
- * Community Mass.
+ * Ensure every department that appears in the live staff or student roster has
+ * a row in mass_department_weekdays. Departments already present are untouched
+ * (an administrator may have moved them). New departments are assigned to the
+ * next free weekday (Mon=1..Fri=5, cycling), so they immediately become expected
+ * at Community Mass.
  *
- * Called automatically after staff import and when a staff member's department
- * changes. Also exposed as a manual "Sync Weekdays" action for administrators.
+ * Called automatically after staff or student import and when a person's
+ * department changes. Also exposed as a manual "Sync Weekdays" action for
+ * administrators.
  */
 export async function syncMassWeekdays(actorId: string): Promise<{
   added: number;
@@ -311,49 +312,81 @@ export async function syncMassWeekdays(actorId: string): Promise<{
 }> {
   const stamp = utcStamp();
 
-  // All distinct departments currently on staff (from staffDepartmentSql)
-  const staffDepts = await query<RowDataPacket & { department: string }>(
-    `SELECT DISTINCT ${staffDepartmentSql("f")} AS department
-       FROM staff f
-       WHERE ${staffDepartmentSql("f")} IS NOT NULL
-       ORDER BY department`,
+  // Every distinct department on either master list, staff first so its
+  // spelling wins when a student record uses a different case.
+  const [staffDepts, studentDepts] = await Promise.all([
+    query<RowDataPacket & { department: string }>(
+      `SELECT DISTINCT ${staffDepartmentSql("f")} AS department
+         FROM staff f
+         WHERE ${staffDepartmentSql("f")} IS NOT NULL
+         ORDER BY department`,
+    ),
+    query<RowDataPacket & { department: string }>(
+      `SELECT DISTINCT ${studentDepartmentSql("s")} AS department
+         FROM students s
+         WHERE ${studentDepartmentSql("s")} IS NOT NULL
+         ORDER BY department`,
+    ),
+  ]);
+  const departmentNames: string[] = [];
+  const seenDepartments = new Set<string>();
+  for (const row of [...staffDepts, ...studentDepts]) {
+    const dept = row.department?.trim();
+    if (!dept) continue;
+    const key = dept.toLowerCase();
+    if (seenDepartments.has(key)) continue;
+    seenDepartments.add(key);
+    departmentNames.push(dept);
+  }
+
+  // Existing assignments. Inactive rows still count as "already present" so a
+  // sync cannot insert a duplicate department and fail the unique index.
+  const existing = await query<
+    RowDataPacket & { department_code: string; day_of_week: number; is_active: number }
+  >("SELECT department_code, day_of_week, is_active FROM mass_department_weekdays");
+  const existingByDept = new Map(
+    existing.map((r) => [r.department_code.trim().toLowerCase(), Number(r.day_of_week)]),
   );
 
-  // Existing assignments
-  const existing = await query<RowDataPacket & { department_code: string; day_of_week: number }>(
-    "SELECT department_code, day_of_week FROM mass_department_weekdays WHERE is_active = 1",
+  // Prefer an unused weekday, then keep cycling so a sixth department cannot
+  // spin forever looking for a day that does not exist.
+  const usedDays = new Set(
+    existing.filter((row) => Number(row.is_active) === 1).map((row) => Number(row.day_of_week)),
   );
-  const existingByDept = new Map(existing.map((r) => [r.department_code.trim().toLowerCase(), r.day_of_week]));
-
-  // Find next free weekday (1..5, cycling)
-  const daysUsed = Array.from(existingByDept.values());
   let nextDay = 1;
-  while (daysUsed.includes(nextDay)) nextDay = (nextDay % 5) + 1;
+  const takeDay = (): number => {
+    if (usedDays.size < 5) {
+      while (usedDays.has(nextDay)) nextDay = (nextDay % 5) + 1;
+    }
+    const day = nextDay;
+    usedDays.add(day);
+    nextDay = (nextDay % 5) + 1;
+    return day;
+  };
 
   const added: Array<{ department: string; day: number }> = [];
   let skipped = 0;
 
   await transaction(async (connection) => {
-    for (const row of staffDepts) {
-      const dept = row.department.trim();
+    for (const dept of departmentNames) {
       const key = dept.toLowerCase();
       if (existingByDept.has(key)) {
         skipped++;
         continue;
       }
+      const day = takeDay();
       const id = randomUUID();
       await connection.execute(
         `INSERT INTO mass_department_weekdays (id, department_code, day_of_week, is_active, created_by, created_at, updated_at)
          VALUES (?, ?, ?, 1, ?, ?, ?)`,
-        [id, dept, nextDay, actorId, stamp, stamp],
+        [id, dept, day, actorId, stamp, stamp],
       );
       await audit(actorId, "mass_weekday.synced", "mass_department_weekdays", id, {
         departmentCode: dept,
-        dayOfWeek: nextDay,
+        dayOfWeek: day,
       });
-      added.push({ department: dept, day: nextDay });
-      existingByDept.set(key, nextDay);
-      nextDay = (nextDay % 5) + 1;
+      added.push({ department: dept, day });
+      existingByDept.set(key, day);
     }
   });
 
@@ -848,20 +881,22 @@ export async function processMassUpload(
   type Prepared = {
     scanNumber: string | null;
     name: string | null;
+    machineId: string | null;
     scannedAt: Date;
     personId: string | null;
-    method: "number" | "name" | "none";
+    method: "machine_id" | "number" | "name" | "fuzzy_name" | "none";
     inExpected: boolean;
   };
   const prepared: Prepared[] = [];
   for (const row of input.rows) {
     const scanNumber = row.scanNumber?.trim() || null;
     const name = row.name?.trim() || null;
-    if (!scanNumber && !name) continue;
+    const machineId = row.machineId?.trim() || null;
+    if (!scanNumber && !name && !machineId) continue;
     const scannedAt = parseScanTime(row.scannedAt);
     if (!scannedAt) continue; // no usable timestamp is not evidence of attendance
 
-    const match = matchRow(lookup, scanNumber, name);
+    const match = matchRow(lookup, scanNumber, name, machineId);
     let inExpected = false;
     if (match.id !== null) {
       const snapshot = expected.get(match.id);
@@ -870,6 +905,7 @@ export async function processMassUpload(
     prepared.push({
       scanNumber,
       name,
+      machineId,
       scannedAt,
       personId: match.id,
       method: match.method,
@@ -924,13 +960,14 @@ export async function processMassUpload(
           row.personId,
           row.method,
           row.inExpected ? 1 : 0,
+          row.machineId,
         );
       }
       await connection.query(
         `INSERT INTO mass_scans
            (id, mass_week_id, upload_id, participant_type, scan_number, scanned_name,
-            scanned_at, person_id, match_method, in_expected)
-         VALUES ${placeholders(batch.length, 10)}`,
+            scanned_at, person_id, match_method, in_expected, machine_id)
+         VALUES ${placeholders(batch.length, 11)}`,
         values,
       );
     }
@@ -1096,7 +1133,8 @@ export async function massSummary(
   const uploadFilter = uploadLevelFilter(participantType, level);
   const issueParams: SqlParam[] = [weekId, participantType];
   const issueRow = await queryOne<RowDataPacket & { out_of_scope: number; unmatched: number }>(
-    `SELECT COUNT(DISTINCT CASE WHEN s.person_id IS NOT NULL THEN s.person_id END) AS out_of_scope,
+    `SELECT COUNT(DISTINCT CASE WHEN s.person_id IS NOT NULL AND s.in_expected = 0
+                                THEN s.person_id END) AS out_of_scope,
             SUM(CASE WHEN s.match_method = 'none' THEN 1 ELSE 0 END) AS unmatched
        FROM mass_scans s
        JOIN mass_uploads u ON u.id = s.upload_id

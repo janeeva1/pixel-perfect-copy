@@ -53,6 +53,12 @@ type GroupConfig = {
    * the matric number, for staff the digits of the staff number.
    */
   scanNumber: string;
+  /**
+   * Optional: the machine ID column from the master list (e.g., staff_id_on_machine).
+   * When present, this is used as the PRIMARY matching key against the scan file's
+   * machine ID column.
+   */
+  machineIdColumn?: string;
   level: string;
   category: string;
   department: string;
@@ -106,6 +112,7 @@ const GROUPS: Record<GroupKind, GroupConfig> = {
     code: "f.staff_no",
     name: staffNameSql("f"),
     scanNumber: staffScanNumberSql("f"),
+    machineIdColumn: "f.staff_id_on_machine",
     level: "NULL",
     category: "NULL",
     department: staffDepartmentSql("f"),
@@ -163,6 +170,11 @@ type Lookup = {
    * "ST 029" are both 29), and for them the scanned name picks the right person.
    */
   byNumber: Map<string, Candidate[]>;
+  /**
+   * machine ID from the master list (e.g., staff_id_on_machine) -> people.
+   * Used as the PRIMARY matching key when the scan file provides a machine ID column.
+   */
+  byMachineId: Map<string, Candidate[]>;
   /** normalized name -> person id. A null value means two people share it. */
   byName: Map<string, string | null>;
 };
@@ -194,22 +206,26 @@ function nameForms(lastName: string, firstName: string, middleName: string): str
  * second copy of it to fall out of date.
  */
 async function loadLookup(config: GroupConfig): Promise<Lookup> {
+  const hasMachineIdColumn = !!config.machineIdColumn;
   const rows = await query<
     RowDataPacket & {
       id: string;
       scan_number: string | null;
+      machine_id: string | null;
       last_name: string | null;
       first_name: string | null;
       middle_name: string | null;
     }
   >(
     `SELECT ${config.personAlias}.id, ${config.scanNumber} AS scan_number,
+            ${hasMachineIdColumn ? `${config.machineIdColumn} AS machine_id,` : "NULL AS machine_id,"}
             ${config.personAlias}.last_name, ${config.personAlias}.first_name,
             ${config.personAlias}.middle_name, ${config.name} AS full_name
      FROM ${config.people} ${config.personAlias}`,
   );
 
   const byNumber = new Map<string, Candidate[]>();
+  const byMachineId = new Map<string, Candidate[]>();
   const byName = new Map<string, string | null>();
   for (const row of rows) {
     const names = nameForms(row.last_name ?? "", row.first_name ?? "", row.middle_name ?? "");
@@ -219,34 +235,64 @@ async function loadLookup(config: GroupConfig): Promise<Lookup> {
       list.push(candidate);
       byNumber.set(key, list);
     }
+    if (hasMachineIdColumn && row.machine_id) {
+      const key = row.machine_id.trim();
+      if (key) {
+        const list = byMachineId.get(key) ?? [];
+        list.push(candidate);
+        byMachineId.set(key, list);
+      }
+    }
     for (const name of names) claim(byName, name, row.id);
   }
-  return { byNumber, byName };
+  return { byNumber, byMachineId, byName };
 }
 
-type Match = { id: string | null; method: "number" | "name" | "none" };
+type Match = { id: string | null; method: "machine_id" | "number" | "name" | "fuzzy_name" | "none" };
 
 /**
  * Resolve one scan row to a person.
  *
- * The number is the join, and it is compared exactly: "149111" and "14911" are
- * different people. When the number is shared by several staff, the scanned name
- * picks between them, and if the name cannot separate them the row is left
- * unresolved rather than guessed. A name is only used on its own when the scan
- * carried no usable number, and only when exactly one person has that name.
+ * Priority order:
+ * 1. Machine ID from scan file (matched against staff_id_on_machine)
+ * 2. Scan number (derived from staff number digits or machine_id) with name disambiguation
+ * 3. Exact name match (when unique)
+ * 4. Fuzzy name match (best effort - finds closest name match)
  */
-function matchRow(lookup: Lookup, scanNumber: string | null, name: string | null): Match {
+function matchRow(lookup: Lookup, scanNumber: string | null, name: string | null, machineId: string | null): Match {
   const scannedName = normalizeName(name);
 
+  // 1. FIRST: Try machine ID from scan file (highest priority)
+  if (machineId) {
+    const machineIdKey = machineId.trim();
+    if (machineIdKey) {
+      const candidates = lookup.byMachineId.get(machineIdKey);
+      if (candidates && candidates.length === 1) {
+        return { id: candidates[0]!.id, method: "machine_id" };
+      }
+      if (candidates && candidates.length > 1) {
+        // Multiple people with same machine ID - use name to disambiguate
+        const scannedNameNorm = normalizeName(name);
+        const agreeing = candidates.filter((c) => c.names.includes(scannedNameNorm));
+        if (agreeing.length === 1) {
+          return { id: agreeing[0]!.id, method: "machine_id" };
+        }
+        // Multiple matches with same name - unresolved, fall through to other methods
+      }
+    }
+  }
+
+  // 2. SECOND: Try scan number (derived from staff number digits or machine_id)
+  let numberMatchFailed = false;
   for (const key of numberKeys(scanNumber ?? "")) {
     const candidates = lookup.byNumber.get(key);
-    if (!candidates || candidates.length === 0) continue;
+    if (!candidates || candidates.length === 0) {
+      numberMatchFailed = true;
+      continue;
+    }
     if (candidates.length === 1) return { id: candidates[0]!.id, method: "number" };
 
-    // Several people hold this number, so the name decides. The staff file
-    // lists some people twice under two numbers that differ only by a trailing
-    // hyphen (SA1319- and SA1319), and those rows are the same human, so they
-    // are not really a choice between two people.
+    // Several people hold this number, so the name decides.
     if (candidates.every((c) => c.names[0] === candidates[0]!.names[0])) {
       return { id: candidates[0]!.id, method: "number" };
     }
@@ -255,14 +301,96 @@ function matchRow(lookup: Lookup, scanNumber: string | null, name: string | null
     if (agreeing.length > 0) {
       return { id: agreeing[0]!.id, method: "number" };
     }
-    return { id: null, method: "none" };
+    numberMatchFailed = true;
   }
 
+  // 3. THIRD: Exact name match (when unique)
   if (scannedName) {
     const byName = lookup.byName.get(scannedName);
     if (byName) return { id: byName, method: "name" };
   }
+
+  // 4. FOURTH: Fuzzy name match - find closest name match as last resort
+  if (scannedName) {
+    const fuzzyMatch = findFuzzyNameMatch(lookup.byName, scannedName);
+    if (fuzzyMatch) return { id: fuzzyMatch, method: "fuzzy_name" };
+  }
+
   return { id: null, method: "none" };
+}
+
+/**
+ * Find the closest name match using simple string similarity.
+ * Returns the person ID if a sufficiently close match is found.
+ */
+function findFuzzyNameMatch(byName: Map<string, string | null>, scannedName: string): string | null {
+  let bestMatch: string | null = null;
+  let bestScore = 0;
+
+  for (const [name, personId] of byName.entries()) {
+    if (!personId) continue; // Skip ambiguous names
+    const score = stringSimilarity(scannedName, name);
+    if (score > bestScore && score >= 0.8) { // 80% similarity threshold
+      bestScore = score;
+      bestMatch = personId;
+    }
+  }
+  return bestMatch;
+}
+
+/**
+ * Simple string similarity using Jaro-Winkler-like algorithm.
+ * Returns a score between 0 and 1.
+ */
+function stringSimilarity(a: string, b: string): number {
+  if (a === b) return 1;
+  if (!a || !b) return 0;
+
+  // Jaro similarity
+  const lenA = a.length;
+  const lenB = b.length;
+  if (lenA === 0 || lenB === 0) return 0;
+
+  const matchDistance = Math.floor(Math.max(lenA, lenB) / 2) - 1;
+  const aMatches = new Array(lenA).fill(false);
+  const bMatches = new Array(lenB).fill(false);
+  let matches = 0;
+  let transpositions = 0;
+
+  for (let i = 0; i < lenA; i++) {
+    const start = Math.max(0, i - matchDistance);
+    const end = Math.min(i + matchDistance + 1, lenB);
+    for (let j = start; j < end; j++) {
+      if (!bMatches[j] && a[i] === b[j]) {
+        aMatches[i] = true;
+        bMatches[j] = true;
+        matches++;
+        break;
+      }
+    }
+  }
+
+  if (matches === 0) return 0;
+
+  let k = 0;
+  for (let i = 0; i < lenA; i++) {
+    if (!aMatches[i]) continue;
+    while (!bMatches[k]) k++;
+    if (a[i] !== b[k]) transpositions++;
+    k++;
+  }
+
+  const jaro = (matches / lenA + matches / lenB + (matches - transpositions / 2) / matches) / 3;
+
+  // Winkler prefix bonus
+  let prefix = 0;
+  const minLen = Math.min(lenA, lenB, 4);
+  for (let i = 0; i < minLen; i++) {
+    if (a[i] === b[i]) prefix++;
+    else break;
+  }
+
+  return jaro + 0.1 * prefix * (1 - jaro);
 }
 
 // Events -------------------------------------------------------------------
@@ -740,9 +868,10 @@ export async function uploadScans(
   type Prepared = {
     scanNumber: string | null;
     name: string | null;
+    machineId: string | null;
     scannedAt: Date;
     personId: string | null;
-    method: "number" | "name" | "none";
+    method: "machine_id" | "number" | "name" | "fuzzy_name" | "none";
     inScope: boolean;
     outsideWindow: boolean;
   };
@@ -751,12 +880,13 @@ export async function uploadScans(
   for (const row of input.rows) {
     const scanNumber = row.scanNumber?.trim() || null;
     const name = row.name?.trim() || null;
-    if (!scanNumber && !name) continue;
+    const machineId = row.machineId?.trim() || null;
+    if (!scanNumber && !name && !machineId) continue;
 
     const scannedAt = parseScanTime(row.scannedAt);
     if (!scannedAt) continue; // a row with no usable timestamp is not evidence of attendance
 
-    const match = matchRow(lookup, scanNumber, name);
+    const match = matchRow(lookup, scanNumber, name, machineId);
 
     // A matched person counts only if they are inside the event's scope: the
     // category/level/departments for a student event, the departments for a
@@ -787,6 +917,7 @@ export async function uploadScans(
     prepared.push({
       scanNumber,
       name,
+      machineId,
       scannedAt,
       personId: match.id,
       method: match.method,
@@ -836,13 +967,14 @@ export async function uploadScans(
           row.method,
           row.inScope ? 1 : 0,
           row.outsideWindow ? 1 : 0,
+          row.machineId,
         );
       }
       await connection.query(
         `INSERT INTO ${config.scans}
            (id, event_id, upload_id, scan_number, scanned_name, scanned_at,
-            ${config.idColumn}, match_method, in_scope, outside_window)
-         VALUES ${placeholders(batch.length, 10)}`,
+            ${config.idColumn}, match_method, in_scope, outside_window, machine_id)
+         VALUES ${placeholders(batch.length, 11)}`,
         values,
       );
     }
@@ -1097,4 +1229,4 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
   };
 }
 
-export { GROUPS, loadLookup, matchRow, type GroupConfig, type Lookup, type Match };
+export { GROUPS, loadLookup, matchRow, stringSimilarity, findFuzzyNameMatch, type GroupConfig, type Lookup, type Match };

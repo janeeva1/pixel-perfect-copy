@@ -10,6 +10,7 @@ import type {
   GenerateEventsResult,
   ImportResult,
   MassResult,
+  MassReportGroupBy,
   MassSummary,
   MassUpload,
   MassUploadInput,
@@ -265,10 +266,11 @@ export const api = {
   massDepartments: () =>
     request<Array<{ department: string; day: number }>>("/api/mass/departments"),
   syncMassWeekdays: () =>
-    request<{ added: number; skipped: number; departments: Array<{ department: string; day: number }> }>(
-      "/api/mass/sync-weekdays",
-      { method: "POST" },
-    ),
+    request<{
+      added: number;
+      skipped: number;
+      departments: Array<{ department: string; day: number }>;
+    }>("/api/mass/sync-weekdays", { method: "POST" }),
   importStudents: (input: ImportStudentsInput) => post<ImportResult>("/api/students/import", input),
   importStaff: (input: ImportStaffInput) => post<ImportResult>("/api/staff/import", input),
   updateStudent: (studentId: string, input: StudentEditInput) =>
@@ -401,9 +403,14 @@ export const api = {
         level?: string | null;
         category: "present" | "absent" | "out_of_scope" | "unmatched" | "summary";
         format: "csv" | "xlsx" | "pdf";
+        groupBy?: MassReportGroupBy;
       },
     ) =>
-      `/api/mass/weeks/${weekId}/report${search({ ...params, level: params.level ?? undefined })}`,
+      `/api/mass/weeks/${weekId}/report${search({
+        ...params,
+        level: params.level ?? undefined,
+        groupBy: params.groupBy === "none" ? undefined : params.groupBy,
+      })}`,
   },
 
   admin: {
@@ -412,8 +419,10 @@ export const api = {
     syncStatus: () => request<SyncStatusResult>("/api/admin/sync"),
     runSync: () => post<SyncResult>("/api/admin/sync"),
     getSyncConfig: () => request<SyncConfigResult>("/api/admin/sync/settings"),
-    saveSyncConfig: (config: SyncConfigInput) => post<{ ok: boolean }>("/api/admin/sync/settings", config),
-    testSyncConnection: (config: SyncConfigInput) => post<SyncTestResult>("/api/admin/sync/test", config),
+    saveSyncConfig: (config: SyncConfigInput) =>
+      post<{ ok: boolean }>("/api/admin/sync/settings", config),
+    testSyncConnection: (config: SyncConfigInput) =>
+      post<SyncTestResult>("/api/admin/sync/test", config),
   },
 };
 

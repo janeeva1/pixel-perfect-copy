@@ -327,7 +327,9 @@ function Landing() {
           {release.data?.available ? (
             <Button asChild size="lg" variant="outline">
               <a href={api.desktopDownloadUrl} download>
-                <Download className="mr-2 size-4" /> Download for Windows
+                <span className="flex items-center gap-2">
+                  <Download className="size-4" /> Download for Windows
+                </span>
               </a>
             </Button>
           ) : null}

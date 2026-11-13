@@ -60,6 +60,7 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
         scanNumber: pick(row, "ID", "id", "Id", "userId", "card") || null,
         name: pick(row, "NAME", "name", "Name", "userName") || null,
         scannedAt: pick(row, "Time", "time", "DATE_TIME", "datetime", "CheckInTime") || null,
+        machineId: pick(row, "Machine_ID", "machine_id", "machineId", "MachineID", "machineID") || null,
       }));
       return api.uploadScans(group, eventId, { fileName: file.name, label: label || null, rows });
     },

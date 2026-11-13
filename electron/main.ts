@@ -255,17 +255,21 @@ function createWindow(): void {
     log(`Renderer error: ${text}`);
   });
 
-  // The app is one page served from localhost: keep it inside the window, and
-  // hand real links to the system browser instead of navigating away.
+  // The app is one page served from localhost: keep it inside the window.
+  // Only explicitly marked external links (data-external="true") open in browser.
+  // All other navigation stays in the app window.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (/^https?:/i.test(url)) void shell.openExternal(url);
+    // Allow popups for the local server (e.g., print dialogs, PDF viewers)
+    if (url.startsWith(serverUrl)) return { action: "allow" };
+    // Only explicitly marked external links open in browser
+    // The renderer must set `data-external="true"` on the link
     return { action: "deny" };
   });
   mainWindow.webContents.on("will-navigate", (event, url) => {
-    if (url !== serverUrl) {
-      event.preventDefault();
-      if (/^https?:/i.test(url)) void shell.openExternal(url);
-    }
+    // Allow navigation within the local server
+    if (url.startsWith(serverUrl)) return;
+    // Block navigation away from the app; external links must use the IPC handler
+    event.preventDefault();
   });
 
   void mainWindow.loadURL(serverUrl);

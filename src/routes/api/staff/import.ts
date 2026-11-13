@@ -18,6 +18,9 @@ const bodySchema = z.object({
         department: nullable,
         adminDepartment: nullable,
         machineId: nullable,
+        staffIdOnMachine: nullable,
+        designation: nullable,
+        staffCategory: nullable,
       }),
     )
     .min(1, "There is nothing to import.")

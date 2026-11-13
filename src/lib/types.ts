@@ -278,6 +278,7 @@ export type ScanUploadInput = {
     scanNumber: string | null;
     name: string | null;
     scannedAt: string | null;
+    machineId: string | null;
   }>;
 };
 
@@ -457,6 +458,31 @@ export type MassWeekParticipantType = "students" | "staff" | "both";
 /** The participant type one upload was processed for. */
 export type MassUploadParticipant = "student" | "staff";
 
+/**
+ * How a Mass report is broken down in an export. A department or weekday is
+ * meaningful for both groups; level and category are student-only because the
+ * staff master carries neither.
+ */
+export type MassReportGroupBy = "none" | "department" | "level" | "category" | "weekday";
+
+export const MASS_REPORT_GROUP_OPTIONS: Record<
+  MassUploadParticipant,
+  Array<{ value: MassReportGroupBy; label: string }>
+> = {
+  student: [
+    { value: "none", label: "No grouping" },
+    { value: "department", label: "By department" },
+    { value: "level", label: "By level" },
+    { value: "category", label: "By category" },
+    { value: "weekday", label: "By Mass weekday" },
+  ],
+  staff: [
+    { value: "none", label: "No grouping" },
+    { value: "department", label: "By department" },
+    { value: "weekday", label: "By Mass weekday" },
+  ],
+};
+
 /** 1=Monday .. 5=Friday, the JS getDay() convention. */
 export const MASS_WEEKDAYS = [1, 2, 3, 4, 5] as const;
 
@@ -573,5 +599,5 @@ export type MassUploadInput = {
   level?: string | null;
   fileName: string;
   label?: string | null;
-  rows: Array<{ scanNumber: string | null; name: string | null; scannedAt: string | null }>;
+  rows: Array<{ scanNumber: string | null; name: string | null; scannedAt: string | null; machineId: string | null }>;
 };

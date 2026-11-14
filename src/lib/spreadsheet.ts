@@ -108,3 +108,67 @@ export function pick(row: SheetRow, ...names: string[]): string {
   }
   return "";
 }
+
+/** One staff row as the server's import expects it. */
+export type StaffImportRecord = {
+  staffNo: string | null;
+  lastName: string | null;
+  firstName: string | null;
+  middleName: string | null;
+  faculty: string | null;
+  department: string | null;
+  adminDepartment: string | null;
+  machineId: string | null;
+  staffIdOnMachine: string | null;
+  designation: string | null;
+  staffCategory: string | null;
+};
+
+/**
+ * Read one row of a staff file, whichever layout it uses. Both screens that
+ * import staff go through this, so they cannot read the same file differently.
+ *
+ * The registrar's staffdb.xlsx has `Staff Number`, `Surname`, `OtherNames`,
+ * `Designation`, `Department`, `Staff Category` and `Staff_ID_on_machine`.
+ * `OtherNames` holds the first name and any middle names ("Maria Assumpta"):
+ * the first word is the first name and the rest the middle name. The older
+ * export with `staff_no`, `lname`, `fname`, `mname` is read as before. Without
+ * this the registrar's file lost every first name, which breaks matching scans
+ * by name and telling people with the same surname apart.
+ */
+export function staffRecordFromRow(row: SheetRow): StaffImportRecord {
+  const otherNames = pick(row, "OtherNames", "Other Names", "othername", "given_names")
+    .split(/\s+/)
+    .filter(Boolean);
+  const machine = pick(
+    row,
+    "Staff_ID_on_machine",
+    "staff_id_on_machine",
+    "staffIdOnMachine",
+    "machine_id",
+    "machineId",
+    "machine",
+  );
+  const value = (text: string) => text.trim() || null;
+  return {
+    staffNo: value(
+      pick(row, "staff_no", "staffNo", "Staff Number", "staff_number", "Staff No", "staff"),
+    ),
+    lastName: value(pick(row, "lname", "last_name", "lastname", "surname")),
+    firstName: value(
+      pick(row, "fname", "first_name", "firstname", "givenname") || otherNames[0] || "",
+    ),
+    middleName: value(
+      pick(row, "mname", "middle_name", "middlename", "midname") || otherNames.slice(1).join(" "),
+    ),
+    faculty: value(pick(row, "faculty", "fac")),
+    department: value(pick(row, "department", "dept", "dept_name")),
+    adminDepartment: value(pick(row, "admin_department", "admin_dept", "admindept")),
+    // The machine number lives in two columns for historical reasons; matching
+    // reads either, so both get the file's value.
+    machineId: value(machine),
+    staffIdOnMachine: value(machine),
+    designation: value(pick(row, "designation")),
+    staffCategory: value(pick(row, "staff_category", "staffCategory", "Staff Category")),
+  };
+}

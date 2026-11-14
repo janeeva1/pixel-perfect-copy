@@ -5,7 +5,7 @@
 - [x] Separate student and staff master lists holding only the registrar's
       file columns
 - [x] Local email/password auth (bcrypt + signed httpOnly cookie) with
-      admin/editor/viewer roles enforced on the server
+      admin/operator/viewer roles enforced on the server
 - [x] Master import: CSV/Excel parsing and natural-key upserts
       (`matric_no` for students, `staff_no` for staff)
 - [x] Machine upload: CSV/Excel parsing, match on the number the machine prints
@@ -40,4 +40,6 @@ department, both read out of `matric_no` in SQL. That is why there is no
 ## Open
 
 - [ ] Audit log UI
+- [x] Automatic database backup before each schema upgrade
 - [ ] Scheduled database backups
+- [ ] Admin page for the staff duplicate preview/merge (API exists)

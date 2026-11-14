@@ -68,6 +68,7 @@ import { Route as ApiUsersRolesRouteImport } from './routes/api/users/roles'
 import { Route as AuthenticatedMassWeekIdIndexRouteImport } from './routes/_authenticated/mass/$weekId/index'
 import { Route as AuthenticatedMassWeekIdReportsRouteImport } from './routes/_authenticated/mass/$weekId/reports'
 import { Route as ApiAdminMassWeekdaysAssignmentIdRouteImport } from './routes/api/admin/mass-weekdays/$assignmentId'
+import { Route as ApiAdminStaffDeduplicateRouteImport } from './routes/api/admin/staff/deduplicate'
 import { Route as ApiAdminSyncIndexRouteImport } from './routes/api/admin/sync/index'
 import { Route as ApiAdminSyncSettingsRouteImport } from './routes/api/admin/sync/settings'
 import { Route as ApiAdminSyncTestRouteImport } from './routes/api/admin/sync/test'
@@ -392,6 +393,12 @@ const ApiAdminMassWeekdaysAssignmentIdRoute =
     path: '/$assignmentId',
     getParentRoute: () => ApiAdminMassWeekdaysRoute,
   } as any)
+const ApiAdminStaffDeduplicateRoute =
+  ApiAdminStaffDeduplicateRouteImport.update({
+    id: '/api/admin/staff/deduplicate',
+    path: '/api/admin/staff/deduplicate',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiAdminSyncIndexRoute = ApiAdminSyncIndexRouteImport.update({
   id: '/api/admin/sync/',
   path: '/api/admin/sync/',
@@ -553,6 +560,7 @@ export interface FileRoutesByFullPath {
   '/api/users/': typeof ApiUsersIndexRoute
   '/mass/$weekId/reports': typeof AuthenticatedMassWeekIdReportsRoute
   '/api/admin/mass-weekdays/$assignmentId': typeof ApiAdminMassWeekdaysAssignmentIdRoute
+  '/api/admin/staff/deduplicate': typeof ApiAdminStaffDeduplicateRoute
   '/api/admin/sync/settings': typeof ApiAdminSyncSettingsRoute
   '/api/admin/sync/test': typeof ApiAdminSyncTestRoute
   '/api/mass/weeks/$weekId': typeof ApiMassWeeksWeekIdRouteWithChildren
@@ -631,6 +639,7 @@ export interface FileRoutesByTo {
   '/api/users': typeof ApiUsersIndexRoute
   '/mass/$weekId/reports': typeof AuthenticatedMassWeekIdReportsRoute
   '/api/admin/mass-weekdays/$assignmentId': typeof ApiAdminMassWeekdaysAssignmentIdRoute
+  '/api/admin/staff/deduplicate': typeof ApiAdminStaffDeduplicateRoute
   '/api/admin/sync/settings': typeof ApiAdminSyncSettingsRoute
   '/api/admin/sync/test': typeof ApiAdminSyncTestRoute
   '/api/mass/weeks/$weekId': typeof ApiMassWeeksWeekIdRouteWithChildren
@@ -711,6 +720,7 @@ export interface FileRoutesById {
   '/api/users/': typeof ApiUsersIndexRoute
   '/_authenticated/mass/$weekId/reports': typeof AuthenticatedMassWeekIdReportsRoute
   '/api/admin/mass-weekdays/$assignmentId': typeof ApiAdminMassWeekdaysAssignmentIdRoute
+  '/api/admin/staff/deduplicate': typeof ApiAdminStaffDeduplicateRoute
   '/api/admin/sync/settings': typeof ApiAdminSyncSettingsRoute
   '/api/admin/sync/test': typeof ApiAdminSyncTestRoute
   '/api/mass/weeks/$weekId': typeof ApiMassWeeksWeekIdRouteWithChildren
@@ -791,6 +801,7 @@ export interface FileRouteTypes {
     | '/api/users/'
     | '/mass/$weekId/reports'
     | '/api/admin/mass-weekdays/$assignmentId'
+    | '/api/admin/staff/deduplicate'
     | '/api/admin/sync/settings'
     | '/api/admin/sync/test'
     | '/api/mass/weeks/$weekId'
@@ -869,6 +880,7 @@ export interface FileRouteTypes {
     | '/api/users'
     | '/mass/$weekId/reports'
     | '/api/admin/mass-weekdays/$assignmentId'
+    | '/api/admin/staff/deduplicate'
     | '/api/admin/sync/settings'
     | '/api/admin/sync/test'
     | '/api/mass/weeks/$weekId'
@@ -948,6 +960,7 @@ export interface FileRouteTypes {
     | '/api/users/'
     | '/_authenticated/mass/$weekId/reports'
     | '/api/admin/mass-weekdays/$assignmentId'
+    | '/api/admin/staff/deduplicate'
     | '/api/admin/sync/settings'
     | '/api/admin/sync/test'
     | '/api/mass/weeks/$weekId'
@@ -1010,6 +1023,7 @@ export interface RootRouteChildren {
   ApiStudentEventsIndexRoute: typeof ApiStudentEventsIndexRoute
   ApiStudentsIndexRoute: typeof ApiStudentsIndexRoute
   ApiUsersIndexRoute: typeof ApiUsersIndexRoute
+  ApiAdminStaffDeduplicateRoute: typeof ApiAdminStaffDeduplicateRoute
   ApiAdminSyncSettingsRoute: typeof ApiAdminSyncSettingsRoute
   ApiAdminSyncTestRoute: typeof ApiAdminSyncTestRoute
   ApiMassWeeksWeekIdRoute: typeof ApiMassWeeksWeekIdRouteWithChildren
@@ -1432,6 +1446,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAdminMassWeekdaysAssignmentIdRouteImport
       parentRoute: typeof ApiAdminMassWeekdaysRoute
     }
+    '/api/admin/staff/deduplicate': {
+      id: '/api/admin/staff/deduplicate'
+      path: '/api/admin/staff/deduplicate'
+      fullPath: '/api/admin/staff/deduplicate'
+      preLoaderRoute: typeof ApiAdminStaffDeduplicateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/admin/sync/': {
       id: '/api/admin/sync/'
       path: '/api/admin/sync'
@@ -1729,6 +1750,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStudentEventsIndexRoute: ApiStudentEventsIndexRoute,
   ApiStudentsIndexRoute: ApiStudentsIndexRoute,
   ApiUsersIndexRoute: ApiUsersIndexRoute,
+  ApiAdminStaffDeduplicateRoute: ApiAdminStaffDeduplicateRoute,
   ApiAdminSyncSettingsRoute: ApiAdminSyncSettingsRoute,
   ApiAdminSyncTestRoute: ApiAdminSyncTestRoute,
   ApiMassWeeksWeekIdRoute: ApiMassWeeksWeekIdRouteWithChildren,

@@ -316,7 +316,7 @@ export function AppShell({ children }: { children: ReactNode }) {
               </Button>
             </div>
           </header>
-        <main className="flex-1 p-4 lg:p-6">{children}</main>
+          <main className="relative z-20 flex-1 p-4 lg:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

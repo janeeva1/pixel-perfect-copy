@@ -14,6 +14,7 @@ import {
   studentScopeWhere,
 } from "@/server/masters";
 import { normalizeName, parseScanTime, percent } from "@/lib/attendance";
+import { loadIdentity, type Identity } from "@/server/identity";
 import type {
   AbsentRow,
   EventCategory,
@@ -224,31 +225,50 @@ async function loadLookup(config: GroupConfig): Promise<Lookup> {
      FROM ${config.people} ${config.personAlias}`,
   );
 
+  // Rows that are the same person (see src/server/identity.ts) become ONE
+  // candidate under the id that stands for them, carrying every spelling of
+  // their name. Otherwise the machine number "534" would find two candidates
+  // for one person and pick one at random, and the exact-name fallback would
+  // treat the twins as two people sharing a name and give up.
+  const identity = await loadIdentity(config.kind);
+  const candidates = new Map<string, Candidate>();
+  const candidateFor = (id: string): Candidate => {
+    const canonical = identity.canonical(id);
+    let candidate = candidates.get(canonical);
+    if (!candidate) {
+      candidate = { id: canonical, names: [] };
+      candidates.set(canonical, candidate);
+    }
+    return candidate;
+  };
+  const addTo = (map: Map<string, Candidate[]>, key: string, candidate: Candidate) => {
+    const list = map.get(key) ?? [];
+    if (!list.includes(candidate)) list.push(candidate);
+    map.set(key, list);
+  };
+
   const byNumber = new Map<string, Candidate[]>();
   const byMachineId = new Map<string, Candidate[]>();
   const byName = new Map<string, string | null>();
   for (const row of rows) {
     const names = nameForms(row.last_name ?? "", row.first_name ?? "", row.middle_name ?? "");
-    const candidate: Candidate = { id: row.id, names };
-    for (const key of numberKeys(row.scan_number ?? "")) {
-      const list = byNumber.get(key) ?? [];
-      list.push(candidate);
-      byNumber.set(key, list);
-    }
+    const candidate = candidateFor(row.id);
+    for (const name of names) if (!candidate.names.includes(name)) candidate.names.push(name);
+    for (const key of numberKeys(row.scan_number ?? "")) addTo(byNumber, key, candidate);
     if (hasMachineIdColumn && row.machine_id) {
       const key = row.machine_id.trim();
-      if (key) {
-        const list = byMachineId.get(key) ?? [];
-        list.push(candidate);
-        byMachineId.set(key, list);
-      }
+      if (key) addTo(byMachineId, key, candidate);
     }
-    for (const name of names) claim(byName, name, row.id);
+    for (const name of names) claim(byName, name, candidate.id);
   }
   return { byNumber, byMachineId, byName };
 }
 
-type Match = { id: string | null; method: "machine_id" | "number" | "name" | "fuzzy_name" | "none" };
+type Match = {
+  id: string | null;
+  method: "number" | "name" | "none";
+  originalMethod: "machine_id" | "number" | "name" | "fuzzy_name" | "none";
+};
 
 /**
  * Resolve one scan row to a person.
@@ -259,7 +279,12 @@ type Match = { id: string | null; method: "machine_id" | "number" | "name" | "fu
  * 3. Exact name match (when unique)
  * 4. Fuzzy name match (best effort - finds closest name match)
  */
-function matchRow(lookup: Lookup, scanNumber: string | null, name: string | null, machineId: string | null): Match {
+function matchRow(
+  lookup: Lookup,
+  scanNumber: string | null,
+  name: string | null,
+  machineId: string | null,
+): Match {
   const scannedName = normalizeName(name);
 
   // 1. FIRST: Try machine ID from scan file (highest priority)
@@ -268,14 +293,14 @@ function matchRow(lookup: Lookup, scanNumber: string | null, name: string | null
     if (machineIdKey) {
       const candidates = lookup.byMachineId.get(machineIdKey);
       if (candidates && candidates.length === 1) {
-        return { id: candidates[0]!.id, method: "machine_id" };
+        return { id: candidates[0]!.id, method: "number", originalMethod: "machine_id" };
       }
       if (candidates && candidates.length > 1) {
         // Multiple people with same machine ID - use name to disambiguate
         const scannedNameNorm = normalizeName(name);
         const agreeing = candidates.filter((c) => c.names.includes(scannedNameNorm));
         if (agreeing.length === 1) {
-          return { id: agreeing[0]!.id, method: "machine_id" };
+          return { id: agreeing[0]!.id, method: "number", originalMethod: "machine_id" };
         }
         // Multiple matches with same name - unresolved, fall through to other methods
       }
@@ -283,59 +308,152 @@ function matchRow(lookup: Lookup, scanNumber: string | null, name: string | null
   }
 
   // 2. SECOND: Try scan number (derived from staff number digits or machine_id)
-  let numberMatchFailed = false;
   for (const key of numberKeys(scanNumber ?? "")) {
     const candidates = lookup.byNumber.get(key);
-    if (!candidates || candidates.length === 0) {
-      numberMatchFailed = true;
-      continue;
-    }
-    if (candidates.length === 1) return { id: candidates[0]!.id, method: "number" };
+    if (!candidates || candidates.length === 0) continue;
+    if (candidates.length === 1)
+      return { id: candidates[0]!.id, method: "number", originalMethod: "number" };
 
     // Several people hold this number, so the name decides.
     if (candidates.every((c) => c.names[0] === candidates[0]!.names[0])) {
-      return { id: candidates[0]!.id, method: "number" };
+      return { id: candidates[0]!.id, method: "number", originalMethod: "number" };
     }
 
     const agreeing = candidates.filter((candidate) => candidate.names.includes(scannedName));
-    if (agreeing.length > 0) {
-      return { id: agreeing[0]!.id, method: "number" };
+    if (agreeing.length === 1) {
+      return { id: agreeing[0]!.id, method: "number", originalMethod: "number" };
     }
-    numberMatchFailed = true;
+
+    // The machine cuts long names short ("ANOMU" for "ANOMUOGHARAN"). Among the
+    // few people this number can mean, one whose name the scanned name is a
+    // shortened form of is the person -- but only when exactly one fits.
+    const shortened = candidates.filter((candidate) =>
+      candidate.names.some((form) => isShortenedName(scannedName, form)),
+    );
+    if (shortened.length === 1) {
+      return { id: shortened[0]!.id, method: "number", originalMethod: "number" };
+    }
   }
 
   // 3. THIRD: Exact name match (when unique)
   if (scannedName) {
     const byName = lookup.byName.get(scannedName);
-    if (byName) return { id: byName, method: "name" };
+    if (byName) return { id: byName, method: "name", originalMethod: "name" };
+  }
+
+  // 3b. A shortened name that fits exactly one person in the whole list.
+  if (scannedName) {
+    const shortened = findShortenedNameMatch(lookup.byName, scannedName);
+    if (shortened) return { id: shortened, method: "name", originalMethod: "name" };
   }
 
   // 4. FOURTH: Fuzzy name match - find closest name match as last resort
   if (scannedName) {
     const fuzzyMatch = findFuzzyNameMatch(lookup.byName, scannedName);
-    if (fuzzyMatch) return { id: fuzzyMatch, method: "fuzzy_name" };
+    if (fuzzyMatch) return { id: fuzzyMatch, method: "name", originalMethod: "fuzzy_name" };
   }
 
-  return { id: null, method: "none" };
+  return { id: null, method: "none", originalMethod: "none" };
 }
 
 /**
- * Find the closest name match using simple string similarity.
- * Returns the person ID if a sufficiently close match is found.
+ * Whether `scanned` is `full` as the machine prints it when the name is too
+ * long for its display: every scanned word is one of the person's name words,
+ * or the start of one (down to an initial), each word used once, at least two
+ * scanned words, and at least `minWholeWords` of them agreeing in full. Both arguments are normalizeName() forms (upper case, sorted).
+ *
+ *   "ANOMU JAMES OBOYO"   fits "ANOMUOGHARAN JAMES OBOYO"
+ *   "AKPAN EDUOK MARIA"   fits "AKPAN ASSUMPTA EDUOK MARIA"
+ *   "MICHELLE ONI P"      fits "MICHELLE ONI PRINCESS"
+ *   "AMANDA IDAH"         does not fit "AMANA ANTHONY"
  */
-function findFuzzyNameMatch(byName: Map<string, string | null>, scannedName: string): string | null {
-  let bestMatch: string | null = null;
-  let bestScore = 0;
-
-  for (const [name, personId] of byName.entries()) {
-    if (!personId) continue; // Skip ambiguous names
-    const score = stringSimilarity(scannedName, name);
-    if (score > bestScore && score >= 0.8) { // 80% similarity threshold
-      bestScore = score;
-      bestMatch = personId;
+function isShortenedName(scanned: string, full: string, minWholeWords = 1): boolean {
+  if (!scanned || !full) return false;
+  if (scanned === full) return true;
+  const scannedWords = scanned.split(" ").sort((a, b) => b.length - a.length);
+  if (scannedWords.length < 2) return false;
+  const remaining = full.split(" ");
+  let wholeWords = 0;
+  // Whole words first, so a shortened word cannot take a word another needs.
+  const shortWords: string[] = [];
+  for (const word of scannedWords) {
+    const index = remaining.indexOf(word);
+    if (index === -1) shortWords.push(word);
+    else {
+      remaining.splice(index, 1);
+      wholeWords += 1;
     }
   }
-  return bestMatch;
+  for (const word of shortWords) {
+    // A shortened word may be as short as an initial ("P" for "PRINCESS"); the
+    // caller's minWholeWords keeps that from matching on initials alone.
+    const index = remaining.findIndex((candidate) => candidate.startsWith(word));
+    if (index === -1) return false;
+    remaining.splice(index, 1);
+  }
+  return wholeWords >= minWholeWords;
+}
+
+/** The one person whose name the scanned name is a shortened form of, if exactly one. */
+function findShortenedNameMatch(
+  byName: Map<string, string | null>,
+  scannedName: string,
+): string | null {
+  let found: string | null = null;
+  for (const [name, personId] of byName.entries()) {
+    // Across the whole list (no number to narrow it) at least two words must
+    // agree in full, so a visitor is not credited to a stranger.
+    if (!isShortenedName(scannedName, name, 2)) continue;
+    if (personId === null) return null; // a name two people share settles nothing
+    if (found !== null && found !== personId) return null; // fits two people
+    found = personId;
+  }
+  return found;
+}
+
+/**
+ * Last-resort match on a name the machine misspelled slightly.
+ *
+ * A wrong match here credits attendance to the wrong person, which is worse
+ * than leaving the scan unmatched for someone to review, so it is strict:
+ *
+ *   * the scanned name must have at least two words (a lone surname is far too
+ *     easy to confuse);
+ *   * the best candidate must score at least FUZZY_MIN_SCORE; and
+ *   * it must be a clear winner: any other person scoring within FUZZY_MARGIN
+ *     of it makes the scan ambiguous, and it is left unmatched.
+ */
+const FUZZY_MIN_SCORE = 0.92;
+const FUZZY_MARGIN = 0.03;
+
+function findFuzzyNameMatch(
+  byName: Map<string, string | null>,
+  scannedName: string,
+): string | null {
+  if (scannedName.split(" ").length < 2) return null;
+
+  let bestId: string | null = null;
+  let bestScore = 0;
+  let runnerUpScore = 0;
+  for (const [name, personId] of byName.entries()) {
+    if (!personId) continue; // a name two people share settles nothing
+    const score = stringSimilarity(scannedName, name);
+    if (personId === bestId) {
+      bestScore = Math.max(bestScore, score); // same person under a second name form
+      continue;
+    }
+    if (score > bestScore) {
+      runnerUpScore = bestScore;
+      bestScore = score;
+      bestId = personId;
+    } else if (score > runnerUpScore) {
+      runnerUpScore = score;
+    }
+  }
+
+  if (bestId === null || bestScore < FUZZY_MIN_SCORE) return null;
+  if (bestScore - runnerUpScore < FUZZY_MARGIN) return null;
+  return bestId;
 }
 
 /**
@@ -850,6 +968,23 @@ export async function listUploads(kind: GroupKind, eventId: string): Promise<Eve
  * against this event's own group, and rows that match somebody outside the
  * event scope are kept as out-of-scope rather than being dropped.
  */
+/** "8:05", "08:05" or "08:05:30" as a comparable "08:05:00"; null when unset or unreadable. */
+function clockOf(value: string | null | undefined): string | null {
+  const match = /^\s*(\d{1,2}):(\d{2})(?::(\d{2}))?/.exec(value ?? "");
+  if (!match) return null;
+  const [, hours = "0", minutes = "00", seconds = "00"] = match;
+  return `${hours.padStart(2, "0")}:${minutes}:${seconds}`;
+}
+
+/** The local calendar day ("2026-11-13") and clock ("07:45:00") of a moment. */
+function localDayAndClock(moment: Date): { day: string; clock: string } {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return {
+    day: `${moment.getFullYear()}-${pad(moment.getMonth() + 1)}-${pad(moment.getDate())}`,
+    clock: `${pad(moment.getHours())}:${pad(moment.getMinutes())}:${pad(moment.getSeconds())}`,
+  };
+}
+
 export async function uploadScans(
   kind: GroupKind,
   eventId: string,
@@ -862,8 +997,8 @@ export async function uploadScans(
   const lookup = await loadLookup(config);
   const uploadId = randomUUID();
 
-  const startAt = event.start_time ? ` ${event.start_time}` : null;
-  const endAt = event.end_time ? ` ${event.end_time}` : null;
+  const startAt = clockOf(event.start_time);
+  const endAt = clockOf(event.end_time);
 
   type Prepared = {
     scanNumber: string | null;
@@ -871,7 +1006,8 @@ export async function uploadScans(
     machineId: string | null;
     scannedAt: Date;
     personId: string | null;
-    method: "machine_id" | "number" | "name" | "fuzzy_name" | "none";
+    method: "machine_id" | "number" | "name" | "none";
+    originalMethod: "machine_id" | "number" | "name" | "fuzzy_name" | "none";
     inScope: boolean;
     outsideWindow: boolean;
   };
@@ -907,8 +1043,11 @@ export async function uploadScans(
 
     // Advisory flag only: a scan counts, but one that lands on another day or
     // outside the event hours is worth seeing on the report.
-    const day = scannedAt.toISOString().slice(0, 10);
-    const clock = scannedAt.toISOString().slice(11, 19);
+    // The event's date and hours are local wall-clock values, and so is the
+    // time the machine printed, so both are compared in local time. Using the
+    // UTC form here shifted every scan by the machine's offset (an hour in
+    // Lagos) and moved scans near midnight onto the wrong day.
+    const { day, clock } = localDayAndClock(scannedAt);
     const outsideWindow =
       day !== event.event_date ||
       (startAt !== null && clock < startAt) ||
@@ -921,6 +1060,7 @@ export async function uploadScans(
       scannedAt,
       personId: match.id,
       method: match.method,
+      originalMethod: match.originalMethod,
       inScope,
       outsideWindow,
     });
@@ -1052,15 +1192,22 @@ async function grantedPresentIds(
 export async function eventSummary(kind: GroupKind, eventId: string): Promise<EventSummary> {
   const config = GROUPS[kind];
   const event = await getEvent(kind, eventId);
-  const [expected, counts, uploads, window, granted] = await Promise.all([
-    expectedCount(config, kind, event),
-    queryOne<
-      RowDataPacket & { scans: number; present: number; out_of_scope: number; unmatched: number }
-    >(
+  const scopeParams: SqlParam[] = [];
+  const scopeWhere = scopeWhereFor(kind, scopeOf(event), scopeParams, config.personAlias);
+  const [identity, inScope, scanned, counts, uploads, window, granted] = await Promise.all([
+    loadIdentity(kind),
+    query<RowDataPacket & { id: string }>(
+      `SELECT ${config.personAlias}.id FROM ${config.people} ${config.personAlias}
+       WHERE ${scopeWhere}`,
+      scopeParams,
+    ),
+    query<RowDataPacket & { person_id: string; in_scope: number }>(
+      `SELECT DISTINCT ${config.idColumn} AS person_id, in_scope FROM ${config.scans}
+       WHERE event_id = ? AND ${config.idColumn} IS NOT NULL`,
+      [eventId],
+    ),
+    queryOne<RowDataPacket & { scans: number; unmatched: number }>(
       `SELECT COUNT(*) AS scans,
-              COUNT(DISTINCT CASE WHEN in_scope = 1 THEN ${config.idColumn} END) AS present,
-              COUNT(DISTINCT CASE WHEN ${config.idColumn} IS NOT NULL AND in_scope = 0
-                                  THEN ${config.idColumn} END) AS out_of_scope,
               SUM(CASE WHEN match_method = 'none' THEN 1 ELSE 0 END) AS unmatched
        FROM ${config.scans} WHERE event_id = ?`,
       [eventId],
@@ -1072,28 +1219,55 @@ export async function eventSummary(kind: GroupKind, eventId: string): Promise<Ev
       [eventId],
     ),
     // The staff credited present without a scan, already reduced to the ones
-    // who did not scan, so this total is a count of people rather than a sum of
-    // two overlapping sets.
+    // who did not scan.
     grantedPresentIds(kind, eventId, event),
   ]);
 
-  const present = Number(counts?.present ?? 0) + granted.length;
-  const outOfScope = Number(counts?.out_of_scope ?? 0);
-  const unmatched = Number(counts?.unmatched ?? 0);
+  // Counted per PERSON: rows of the master list that are the same person
+  // (src/server/identity.ts) count once, so nobody is both present and absent.
+  const people = peopleOutcome(identity, inScope, scanned, granted);
 
   return {
     event,
     uploads: uploads.length,
     scans: Number(counts?.scans ?? 0),
-    expected,
-    present,
-    absent: Math.max(expected - present, 0),
-    outOfScope,
-    unmatched,
-    percent: percent(present, expected),
+    expected: people.expected.size,
+    present: people.present.size,
+    absent: people.absent.size,
+    outOfScope: people.outOfScope.size,
+    unmatched: Number(counts?.unmatched ?? 0),
+    percent: percent(people.present.size, people.expected.size),
     firstScanAt: toIso(window?.first_scan),
     lastScanAt: toIso(window?.last_scan),
   } as EventSummary;
+}
+
+/**
+ * Who is expected, present, absent and out of scope at an event, as sets of
+ * people (the id that stands for each person). Present, absent and out of
+ * scope never overlap: present wins over everything, and only an expected
+ * person can be absent.
+ */
+function peopleOutcome(
+  identity: Identity,
+  inScope: Array<{ id: string }>,
+  scanned: Array<{ person_id: string; in_scope: number }>,
+  granted: string[],
+): { expected: Set<string>; present: Set<string>; absent: Set<string>; outOfScope: Set<string> } {
+  const expected = new Set(inScope.map((row) => identity.canonical(row.id)));
+  const present = new Set<string>();
+  const scannedOutside = new Set<string>();
+  for (const row of scanned) {
+    const person = identity.canonical(row.person_id);
+    // A scan counts when it was in scope at upload, or when the person it
+    // matched is expected through another of their master rows.
+    if (Number(row.in_scope) === 1 || expected.has(person)) present.add(person);
+    else scannedOutside.add(person);
+  }
+  for (const id of granted) present.add(identity.canonical(id));
+  const absent = new Set([...expected].filter((person) => !present.has(person)));
+  const outOfScope = new Set([...scannedOutside].filter((person) => !present.has(person)));
+  return { expected, present, absent, outOfScope };
 }
 
 /** The person columns the result tables show, for one group. */
@@ -1125,39 +1299,27 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
   const scopeParams: SqlParam[] = [];
   const scopeWhere = scopeWhereFor(kind, scopeOf(event), scopeParams, alias);
 
-  const [scannedPresent, absent, outOfScope, unmatched, uploadList, granted] = await Promise.all([
-    query<RowDataPacket & PresentRow>(
+  const [scannedPeople, inScopePeople, unmatched, uploadList, granted] = await Promise.all([
+    // Every matched person with their scans, whether or not the upload judged
+    // them in scope: whether they count is decided below, per person, by the
+    // same rule as the totals (peopleOutcome).
+    query<RowDataPacket & PresentRow & { any_in_scope: number }>(
       `SELECT ${columns}, COUNT(*) AS scan_count,
-              MIN(sc.scanned_at) AS first_scan_at, MAX(sc.scanned_at) AS last_scan_at
+              MIN(sc.scanned_at) AS first_scan_at, MAX(sc.scanned_at) AS last_scan_at,
+              MAX(sc.in_scope) AS any_in_scope
        FROM ${config.scans} sc
        JOIN ${config.people} ${alias} ON ${alias}.id = sc.${config.idColumn}
-       WHERE sc.event_id = ? AND sc.in_scope = 1
+       WHERE sc.event_id = ?
        GROUP BY ${groupBy}
        ORDER BY name`,
       [eventId],
     ),
-    // Not filtered against the grants here: granted ids are not known yet at this
-    // point in the Promise.all, so the exclusion happens once both halves are
-    // in hand, a few lines below. A person ends up in exactly one of the two
-    // lists.
     query<RowDataPacket & AbsentRow>(
       `SELECT ${columns}
        FROM ${config.people} ${alias}
        WHERE ${scopeWhere}
-         AND ${alias}.id NOT IN (
-           SELECT ${config.idColumn} FROM ${config.scans}
-           WHERE event_id = ? AND in_scope = 1 AND ${config.idColumn} IS NOT NULL)
        ORDER BY name`,
-      [...scopeParams, eventId],
-    ),
-    query<RowDataPacket & OutOfScopeRow>(
-      `SELECT ${columns}, COUNT(*) AS scan_count
-       FROM ${config.scans} sc
-       JOIN ${config.people} ${alias} ON ${alias}.id = sc.${config.idColumn}
-       WHERE sc.event_id = ? AND sc.${config.idColumn} IS NOT NULL AND sc.in_scope = 0
-       GROUP BY ${groupBy}
-       ORDER BY name`,
-      [eventId],
+      scopeParams,
     ),
     query<
       RowDataPacket & {
@@ -1182,37 +1344,94 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
     grantedPresentIds(kind, eventId, event),
   ]);
 
-  // The granted rows, joined to their people so the present table shows a name
-  // rather than an id. scan_count is 0 and the scan times are empty strings,
-  // which is the honest reading: present, with no scan behind it.
+  // One row per PERSON in every list (see src/server/identity.ts): twins of
+  // the same person are folded together, their scans added up. The rule is
+  // peopleOutcome's, so the lists always agree with the totals and nobody is
+  // on two lists.
+  const identity = await loadIdentity(kind);
+  const person = (id: string) => identity.canonical(id);
+  const outcome = peopleOutcome(
+    identity,
+    inScopePeople.map((row) => ({ id: row.person_id })),
+    scannedPeople.map((row) => ({ person_id: row.person_id, in_scope: Number(row.any_in_scope) })),
+    granted,
+  );
+  const ownRowFirst = <T extends { person_id: string }>(current: T | undefined, row: T) =>
+    !current || (row.person_id === person(row.person_id) && current.person_id !== row.person_id);
+
+  const presentByPerson = new Map<string, PresentRow>();
+  const outOfScopeByPerson = new Map<string, OutOfScopeRow>();
+  for (const raw of scannedPeople) {
+    const key = person(raw.person_id);
+    const row: PresentRow = {
+      person_id: raw.person_id,
+      name: raw.name,
+      code: raw.code,
+      level: raw.level,
+      department_code: raw.department_code,
+      category: raw.category,
+      scan_count: Number(raw.scan_count),
+      first_scan_at: toIso(raw.first_scan_at) ?? "",
+      last_scan_at: toIso(raw.last_scan_at) ?? "",
+    };
+    if (outcome.present.has(key)) {
+      const current = presentByPerson.get(key);
+      const base = ownRowFirst(current, row) ? row : current!;
+      const firsts = [current?.first_scan_at, row.first_scan_at].filter(Boolean).sort();
+      const lasts = [current?.last_scan_at, row.last_scan_at].filter(Boolean).sort();
+      presentByPerson.set(key, {
+        ...base,
+        person_id: key,
+        scan_count: row.scan_count + (current?.scan_count ?? 0),
+        first_scan_at: firsts[0] ?? "",
+        last_scan_at: lasts[lasts.length - 1] ?? "",
+      });
+    } else if (outcome.outOfScope.has(key)) {
+      const current = outOfScopeByPerson.get(key);
+      const base = ownRowFirst(current, row) ? row : current!;
+      outOfScopeByPerson.set(key, {
+        person_id: key,
+        name: base.name,
+        code: base.code,
+        level: base.level,
+        department_code: base.department_code,
+        category: base.category,
+        scan_count: row.scan_count + (current?.scan_count ?? 0),
+      });
+    }
+  }
+
+  // Present by a standing override, with no scan of their own: shown with a
+  // scan count of 0 and empty scan times, which is the honest reading.
+  const grantedOnly = granted.filter((id) => !presentByPerson.has(person(id)));
   const grantedPeople = await query<RowDataPacket & PresentRow>(
     `SELECT ${columns}, 0 AS scan_count, NULL AS first_scan_at, NULL AS last_scan_at
      FROM ${config.people} ${alias}
-     WHERE ${alias}.id IN (${granted.map(() => "?").join(", ")})`,
-    granted,
+     WHERE ${alias}.id IN (${grantedOnly.map(() => "?").join(", ") || "NULL"})`,
+    grantedOnly,
   );
+  for (const row of grantedPeople) {
+    const key = person(row.person_id);
+    if (!presentByPerson.has(key)) {
+      presentByPerson.set(key, { ...row, person_id: key, first_scan_at: "", last_scan_at: "" });
+    }
+  }
 
-  const presentList = [
-    ...scannedPresent.map((row) => ({
-      ...row,
-      first_scan_at: toIso(row.first_scan_at) ?? "",
-      last_scan_at: toIso(row.last_scan_at) ?? "",
-    })),
-    ...grantedPeople.map((row) => ({
-      ...row,
-      first_scan_at: "",
-      last_scan_at: "",
-    })),
-  ].sort((a, b) => a.name.localeCompare(b.name));
+  const absentByPerson = new Map<string, AbsentRow>();
+  for (const row of inScopePeople) {
+    const key = person(row.person_id);
+    if (!outcome.absent.has(key)) continue;
+    if (ownRowFirst(absentByPerson.get(key), row)) {
+      absentByPerson.set(key, { ...row, person_id: key });
+    }
+  }
 
-  const grantedSet = new Set(granted);
-  const absentList = absent.filter((row) => !grantedSet.has(row.person_id));
-
+  const byListName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
   return {
     ...summary,
-    presentList,
-    absentList: absentList.map((row) => ({ ...row })),
-    outOfScopeList: outOfScope.map((row) => ({ ...row })),
+    presentList: [...presentByPerson.values()].sort(byListName),
+    absentList: [...absentByPerson.values()].sort(byListName),
+    outOfScopeList: [...outOfScopeByPerson.values()].sort(byListName),
     // True when any row in presentList was granted rather than scanned, so the
     // event page can say the present count includes overrides instead of
     // leaving the reader to infer it from a zero in the scan column.
@@ -1229,4 +1448,14 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
   };
 }
 
-export { GROUPS, loadLookup, matchRow, stringSimilarity, findFuzzyNameMatch, type GroupConfig, type Lookup, type Match };
+export {
+  GROUPS,
+  loadLookup,
+  matchRow,
+  stringSimilarity,
+  findFuzzyNameMatch,
+  isShortenedName,
+  type GroupConfig,
+  type Lookup,
+  type Match,
+};

@@ -2,7 +2,13 @@ import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
-import { buildImportTemplate, pick, readSpreadsheet, type ImportTemplate } from "@/lib/spreadsheet";
+import {
+  buildImportTemplate,
+  pick,
+  readSpreadsheet,
+  staffRecordFromRow,
+  type ImportTemplate,
+} from "@/lib/spreadsheet";
 import { EmptyState } from "@/components/attendance-ui";
 import { Download } from "lucide-react";
 
@@ -18,6 +24,9 @@ type MappedRow = {
   department?: string | null;
   adminDepartment?: string | null;
   machineId?: string | null;
+  staffIdOnMachine?: string | null;
+  designation?: string | null;
+  staffCategory?: string | null;
   level?: string | null;
   maritalStatus?: string | null;
 };
@@ -70,9 +79,10 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
   }
 
   const upload = useMutation({
-    mutationFn: async (): Promise<{ saved: number; skipped: number }> => {
+    mutationFn: async (): Promise<{ saved: number; skipped: number; merged: number }> => {
       let saved = 0;
       let skipped = 0;
+      let merged = 0;
       for (let index = 0; index < rows.length; index += BATCH) {
         const batch = rows.slice(index, index + BATCH);
         const result = student
@@ -80,9 +90,10 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
           : await api.importStaff({ records: batch });
         saved += result.saved;
         skipped += result.skipped;
+        merged += result.duplicatesMerged ?? 0;
       }
       await queryClient.invalidateQueries({ queryKey: [student ? "students" : "staff"] });
-      return { saved, skipped };
+      return { saved, skipped, merged };
     },
   });
 
@@ -104,25 +115,7 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
                 department: pick(row, "department", "dept", "dept_name") || null,
                 maritalStatus: pick(row, "marital_status", "maritalStatus", "marital") || null,
               }
-            : {
-                staffNo:
-                  pick(row, "staff_no", "staffNo", "staff", "Staff No", "Staff Number") || null,
-                lastName: pick(row, "lname", "last_name", "surname") || null,
-                firstName: pick(row, "fname", "first_name") || null,
-                middleName: pick(row, "mname", "middle_name") || null,
-                faculty: pick(row, "faculty", "fac") || null,
-                department: pick(row, "department", "dept", "dept_name") || null,
-                adminDepartment: pick(row, "admin_department", "admin_dept", "admindept") || null,
-                machineId:
-                  pick(
-                    row,
-                    "Staff_ID_on_machine",
-                    "staff_id_on_machine",
-                    "machine_id",
-                    "machineId",
-                    "machine",
-                  ) || null,
-              },
+            : staffRecordFromRow(row),
         )
         // Staff rows are not filtered: the two staff whose file has no staff
         // number are matched on their name instead, so they still belong here.
@@ -240,6 +233,9 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
       {upload.isSuccess ? (
         <p className="text-sm text-emerald-600">
           Imported {upload.data.saved.toLocaleString()} rows. The master list is now up to date.
+          {upload.data.merged > 0
+            ? ` ${upload.data.merged.toLocaleString()} duplicate record(s) of the same person were merged.`
+            : ""}
         </p>
       ) : null}
     </div>

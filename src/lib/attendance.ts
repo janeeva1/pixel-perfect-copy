@@ -61,9 +61,19 @@ export function parseScanTime(value: unknown): Date | null {
   if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
 
   if (typeof value === "number" && Number.isFinite(value)) {
-    // Excel serial date: days since 1899-12-30.
-    const fromSerial = new Date(Date.UTC(1899, 11, 30) + value * 86_400_000);
-    return Number.isNaN(fromSerial.getTime()) ? null : fromSerial;
+    // Excel serial date: days since 1899-12-30, holding the wall-clock time
+    // the machine printed. It is read as local time, the same as a text
+    // timestamp below, so both kinds of file land on the same moment.
+    const wall = new Date(Date.UTC(1899, 11, 30) + Math.round(value * 86_400_000));
+    if (Number.isNaN(wall.getTime())) return null;
+    return new Date(
+      wall.getUTCFullYear(),
+      wall.getUTCMonth(),
+      wall.getUTCDate(),
+      wall.getUTCHours(),
+      wall.getUTCMinutes(),
+      wall.getUTCSeconds(),
+    );
   }
 
   const text = String(value).trim();

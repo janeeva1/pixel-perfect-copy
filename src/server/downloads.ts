@@ -15,6 +15,7 @@
 import type { RowDataPacket } from "./db";
 import { query, type SqlParam } from "@/server/db";
 import { GROUPS, type GroupConfig } from "@/server/events";
+import { loadIdentity } from "@/server/identity";
 import { HttpError } from "@/server/http";
 import { toCsv } from "@/lib/attendance";
 import { overridesForScope } from "@/server/presence-overrides";
@@ -413,7 +414,7 @@ export async function buildDownload(request: DownloadRequest): Promise<DownloadR
   const whereSql = union.map((u) => `(${u.sql})`).join(" OR ");
   const unionParams = union.flatMap((u) => u.params);
 
-  const people = await query<PersonRow>(
+  const rawPeople = await query<PersonRow>(
     `SELECT ${config.personAlias}.id AS id,
             ${config.name} AS name,
             ${config.code} AS code,
@@ -426,8 +427,25 @@ export async function buildDownload(request: DownloadRequest): Promise<DownloadR
     unionParams,
   );
 
+  // One row per PERSON (src/server/identity.ts): master rows that are the same
+  // person become one entry under the id that stands for them, expected at an
+  // event when any of their rows is, so nobody is listed twice or shown both
+  // present and absent.
+  const identity = await loadIdentity(request.group);
+  const rowsOf = new Map<string, PersonRow[]>();
+  for (const row of rawPeople) {
+    const key = identity.canonical(row.id);
+    rowsOf.set(key, [...(rowsOf.get(key) ?? []), row]);
+  }
+  const people: PersonRow[] = [...rowsOf.entries()].map(([key, rows]) => ({
+    ...(rows.find((row) => row.id === key) ?? rows[0]!),
+    id: key,
+  }));
+  const expectsPerson = (s: EventScope, person: PersonRow) =>
+    (rowsOf.get(person.id) ?? [person]).some((row) => expects(s, row));
+
   const attendanceRows = await query<AttendanceRow>(
-    `SELECT event_id, ${config.idColumn} AS personId,
+    `SELECT event_id AS eventId, ${config.idColumn} AS personId,
             COUNT(*) AS scan_count, MIN(scanned_at) AS first, MAX(scanned_at) AS last
        FROM ${config.scans}
       WHERE in_scope = 1 AND event_id IN (${eventIds.map(() => "?").join(", ")})
@@ -436,14 +454,22 @@ export async function buildDownload(request: DownloadRequest): Promise<DownloadR
   );
 
   const attendance = new Map<string, Attendance>();
+  const earlier = (a: Date | string | null, b: Date | string | null) =>
+    a === null ? b : b === null ? a : String(a) <= String(b) ? a : b;
+  const later = (a: Date | string | null, b: Date | string | null) =>
+    a === null ? b : b === null ? a : String(a) >= String(b) ? a : b;
   for (const row of attendanceRows) {
     if (!row.personId) continue;
-    attendance.set(`${row.eventId}:${row.personId}`, {
+    const personId = identity.canonical(row.personId);
+    const key = `${row.eventId}:${personId}`;
+    const held = attendance.get(key);
+    // Scans of two records of one person at the same event are added together.
+    attendance.set(key, {
       eventId: row.eventId,
-      personId: row.personId,
-      scans: Number(row.scan_count),
-      first: row.first,
-      last: row.last,
+      personId,
+      scans: Number(row.scan_count) + (held?.scans ?? 0),
+      first: held ? earlier(held.first, row.first) : row.first,
+      last: held ? later(held.last, row.last) : row.last,
     });
   }
 
@@ -454,7 +480,8 @@ export async function buildDownload(request: DownloadRequest): Promise<DownloadR
   // gets an empty map (see overridesForScope).
   const granted = await overridesForScope(request.group, scope.events);
   for (const [eventId, staffIds] of granted) {
-    for (const personId of staffIds) {
+    for (const grantedId of staffIds) {
+      const personId = identity.canonical(grantedId);
       const key = `${eventId}:${personId}`;
       // A real scan always wins: if the person did scan, the scan is the truth
       // and the grant is redundant. Never overwrite one with a zero.
@@ -468,7 +495,7 @@ export async function buildDownload(request: DownloadRequest): Promise<DownloadR
   const expectedBy = new Map<string, string[]>();
   for (const s of scope.events) {
     for (const person of people) {
-      if (expects(s, person)) {
+      if (expectsPerson(s, person)) {
         const list = expectedBy.get(person.id) ?? [];
         list.push(s.event.id);
         expectedBy.set(person.id, list);

@@ -1,7 +1,8 @@
 import type { RowDataPacket } from "./db";
-import { dialect, query, queryOne, type SqlParam } from "@/server/db";
+import { dialect, query, type SqlParam } from "@/server/db";
 import { percent, periodKey, periodLabel, periodRange, toCsv } from "@/lib/attendance";
 import { GROUPS, type GroupConfig } from "@/server/events";
+import { loadIdentity } from "@/server/identity";
 import { staffDepartmentOptions, studentDepartments } from "@/server/masters";
 import { overriddenStaffIdsByEvent } from "@/server/presence-overrides";
 import type {
@@ -150,8 +151,11 @@ export async function buildReport(options: ReportOptions): Promise<ReportSeries>
   // what a department filter used to do.
   const countParams: SqlParam[] = [];
   const countScope = scopeFragment(config, options.scope, countParams);
-  const expectedRow = await queryOne<RowDataPacket & { total: number }>(
-    `SELECT COUNT(*) AS total FROM ${config.people} ${config.personAlias}
+  // Counted per PERSON: master rows that are one person (src/server/identity.ts)
+  // count once, so a duplicate record cannot add a phantom absentee.
+  const identity = await loadIdentity(config.kind);
+  const expectedIds = await query<RowDataPacket & { id: string }>(
+    `SELECT ${config.personAlias}.id AS id FROM ${config.people} ${config.personAlias}
      WHERE ${countScope}`,
     countParams,
   );
@@ -230,7 +234,11 @@ export async function buildReport(options: ReportOptions): Promise<ReportSeries>
     }
   }
 
-  const expected = Number(expectedRow?.total ?? 0);
+  const expected = new Set(expectedIds.map((row) => identity.canonical(row.id))).size;
+  // Every scan and grant is credited to the id that stands for the person, so
+  // twins' attendance lands on one person in every bucket and breakdown.
+  for (const row of scans) row.person_id = identity.canonical(row.person_id);
+  for (const row of grantedRows) row.person_id = identity.canonical(row.person_id);
 
   const buckets = new Map<string, Bucket>();
   for (const key of keys) {

@@ -80,8 +80,14 @@ describe("migrations", () => {
       "006_student_department_marital.sql",
       "007_seed_mass_weekdays.sql",
       "008_staff_machine_id.sql",
+      "009_sync_settings.sql",
+      "010_staff_machine_id_and_details.sql",
+      "011_mass_scans_machine_id.sql",
+      "012_scans_machine_id.sql",
+      "013_deduplicate_staff.sql",
+      "014_recompute_outside_window.sql",
     ]);
-    assert.equal(result.version, 8);
+    assert.equal(result.version, 14);
 
     const tables = (
       getDb()
@@ -118,6 +124,7 @@ describe("migrations", () => {
       "students",
       "sync_log",
       "sync_meta",
+      "sync_settings",
       "user_roles",
       "users",
     ]);
@@ -141,7 +148,7 @@ describe("migrations", () => {
   it("is not applied twice, so a second run is a no-op", () => {
     const result = migrate();
     assert.deepEqual(result.applied, []);
-    assert.equal(result.version, 8);
+    assert.equal(result.version, 14);
   });
 
   it("seeds every staff department with one weekday assignment", () => {
@@ -706,5 +713,112 @@ describe("event dates survive both drivers", () => {
     const { isoDate } = await import("../src/server/downloads");
     assert.equal(isoDate(new Date("not a date")), "");
     assert.equal(isoDate("rubbish"), "");
+  });
+});
+
+// One person, one identity ----------------------------------------------------
+//
+// A re-import wrote staff numbers differently ("SA 534" then "SAC534"), which
+// left the same person on the list twice, and Weekly Mass then showed them as
+// both present and absent. These pin the rule that prevents it.
+describe("same person, one identity", () => {
+  it("treats rows with the same name and staff-number digits as one person", async () => {
+    const { staffCanonicalMap } = await import("../src/server/identity");
+    const map = staffCanonicalMap([
+      {
+        id: "old",
+        staff_no: "SA 534",
+        last_name: "Soronnadi",
+        first_name: "Augustina",
+        updated_at: "2026-10-20",
+      },
+      {
+        id: "new",
+        staff_no: "SAC534",
+        last_name: "SORONNADI",
+        first_name: "AUGUSTINA",
+        machine_id: "534",
+        updated_at: "2026-11-10",
+      },
+      { id: "zero", staff_no: "08", last_name: "Eze", first_name: "Ada" },
+      { id: "zero2", staff_no: "A8", last_name: "EZE", first_name: "ADA" },
+    ]);
+    // The row the machine knows stands for the person.
+    assert.equal(map.get("old"), "new");
+    assert.equal(map.get("new"), "new");
+    assert.equal(map.get("zero"), map.get("zero2"));
+  });
+
+  it("keeps different people apart when only the name or only the number agrees", async () => {
+    const { staffCanonicalMap, studentCanonicalMap } = await import("../src/server/identity");
+    const map = staffCanonicalMap([
+      // The machine prints 39 for both, but they are two people.
+      { id: "a", staff_no: "SW39", last_name: "Ikpeama", first_name: "Chilotam", machine_id: "39" },
+      { id: "b", staff_no: "SA39", last_name: "Ali", first_name: "Simon", machine_id: "39" },
+      // Same name, different staff numbers: two people.
+      { id: "c", staff_no: "AT904", last_name: "Obi", first_name: "John" },
+      { id: "d", staff_no: "SA1118", last_name: "Obi", first_name: "John" },
+    ]);
+    assert.notEqual(map.get("a"), map.get("b"));
+    assert.notEqual(map.get("c"), map.get("d"));
+    const students = studentCanonicalMap([
+      { id: "s1", matric_no: "VUG/LAW/23/10538" },
+      { id: "s2", matric_no: "VUG/HIS/22/7951" },
+      { id: "s3", matric_no: "vug/law/23/10538 " },
+    ]);
+    assert.notEqual(students.get("s1"), students.get("s2"));
+    assert.equal(students.get("s1"), students.get("s3"));
+  });
+
+  it("matches names the machine cut short, but only to one clear person", async () => {
+    const { isShortenedName } = await import("../src/server/events");
+    const { normalizeName } = await import("../src/lib/attendance");
+    const fits = (scanned: string, full: string, whole = 1) =>
+      isShortenedName(normalizeName(scanned), normalizeName(full), whole);
+    assert.equal(fits("OBOYO-JAMES ANOMU", "OBOYO-JAMES ANOMUOGHARAN"), true);
+    assert.equal(fits("ONI MICHELLE P", "PRINCESS ONI MICHELLE", 2), true);
+    assert.equal(fits("IDAH AMANDA", "Amana Anthony"), false);
+    assert.equal(fits("wuyep jedidah", "Joseph Jedidiah"), false);
+    assert.equal(fits("OKAFOR", "OKAFOR CHINEDU"), false);
+  });
+});
+
+describe("student matric numbers written differently", () => {
+  it("treats case, spacing, punctuation and leading zeros as the same student", async () => {
+    const { matricKey } = await import("../src/server/identity");
+    const one = matricKey("VUG/CSC/25/1001");
+    for (const variant of ["vug/csc/25/1001 ", "VUG-CSC-25-01001", "VUG / CSC / 25 / 1001"]) {
+      assert.equal(matricKey(variant), one);
+    }
+    assert.notEqual(matricKey("VUG/CSC/25/10010"), one);
+    assert.notEqual(matricKey("VUG/CSC/24/1001"), one);
+  });
+
+  it("updates the existing student instead of adding a second one", async () => {
+    const { importStudents } = await import("../src/server/masters");
+    const actor = "identity-test-user";
+    await query("INSERT OR IGNORE INTO users (id, email, password_hash) VALUES (?, ?, ?)", [
+      actor,
+      "identity-test@example.com",
+      "x",
+    ]);
+    const record = (matricNo: string, firstName: string) => ({
+      matricNo,
+      lastName: "Identity",
+      firstName,
+      middleName: null,
+      level: "100",
+      department: null,
+      maritalStatus: null,
+    });
+    await importStudents([record("VUG/IDT/26/0042", "First")], actor);
+    const before = Number((await queryOne<{ n: number }>("SELECT COUNT(*) AS n FROM students"))?.n);
+    await importStudents([record("vug / idt / 26 / 42", "Second")], actor);
+    const after = Number((await queryOne<{ n: number }>("SELECT COUNT(*) AS n FROM students"))?.n);
+    assert.equal(after, before);
+    const row = await queryOne<{ first_name: string }>(
+      "SELECT first_name FROM students WHERE last_name = 'Identity'",
+    );
+    assert.equal(row?.first_name, "Second");
   });
 });

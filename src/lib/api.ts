@@ -194,6 +194,9 @@ export type ImportStaffInput = {
     department?: string | null;
     adminDepartment?: string | null;
     machineId?: string | null;
+    staffIdOnMachine?: string | null;
+    designation?: string | null;
+    staffCategory?: string | null;
   }>;
 };
 
@@ -423,6 +426,9 @@ export const api = {
       post<{ ok: boolean }>("/api/admin/sync/settings", config),
     testSyncConnection: (config: SyncConfigInput) =>
       post<SyncTestResult>("/api/admin/sync/test", config),
+    previewStaffDeduplication: () =>
+      request<StaffDeduplicationPreview>("/api/admin/staff/deduplicate"),
+    deduplicateStaff: () => post<StaffDeduplicationResult>("/api/admin/staff/deduplicate"),
   },
 };
 
@@ -435,6 +441,8 @@ export type SyncConfigResult = {
   port: number;
   user: string;
   database: string;
+  /** A password is saved; the box can be left blank to keep it. */
+  hasPassword: boolean;
   configured: boolean;
 };
 
@@ -459,4 +467,29 @@ export type SyncResult = {
   /** Rows left alone on both sides because they could not be reconciled. */
   conflicts: number;
   lastSyncedAt: string | null;
+};
+
+/** One group of staff rows that look like the same person. */
+export type StaffDuplicateGroup = {
+  key: string;
+  canonicalId: string;
+  canonicalName: string;
+  duplicateIds: string[];
+  names: string[];
+  /** Why the group is only listed for review rather than merged. */
+  reason?: string;
+};
+
+export type StaffDeduplicationPreview = {
+  /** Same machine number and same name: merged by "Merge duplicates". */
+  mergeable: StaffDuplicateGroup[];
+  /** Look alike on one test only; never merged automatically. */
+  needsReview: StaffDuplicateGroup[];
+};
+
+export type StaffDeduplicationResult = {
+  groupsMerged: number;
+  duplicatesRemoved: number;
+  scanRecordsUpdated: number;
+  needsReview: number;
 };

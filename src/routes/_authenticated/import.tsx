@@ -19,7 +19,13 @@ import {
 import { api } from "@/lib/api";
 import { useRoles } from "@/lib/useAuth";
 import { useMutationWithToast } from "@/lib/mutations";
-import { buildImportTemplate, pick, readSpreadsheet, type ImportTemplate } from "@/lib/spreadsheet";
+import {
+  buildImportTemplate,
+  pick,
+  readSpreadsheet,
+  staffRecordFromRow,
+  type ImportTemplate,
+} from "@/lib/spreadsheet";
 
 export const Route = createFileRoute("/_authenticated/import")({
   beforeLoad: ({ context }) => {
@@ -74,19 +80,7 @@ function ImportPage() {
     async (file: File) => {
       const { rows } = await readSpreadsheet(file);
       const rowsData = rows
-        .map((row) => ({
-          staffNo: pick(row, "staff_no", "staffno", "staff_id"),
-          lastName: pick(row, "lname", "lastname", "last_name", "surname"),
-          firstName: pick(row, "fname", "firstname", "first_name", "givenname"),
-          middleName: pick(row, "mname", "middlename", "middle_name", "midname"),
-          faculty: pick(row, "faculty", "fac"),
-          department: pick(row, "department", "dept", "dept_name"),
-          adminDepartment: pick(row, "admin_department", "admin_dept", "admindept"),
-          machineId: pick(row, "machine_id", "machineId", "machine_id"),
-          staffIdOnMachine: pick(row, "staff_id_on_machine", "staffIdOnMachine", "machine_id"),
-          designation: pick(row, "designation", "Designation"),
-          staffCategory: pick(row, "staff_category", "staffCategory", "Staff Category"),
-        }))
+        .map(staffRecordFromRow)
         .filter((r) => r.staffNo || (r.lastName && r.firstName));
       return api.importStaff({ records: rowsData });
     },

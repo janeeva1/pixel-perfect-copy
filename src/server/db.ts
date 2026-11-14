@@ -564,7 +564,7 @@ function migrationFiles(): string[] {
 function applyMigrations(db: SqliteDatabase): { applied: string[]; version: number } {
   const directory = migrationsDirectory();
   const current = Number(db.pragma("user_version", { simple: true }) ?? 0);
-  const files = migrationFiles();
+  const files = numberedMigrations(migrationFiles());
 
   // A database that has already been migrated is fine with the files being
   // absent, because there is nothing left to apply. An empty one is not: that
@@ -577,10 +577,11 @@ function applyMigrations(db: SqliteDatabase): { applied: string[]; version: numb
     );
   }
 
+  const pending = files.filter((file) => file.version > current);
+  if (pending.length > 0) backupBeforeMigrating(db, current, pending[pending.length - 1]!.version);
+
   const applied: string[] = [];
-  files.forEach((name, index) => {
-    const version = index + 1;
-    if (version <= current) return;
+  for (const { name, version } of pending) {
     const sql = fs.readFileSync(path.join(directory, name), "utf8");
     // One transaction per file: a migration either lands whole or not at all,
     // and user_version only moves once it has.
@@ -594,9 +595,76 @@ function applyMigrations(db: SqliteDatabase): { applied: string[]; version: numb
       throw new Error(`migration ${name} failed: ${(error as Error).message}`, { cause: error });
     }
     applied.push(name);
-  });
+  }
 
   return { applied, version: Number(db.pragma("user_version", { simple: true }) ?? 0) };
+}
+
+/**
+ * The version of each migration comes from the number in its file name
+ * (`014_something.sql` is version 14), not from where it happens to sort.
+ *
+ * Installed databases record the last version they applied, so the numbers must
+ * run 1, 2, 3, ... with no gap and no repeat. A gap or a repeat means a file was
+ * renamed, lost or added twice, and applying anything on top of that would skip
+ * or re-run a migration, so it is refused with a message naming the problem.
+ */
+function numberedMigrations(names: string[]): Array<{ name: string; version: number }> {
+  const numbered = names.map((name) => {
+    const match = /^(\d+)_/.exec(name);
+    if (!match) {
+      throw new Error(`migration file ${name} must start with its number, e.g. 014_${name}`);
+    }
+    return { name, version: Number(match[1]) };
+  });
+  numbered.sort((a, b) => a.version - b.version);
+  numbered.forEach((file, index) => {
+    if (file.version !== index + 1) {
+      throw new Error(
+        `migration numbering is broken at ${file.name}: expected version ${index + 1}. ` +
+          "Migrations must be numbered 001, 002, 003, ... with no gaps or repeats.",
+      );
+    }
+  });
+  return numbered;
+}
+
+const MIGRATION_BACKUPS_KEPT = 10;
+
+/**
+ * Copy the database aside before changing its schema, so a migration that goes
+ * wrong on someone's machine can be undone by putting the file back. Backups go
+ * to a `backups` folder beside the database and only the newest few are kept.
+ *
+ * A brand-new database has nothing worth keeping, so it is not copied. A backup
+ * that cannot be written is reported but does not stop the app from starting:
+ * the migration itself still runs inside a transaction.
+ */
+function backupBeforeMigrating(db: SqliteDatabase, fromVersion: number, toVersion: number): void {
+  if (fromVersion === 0) return;
+  const file = databaseFile();
+  if (!fs.existsSync(file)) return;
+  try {
+    const directory = path.join(path.dirname(file), "backups");
+    fs.mkdirSync(directory, { recursive: true });
+    const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+    const target = path.join(
+      directory,
+      `attendance-v${fromVersion}-before-v${toVersion}-${stamp}.db`,
+    );
+    db.exec(`VACUUM INTO '${target.replace(/'/g, "''")}'`);
+
+    const old = fs
+      .readdirSync(directory)
+      .filter((name) => name.startsWith("attendance-v") && name.endsWith(".db"))
+      .map((name) => ({ name, time: fs.statSync(path.join(directory, name)).mtimeMs }))
+      .sort((a, b) => b.time - a.time)
+      .slice(MIGRATION_BACKUPS_KEPT)
+      .map((entry) => entry.name);
+    for (const name of old) fs.rmSync(path.join(directory, name), { force: true });
+  } catch (error) {
+    console.error(`Could not back up the database before migrating: ${(error as Error).message}`);
+  }
 }
 
 /**

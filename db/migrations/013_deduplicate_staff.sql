@@ -1,0 +1,23 @@
+-- Staff deduplication, version 13: intentionally a no-op.
+--
+-- An earlier draft of this file tried to merge duplicate staff rows inside the
+-- migration. It could not work and was never shipped:
+--
+--   * it updated student_scans.person_id, a column that does not exist (the
+--     column is student_id, and student scans never point at staff anyway), so
+--     the migration failed and, because migrations run when the app opens,
+--     the app would not start;
+--   * it compared ids with `id IN (SELECT all_ids ...)`, where all_ids is a
+--     comma-joined string, so no row ever matched;
+--   * it added a UNIQUE index on staff_id_on_machine, but the attendance
+--     machine legitimately prints the same number for different people (see
+--     008_staff_machine_id.sql), so that index would reject real data.
+--
+-- Merging people is a judgement call and deletes rows, so it does not belong in
+-- a migration that runs unattended on every machine. It is done on demand by an
+-- administrator through POST /api/admin/staff/deduplicate, which only merges
+-- rows that share BOTH the machine id and the same name, and which can be
+-- previewed first with GET on the same endpoint.
+--
+-- The file stays so the migration numbering (one version per file) is stable.
+SELECT 1;

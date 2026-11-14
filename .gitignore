@@ -35,6 +35,27 @@ db/seed
 # carry real registrar and machine data (names, matriculation numbers), so they
 # stay out of the repository.
 /*.csv
+/*.xlsx
+/*.xls
+staffmapping.txt
+# Excel's lock files for an open workbook
+~$*
+
+# Local databases: the working copy holds real staff and student records.
+db/*.db
+db/*.db-wal
+db/*.db-shm
+
+# One-off debugging scripts and scratch files
+/test*.ts
+/test-*.cjs
+/debug-*.cjs
+/debug-*.ts
+/sync-*.cjs
+/exec-test.cjs
+/final-sync.cjs
+/simple-query.cjs
+*.bak
 check-db.cjs
 list-tables.cjs
 run-migrations*.cjs

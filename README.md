@@ -108,7 +108,7 @@ Opens <http://127.0.0.1:3000> in your browser.
    - **User**: MariaDB user with create/read/write (e.g., `sync_user`)
    - **Password**: MariaDB password
    - **Database**: Name of the sync database (e.g., `attendance_sync`)
-3. Click **Test Connection** → should show "Connection successful"
+3. Click **Test Connection** → should show "Connection successful" (a failure is shown in red with the reason)
 4. Click **Save Configuration** → shows "Configured" badge
 4. Click **Synchronize Now** → pushes local changes, pulls remote changes
 
@@ -150,6 +150,20 @@ Admin manages roles on **Permissions** page.
 - **Sync Weekdays** button → auto-adds new departments from staff list
 - A department with no weekday = never expected at weekday Mass
 
+### One Person, One Identity (no one is both present and absent)
+A person can be on the master list twice, e.g. after a re-import wrote their staff number differently (`SA 534` then `SAC534`). The app treats such rows as **one person** everywhere:
+- **Same person** = same name (surname + first name, any order/case) **and** the same staff-number digits (`SA 534` = `SAC534`, `08` = `A8`) or the same machine number. Students: the same matric number.
+- **Not the same person**: same name with different numbers, or the same machine number with different names (the machine prints `39` for two different staff).
+- Every count is per person: Weekly Mass, event pages, the daily/weekly/monthly reports and the Excel/CSV downloads. A person is exactly one of present, absent or out of scope, never two. Older weeks are read the same way, with no re-upload needed.
+- Students: matric numbers that differ only in case, spacing, punctuation or leading zeros (`vug/csc/25/01001` = `VUG/CSC/25/1001`) are one student.
+- Duplicates are removed automatically after **every staff import, every student import and every Synchronize**. Uploading the same scan file twice never changes who is present.
+- Scan matching tries machine number, then scan number (the name settles a number shared by several people, including names the machine cut short, e.g. `ANOMU` for `ANOMUOGHARAN`, or `P` for `PRINCESS`), then exact name, then a strict close-name match. A scan that fits two people, or nobody, is left **Unmatched** for you to review rather than guessed.
+
+### Merging Duplicate Staff
+- **Staff import** updates existing people instead of adding them again (it recognises `SA 534` and `SAC534` as the same person) and reads the registrar's `staffdb.xlsx` layout (`Staff Number`, `Surname`, `OtherNames`, `Staff_ID_on_machine`, ...). After every staff import, records that are certainly the same person are merged automatically.
+- **Admin → Staff Deduplication**: *Scan* shows what would be merged and a **Check by hand** list of look-alikes that are never merged automatically; *Merge* folds duplicates into one record and moves their scans.
+- Deletes don't sync, so merge on every computer that has the duplicates (results are correct either way).
+
 ### Recurring Templates
 - **Recurring** → create weekly patterns (e.g., "Monday Chapel")
 - Generates concrete events for a date range
@@ -169,9 +183,11 @@ Admin manages roles on **Permissions** page.
 |---------|----------|
 | "Could not load" on startup | Check `desktop.log` in `%APPDATA%\attendance-register\` |
 | Sync fails | Test Connection first; check MariaDB running, firewall, credentials |
-| Scans unmatched | Check Machine ID on Staff page; fix Machine ID or name |
+| Scans unmatched | Check Machine ID on Staff page; fix Machine ID or name. Close-but-not-exact names are only matched when one person is a clear winner |
+| Database upgrade went wrong | Close the app, copy the newest file from `database\backups\` over `database\attendance.db` |
 | Out of scope staff | Click **Sync Weekdays** on Staff page; department missing from weekdays |
-| Can't sign in | Check `SESSION_SECRET` in `.env` (dev) or `sync.env` (packaged) |
+| Sync password lost after editing settings | Fixed in this version: leaving the password box blank now keeps the saved password |
+| Can't sign in | Dev: check `SESSION_SECRET` (32+ chars) in `.env`. Packaged: the secret is generated once and kept in `%APPDATA%\attendance-register\desktop.json`; `sync.env` cannot change it |
 | "Not configured" on Sync | Configure hub in Admin → Synchronization first |
 
 ### Logs & Data Location
@@ -180,7 +196,7 @@ Admin manages roles on **Permissions** page.
 | Database | `%APPDATA%\attendance-register\database\attendance.db` |
 | Sync config | `%APPDATA%\attendance-register\sync.env` |
 | Logs | `%APPDATA%\attendance-register\desktop.log` |
-| Backups | `%APPDATA%\attendance-register\database\backups\` |
+| Backups | `%APPDATA%\attendance-register\database\backups\` (made automatically before each database upgrade; newest 10 kept) |
 
 ---
 
@@ -225,10 +241,9 @@ src/
 └── lib/types.ts         # Core TypeScript types
 
 db/
-├── migrations/          # SQLite migrations (001-009)
+├── migrations/          # SQLite migrations (001-014), numbered by file name
 ├── schema.sql           # MySQL hub schema (for sync)
-├── seed/attendance.db   # Bundled seed DB (shipped in installer)
-└── migrations/          # SQLite migration files
+└── seed/attendance.db   # Bundled seed DB (shipped in installer)
 
 electron/
 ├── main.ts              # Desktop entry: server + window + sync.env

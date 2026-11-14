@@ -127,6 +127,8 @@ export type StaffListQuery = {
 export type ImportResult = {
   saved: number;
   skipped: number;
+  /** Duplicate records of one person merged after the import. */
+  duplicatesMerged?: number;
 };
 
 // Events ------------------------------------------------------------------
@@ -599,5 +601,10 @@ export type MassUploadInput = {
   level?: string | null;
   fileName: string;
   label?: string | null;
-  rows: Array<{ scanNumber: string | null; name: string | null; scannedAt: string | null; machineId: string | null }>;
+  rows: Array<{
+    scanNumber: string | null;
+    name: string | null;
+    scannedAt: string | null;
+    machineId: string | null;
+  }>;
 };

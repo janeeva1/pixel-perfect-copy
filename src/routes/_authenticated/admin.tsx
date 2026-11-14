@@ -9,7 +9,7 @@ import { DataRow, DataTable, EmptyState, Panel, StatTile } from "@/components/at
 import { api } from "@/lib/api";
 import { useRoles } from "@/lib/useAuth";
 import { toast } from "sonner";
-import { RotateCcw, Wifi, WifiOff, Save, TestTube2 } from "lucide-react";
+import { RotateCcw, Wifi, WifiOff, Save, TestTube2, AlertTriangle, Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: ({ context }) => {
@@ -29,6 +29,24 @@ function AdminPage() {
   const [user, setUser] = useState("");
   const [password, setPassword] = useState("");
   const [database, setDatabase] = useState("");
+
+  const previewDeduplication = useMutation({
+    mutationFn: () => api.admin.previewStaffDeduplication(),
+    onError: (error) => toast.error(error.message),
+  });
+
+  const deduplicateStaff = useMutation({
+    mutationFn: () => api.admin.deduplicateStaff(),
+    onSuccess: (result) => {
+      toast.success(
+        `Merged ${result.groupsMerged} group(s): ${result.duplicatesRemoved} duplicate record(s) removed, ` +
+          `${result.scanRecordsUpdated} scan(s) moved. ${result.needsReview} group(s) left for review.`,
+      );
+      // Show what is left, so the list never describes rows that are gone.
+      previewDeduplication.mutate();
+    },
+    onError: (error) => toast.error(error.message),
+  });
 
   const syncStatus = useQuery({
     queryKey: ["sync", "status"],
@@ -60,10 +78,16 @@ function AdminPage() {
   });
 
   const saveSyncConfig = useMutation({
-    mutationFn: (config: { host: string; port: number; user: string; password: string; database: string }) =>
-      api.admin.saveSyncConfig(config),
+    mutationFn: (config: {
+      host: string;
+      port: number;
+      user: string;
+      password: string;
+      database: string;
+    }) => api.admin.saveSyncConfig(config),
     onSuccess: () => {
       toast.success("Sync settings saved");
+      setPassword("");
       queryClient.invalidateQueries({ queryKey: ["sync", "config"] });
       queryClient.invalidateQueries({ queryKey: ["sync", "status"] });
     },
@@ -71,10 +95,18 @@ function AdminPage() {
   });
 
   const testSyncConnection = useMutation({
-    mutationFn: (config: { host: string; port: number; user: string; password: string; database: string }) =>
-      api.admin.testSyncConnection(config),
+    mutationFn: (config: {
+      host: string;
+      port: number;
+      user: string;
+      password: string;
+      database: string;
+    }) => api.admin.testSyncConnection(config),
     onSuccess: (result) => {
-      toast.success(result.message);
+      // The server answers 200 with ok: false when the hub refuses, so the
+      // outcome has to be read from the body, not from the HTTP status.
+      if (result.ok) toast.success(result.message);
+      else toast.error(`Connection failed: ${result.message}`);
     },
     onError: (error) => toast.error(error.message),
   });
@@ -241,7 +273,9 @@ function AdminPage() {
                 <Input
                   id="sync-password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder={
+                    syncConfig.data?.hasPassword ? "Saved (leave blank to keep)" : "••••••••"
+                  }
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   disabled={saveSyncConfig.isPending}
@@ -300,8 +334,8 @@ function AdminPage() {
                   {runSync.data.conflicts > 0 && (
                     <>
                       {" "}
-                      These need looking at: either the two copies hold different edits of the same row
-                      at the same moment, or the same person exists under two ids. Nothing was
+                      These need looking at: either the two copies hold different edits of the same
+                      row at the same moment, or the same person exists under two ids. Nothing was
                       overwritten.
                     </>
                   )}
@@ -312,6 +346,101 @@ function AdminPage() {
               )}
             </div>
           </div>
+        </div>
+      </Panel>
+
+      <Panel
+        title="Staff Deduplication"
+        description="Find staff entered more than once. Only records with the same name and the same staff or machine number are merged; anything less certain is listed for you to check. Merges are not synced, so run this on each computer."
+      >
+        <div className="space-y-4">
+          <Button
+            variant="outline"
+            onClick={() => previewDeduplication.mutate()}
+            disabled={previewDeduplication.isPending}
+          >
+            {previewDeduplication.isPending
+              ? "Scanning for duplicates…"
+              : "Scan for Duplicate Staff"}
+          </Button>
+
+          {previewDeduplication.data && (
+            <>
+              {previewDeduplication.data.mergeable.length === 0 &&
+              previewDeduplication.data.needsReview.length === 0 ? (
+                <p className="text-sm text-green-600">
+                  No duplicates found. Staff records are clean.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {previewDeduplication.data.mergeable.length > 0 && (
+                    <div className="rounded-lg border bg-amber-50 p-4">
+                      <h4 className="mb-2 flex items-center gap-2 font-medium text-amber-800">
+                        <AlertTriangle className="h-4 w-4" />
+                        Will be merged ({previewDeduplication.data.mergeable.length} groups)
+                      </h4>
+                      <p className="mb-3 text-sm text-amber-700">
+                        Same name and the same staff number (however it is written, e.g. "SA 534"
+                        and "SAC534") or machine number: one person entered more than once. Their
+                        scans move to the record that is kept.
+                      </p>
+                      <div className="max-h-60 space-y-2 overflow-y-auto">
+                        {previewDeduplication.data.mergeable.map((group) => (
+                          <div key={group.key} className="rounded border bg-white p-3">
+                            <div className="font-medium">Keep: {group.canonicalName}</div>
+                            <div className="text-sm text-muted-foreground">
+                              {group.names.length} records: {group.names.join(", ")}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {previewDeduplication.data.needsReview.length > 0 && (
+                    <div className="rounded-lg border bg-slate-50 p-4">
+                      <h4 className="mb-2 flex items-center gap-2 font-medium text-slate-800">
+                        <AlertTriangle className="h-4 w-4" />
+                        Check by hand ({previewDeduplication.data.needsReview.length} groups)
+                      </h4>
+                      <p className="mb-3 text-sm text-slate-700">
+                        These match on only one detail and may be different people, so they are
+                        never merged automatically. Fix them on the Staff page if they are the same
+                        person.
+                      </p>
+                      <div className="max-h-60 space-y-2 overflow-y-auto">
+                        {previewDeduplication.data.needsReview.map((group) => (
+                          <div key={group.key} className="rounded border bg-white p-3">
+                            <div className="font-medium">{group.names.join(" / ")}</div>
+                            <div className="text-sm text-muted-foreground">{group.reason}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {previewDeduplication.data.mergeable.length > 0 && (
+                    <Button
+                      variant="destructive"
+                      onClick={() => {
+                        if (
+                          confirm(
+                            "This will permanently merge the duplicate staff records listed above and move their scans. Continue?",
+                          )
+                        ) {
+                          deduplicateStaff.mutate();
+                        }
+                      }}
+                      disabled={deduplicateStaff.isPending || previewDeduplication.isPending}
+                      className="w-full"
+                    >
+                      {deduplicateStaff.isPending
+                        ? "Merging…"
+                        : `Merge ${previewDeduplication.data.mergeable.length} duplicate group(s)`}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </Panel>
     </div>

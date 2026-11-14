@@ -51,7 +51,7 @@ import os from "node:os";
 import path from "node:path";
 import { createPool, type Pool, type RowDataPacket } from "mysql2/promise";
 import type { SqlParam } from "@/server/db";
-import { dialect, query, queryOne, transaction } from "@/server/db";
+import { dialect, query, queryOne, transaction, utcStamp } from "@/server/db";
 import { HttpError } from "@/server/http";
 
 // Hub configuration --------------------------------------------------------
@@ -158,20 +158,55 @@ export async function getSyncSettingsFromDB(): Promise<SyncSettings | null> {
   }
 }
 
-/** Save sync settings to the local database (password encrypted). */
-export function setSyncSettings(input: {
+/**
+ * Save sync settings to the local database (password encrypted).
+ *
+ * The password is never sent back to the page, so the form always shows an
+ * empty password box. A blank password therefore means "keep the one already
+ * saved", not "remove it"; otherwise re-saving the host or database name would
+ * silently wipe the password and the next sync would fail to sign in.
+ */
+export async function setSyncSettings(input: {
   host: string;
   port: number;
   user: string;
-  password: string;
+  password?: string | null;
   database: string;
-}): void {
-  transaction(async () => {
-    await query(
-      `UPDATE sync_settings SET host = ?, port = ?, user = ?, password_enc = ?, database = ?, updated_at = ? WHERE id = 1`,
-      [input.host, input.port, input.user, encryptPassword(input.password), input.database, new Date().toISOString().slice(0, 19).replace("T", " ")],
-    );
+}): Promise<void> {
+  await transaction(async (connection) => {
+    const now = utcStamp();
+    if (input.password) {
+      await connection.execute(
+        `UPDATE sync_settings
+         SET host = ?, port = ?, user = ?, password_enc = ?, database = ?, updated_at = ?
+         WHERE id = 1`,
+        [input.host, input.port, input.user, encryptPassword(input.password), input.database, now],
+      );
+    } else {
+      await connection.execute(
+        `UPDATE sync_settings SET host = ?, port = ?, user = ?, database = ?, updated_at = ? WHERE id = 1`,
+        [input.host, input.port, input.user, input.database, now],
+      );
+    }
   });
+}
+
+/** Whether a hub password has been saved, without revealing it. */
+export async function hasSavedSyncPassword(): Promise<boolean> {
+  try {
+    const row = await queryOne<RowDataPacket & { password_enc: string }>(
+      "SELECT password_enc FROM sync_settings WHERE id = 1",
+    );
+    return Boolean(row?.password_enc);
+  } catch {
+    return false;
+  }
+}
+
+/** The password to test with: the one typed, or the saved one when the box was left blank. */
+export async function passwordForTest(typed: string | undefined | null): Promise<string> {
+  if (typed) return typed;
+  return (await getSyncSettingsFromDB())?.password ?? "";
 }
 
 /** Test a connection to the hub without saving. */
@@ -195,9 +230,10 @@ export async function testSyncConnection(input: {
     await pool.query("SELECT 1");
     await pool.end();
     return { ok: true, message: "Connection successful" };
-  } catch (e: any) {
+  } catch (error) {
     if (pool) await pool.end().catch(() => {});
-    return { ok: false, message: e.message ?? "Connection failed" };
+    const message = error instanceof Error && error.message ? error.message : "Connection failed";
+    return { ok: false, message };
   }
 }
 

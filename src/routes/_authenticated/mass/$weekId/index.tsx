@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState, Panel, StatTile, formatDateTime } from "@/components/attendance-ui";
+import { EmptyState, Panel, formatDateTime } from "@/components/attendance-ui";
 import { api } from "@/lib/api";
 import { pick, readSpreadsheet } from "@/lib/spreadsheet";
 import {
@@ -23,6 +23,7 @@ import {
   type MassWeekStatus,
 } from "@/lib/types";
 import { useRoles } from "@/lib/useAuth";
+import { MassWeekReport } from "@/components/MassWeekReport";
 import { Trash2 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/mass/$weekId/")({
@@ -38,6 +39,18 @@ function participantDescription(type: MassWeekParticipantType): string {
   return "student files and staff files";
 }
 
+/** One message for a batch of files: what was added and what was already there. */
+function batchMessage(
+  results: Array<{ file: string; added: number; skipped: number; error?: string }>,
+) {
+  const added = results.reduce((sum, item) => sum + item.added, 0);
+  const skipped = results.reduce((sum, item) => sum + item.skipped, 0);
+  const files = results.filter((item) => !item.error).length;
+  const parts = [`${files} file(s): ${added} new scan(s) added`];
+  if (skipped > 0) parts.push(`${skipped} already uploaded, skipped`);
+  return parts.join(" · ");
+}
+
 function MassWeekPage() {
   const { weekId } = Route.useParams();
   const queryClient = useQueryClient();
@@ -46,6 +59,8 @@ function MassWeekPage() {
   const [uploadParticipant, setUploadParticipant] = useState<MassUploadParticipant>("student");
   const [uploadLevel, setUploadLevel] = useState("");
   const [uploadLabel, setUploadLabel] = useState("");
+  // The group just uploaded: the report below switches to it.
+  const [lastUploaded, setLastUploaded] = useState<MassUploadParticipant | null>(null);
 
   const week = useQuery({
     queryKey: ["mass-week", weekId],
@@ -104,27 +119,51 @@ function MassWeekPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  // Several files can be chosen at once; they go up one after another, and
+  // rows already uploaded (from any earlier file) are skipped by the server.
   const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const { rows: sheet } = await readSpreadsheet(file);
-      const rows = sheet.map((row) => ({
-        scanNumber: pick(row, "ID", "id", "Id", "userId", "card") || null,
-        name: pick(row, "NAME", "name", "Name", "userName") || null,
-        scannedAt: pick(row, "Time", "time", "DATE_TIME", "datetime", "CheckInTime") || null,
-        machineId: pick(row, "Machine_ID", "machine_id", "machineId", "MachineID", "machineID", "staff_id_on_machine", "staffIdOnMachine") || null,
-      }));
-      return api.mass.upload(weekId, {
-        participantType: uploadParticipant,
-        level: uploadParticipant === "student" && uploadLevel.trim() ? uploadLevel.trim() : null,
-        fileName: file.name,
-        label: uploadLabel.trim() || null,
-        rows,
-      });
+    mutationFn: async (files: File[]) => {
+      const results: Array<{ file: string; added: number; skipped: number; error?: string }> = [];
+      for (const file of files) {
+        try {
+          const { rows: sheet } = await readSpreadsheet(file);
+          const rows = sheet.map((row) => ({
+            scanNumber: pick(row, "ID", "id", "Id", "userId", "card") || null,
+            name: pick(row, "NAME", "name", "Name", "userName") || null,
+            scannedAt: pick(row, "Time", "time", "DATE_TIME", "datetime", "CheckInTime") || null,
+            machineId:
+              pick(
+                row,
+                "Machine_ID",
+                "machine_id",
+                "machineId",
+                "MachineID",
+                "machineID",
+                "staff_id_on_machine",
+                "staffIdOnMachine",
+              ) || null,
+          }));
+          const result = await api.mass.upload(weekId, {
+            participantType: uploadParticipant,
+            level:
+              uploadParticipant === "student" && uploadLevel.trim() ? uploadLevel.trim() : null,
+            fileName: file.name,
+            label: uploadLabel.trim() || null,
+            rows,
+          });
+          results.push({ file: file.name, added: result.added, skipped: result.skipped });
+        } catch (error) {
+          results.push({ file: file.name, added: 0, skipped: 0, error: (error as Error).message });
+        }
+      }
+      return results;
     },
-    onSuccess: (data) => {
-      toast.success(
-        `Stored ${data.upload.row_count} rows · ${data.upload.present_count} in scope · ${data.upload.unmatched_count} unmatched`,
-      );
+    onSuccess: (results) => {
+      toast.success(batchMessage(results));
+      for (const item of results) {
+        if (item.error) toast.error(`${item.file}: ${item.error}`);
+      }
+      if (results.some((item) => !item.error)) setLastUploaded(uploadParticipant);
       refresh();
     },
     onError: (e) => toast.error(e.message),
@@ -177,7 +216,7 @@ function MassWeekPage() {
         actions={
           <>
             <Link to="/mass/$weekId/reports" params={{ weekId }}>
-              <Button>Open reports</Button>
+              <Button variant="outline">Report on its own page</Button>
             </Link>
             {isAdmin && (
               <Button
@@ -299,10 +338,13 @@ function MassWeekPage() {
               ref={fileRef}
               type="file"
               accept=".csv,.xlsx,.xls"
+              multiple
               className="hidden"
               onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) upload.mutate(file, { onSettled: () => (event.target.value = "") });
+                const files = [...(event.target.files ?? [])];
+                if (files.length > 0) {
+                  upload.mutate(files, { onSettled: () => (event.target.value = "") });
+                }
               }}
             />
             <Button
@@ -312,7 +354,7 @@ function MassWeekPage() {
             >
               {upload.isPending
                 ? "Uploading…"
-                : `Choose ${uploadParticipant === "staff" ? "staff" : "student"} file`}
+                : `Choose ${uploadParticipant === "staff" ? "staff" : "student"} file(s)`}
             </Button>
             <span className="text-xs text-muted-foreground">Expected columns: ID, NAME, Time</span>
           </div>
@@ -403,14 +445,7 @@ function MassWeekPage() {
         )}
       </Panel>
 
-      {coveredParticipants.map((participant) => (
-        <WeekSummaryPanel
-          key={participant}
-          weekId={weekId}
-          participant={participant}
-          title={participant === "student" ? "Student summary" : "Staff summary"}
-        />
-      ))}
+      <MassWeekReport weekId={weekId} title="Report" uploadedFor={lastUploaded} />
     </div>
   );
 }
@@ -490,53 +525,6 @@ function WeekdayPanel({
           No weekdays selected. Save only if Community Mass was not held at all this week.
         </p>
       ) : null}
-    </Panel>
-  );
-}
-
-function WeekSummaryPanel({
-  weekId,
-  participant,
-  title,
-}: {
-  weekId: string;
-  participant: MassUploadParticipant;
-  title: string;
-}) {
-  const result = useQuery({
-    queryKey: ["mass-result", weekId, participant],
-    queryFn: () => api.mass.result(weekId, { participantType: participant }),
-  });
-
-  if (result.isError) {
-    return (
-      <p role="alert" className="text-sm text-rose-600">
-        {(result.error as Error).message}
-      </p>
-    );
-  }
-  const data = result.data;
-  if (!data) return <p className="text-sm text-muted-foreground">Loading {title.toLowerCase()}…</p>;
-
-  return (
-    <Panel title={title}>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <StatTile label="Expected" value={data.expected} hint="From the frozen snapshot" />
-        <StatTile label="Present" value={data.present} tone="good" />
-        <StatTile label="Absent" value={data.absent} tone={data.absent > 0 ? "bad" : "good"} />
-        <StatTile
-          label="Out of scope"
-          value={data.out_of_scope}
-          tone={data.out_of_scope > 0 ? "warn" : "default"}
-          hint="Scanned, but not expected this week"
-        />
-        <StatTile
-          label="Unmatched"
-          value={data.unmatched}
-          tone={data.unmatched > 0 ? "warn" : "default"}
-          hint="No match in the master list"
-        />
-      </div>
     </Panel>
   );
 }

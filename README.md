@@ -5,11 +5,18 @@ Student and staff attendance register. Runs entirely on this machine — no clou
 ## Quick Start (Desktop App)
 
 ### Windows Installer
-1. Download `Attendance Register Setup 1.2.0.exe` (or the portable `.exe`)
+1. Download `Attendance Register Setup 1.3.0.exe` (or the portable `.exe`)
 2. Run the installer — no admin rights needed for portable, admin for system install
 3. Launch **Attendance Register** from Start Menu or Desktop
 4. First launch creates your local database automatically
 5. Open the app → **Create Account** → first account becomes **Administrator**
+
+### Web Version (test on a copy of your real data)
+Double-click **`start-web.cmd`** in the project folder (or run it from a terminal). It:
+1. copies the desktop app's database (`%APPDATA%\attendance-register\database`) to `db\web\attendance.db` the first time; the desktop app's own database is never written to;
+2. builds the latest code and starts the web version at **http://127.0.0.1:3000**, opening it in your browser.
+
+Sign in with your usual account. Run `start-web.cmd fresh` (with the desktop app closed) to take a new copy of the real data. Press Ctrl+C in the window to stop.
 
 ### Development Mode
 ```bash
@@ -50,6 +57,7 @@ Opens <http://127.0.0.1:3000> in your browser.
 **Staff:**
 - Go to **Staff** page → **Import the staff list**
 - Download template → fill `staff_db.xlsx` (Staff Number, Surname, OtherNames, Title, Gender, Designation, Department, Staff Category, Staff_ID_on_machine)
+- Leave **This file is the complete, current staff list** ticked when the file is the registrar's full `staffdb.xlsx`: anyone not in it is kept (old scans still count for them) but is no longer expected anywhere, so stale records never show as absent.
 - Upload → **Import**
 - **Sync Weekdays** button appears after import → click to auto-assign departments to Mass weekdays
 
@@ -78,10 +86,15 @@ Opens <http://127.0.0.1:3000> in your browser.
 2. Choose **Students** or **Staff** file (must match event type)
 2. Upload CSV/Excel export from the machine (columns: ID, NAME, Time)
 3. Wait for processing → see **Present / Out of Scope / Unmatched** counts
-4. Review **Unmatched** tab → fix machine IDs or names if needed
+   You can choose **several files at once**. A row that is already stored (same number, name and time) is skipped, so uploading the same export again, or a later export that repeats earlier rows, only adds what is new. The message says how many rows were added and how many were already there.
+4. If the app is not certain about some scans, a **Confirm the matches** window opens (see *Confirming uncertain matches* below). Reports and downloads stay locked until it is answered.
+5. Review **Unmatched** tab → fix machine IDs or names if needed
 5. **Reset** a participant type if you need to re-upload
 
 ### Viewing Reports
+- **Weekly Mass**: the report is right under the uploads on the week's page, with the same per-person results and the downloads (CSV, Excel, PDF). A staff week shows staff, a student week shows students, and a week with both asks which one (and switches to the group you just uploaded).
+- **Search and filters** on every report table: search by name (any word order) or number (`SA 39`, `sa39` and `39` find SA39 but not SA393; `15336` finds VUG/PCS/25/15336), and filter by department/unit, weekday and level where the table has them. Tab counts show "12 of 509" while a filter is on.
+- **Students** are matched by matric/machine number alone (every number is unique), so student uploads never ask you to confirm or merge. A mistyped number with a name that only one student has still counts for that student.
 - **Event** → **Open reports** → Present / Absent / Late / Out of Scope
 - **Reports** page → filter by date range, department, category
 - **Download CSV** for Excel/records
@@ -94,7 +107,28 @@ Opens <http://127.0.0.1:3000> in your browser.
 
 ---
 
-## Synchronization (Multi-Computer)
+## Sync computers (several computers in one office)
+
+Nothing to install but the desktop app. All computers must be on the same office network (cable or Wi-Fi).
+
+**Once, on the computer that is usually on (the Main computer):**
+1. Sign in as an administrator → **Sync computers** (in the menu) → **Make this the Main computer**.
+2. A 6-digit **pairing code** is shown. If Windows asks whether Attendance Register may use the network, choose **Allow** (private networks).
+
+**On each other computer:**
+1. Sign in as an administrator → **Sync computers** → **Find the Main computer**. It appears by name; choose it.
+2. Type the 6-digit code → **Connect**. The first sync starts at once (a minute or two for a full staff and student list).
+
+**After that:** every computer keeps its own full copy and works even when the Main computer is off. Each one exchanges its changes with Main **by itself every 3 minutes**, and **Synchronize now** does it at once. The menu shows "Synced 2 min ago" (or that Main cannot be reached).
+
+What is shared: users, staff and student lists, always-present staff, student and staff events with their uploads and scans, recurring events, **Weekly Mass** (weeks, weekdays, department days, uploads, scans, expected lists), answers in **Confirm the matches**, and the **debt rates** — so the debt page is the same on every computer. Edits and deletions are shared too. The same person entered on two computers (same staff number / matric number / email) is recognised as one person.
+
+Good practice: connect the computers before the work starts. A computer that joins with data of its own sends that data to Main as new (an old copy can bring back something that was deleted elsewhere since).
+
+### Advanced: MariaDB hub (optional)
+For offices that run their own MariaDB server: **Admin Settings → Advanced: MariaDB hub synchronization**.
+
+
 
 ### Prerequisites
 - A MariaDB/MySQL server accessible on your LAN (e.g., one computer runs XAMPP MariaDB)
@@ -145,6 +179,20 @@ Admin manages roles on **Permissions** page.
 - Falls back to staff number digits if Machine ID missing
 - Edit any person's **Machine ID** on Staff page → fixes scan mismatches
 
+### Mass Debts (Weekly Mass → Mass debts)
+- Every absence from a Weekly Mass is charged: **staff ₦10,000, students ₦5,000** (an administrator can change the rates on the page).
+- A week counts once a machine file has been uploaded to it. Student files uploaded for one level ("Level 200") charge only that level until the other levels' files are in.
+- Nothing is stored per person: the debts are worked out from the weeks' results every time, so a confirmed match, a merged duplicate, a re-upload or a change to the always-present list changes the debts straight away. Weeks still waiting for matches to be confirmed are marked provisional.
+- Views: totals, **each person owing** (search by name/number, filter by department), **by department/unit**, **by week**, **by month**; pick a month and staff/students at the top. Each view downloads as Excel, CSV or PDF.
+
+### Always-present staff (People → Always-present staff)
+- Staff such as the Vice-Chancellor, DVCs, Provost or Registrar can be added by an administrator (search by name or staff number, give the office).
+- They are shown **present** ("Always present") at every staff event that concerns them and every staff Weekly Mass that has an upload, never absent, and never charged on the debt page.
+- Removing someone puts them back on the ordinary rules, for past weeks too.
+
+### Importing master lists into running weeks
+- People added by a staff or student import are added to the expected list of weeks that are already running (nobody already expected is removed or changed), and unmatched scans are matched again. So importing the complete student list after a week was created turns their "unmatched" scans into present.
+
 ### Department Weekdays (Community Mass)
 - **Mass → Weekdays** → assign each department to Mon–Fri
 - **Sync Weekdays** button → auto-adds new departments from staff list
@@ -152,12 +200,19 @@ Admin manages roles on **Permissions** page.
 
 ### One Person, One Identity (no one is both present and absent)
 A person can be on the master list twice, e.g. after a re-import wrote their staff number differently (`SA 534` then `SAC534`). The app treats such rows as **one person** everywhere:
-- **Same person** = same name (surname + first name, any order/case) **and** the same staff-number digits (`SA 534` = `SAC534`, `08` = `A8`) or the same machine number. Students: the same matric number.
+- **Same person** = the same staff-number digits (`AT1430` = `AT 1430` = `A1430`) or machine number, **and** names that agree on at least two words in any order, allowing spelling variants (`Olusola`/`Olushola`), shortened names (`ANOMU`) and initials. Students: the same matric number.
 - **Not the same person**: same name with different numbers, or the same machine number with different names (the machine prints `39` for two different staff).
 - Every count is per person: Weekly Mass, event pages, the daily/weekly/monthly reports and the Excel/CSV downloads. A person is exactly one of present, absent or out of scope, never two. Older weeks are read the same way, with no re-upload needed.
 - Students: matric numbers that differ only in case, spacing, punctuation or leading zeros (`vug/csc/25/01001` = `VUG/CSC/25/1001`) are one student.
 - Duplicates are removed automatically after **every staff import, every student import and every Synchronize**. Uploading the same scan file twice never changes who is present.
-- Scan matching tries machine number, then scan number (the name settles a number shared by several people, including names the machine cut short, e.g. `ANOMU` for `ANOMUOGHARAN`, or `P` for `PRINCESS`), then exact name, then a strict close-name match. A scan that fits two people, or nobody, is left **Unmatched** for you to review rather than guessed.
+- Scan matching order: an answer an admin gave before → machine ID → staff number (spaces and letters ignored) → full printed name → exact name. Every number match is checked against the printed name. A full printed name (2+ words) that is exactly one person's name wins over a number whose owner does not fit it (the machine often prints a neighbour's number: `1548 IGWE CHICHI` is IGWE CHICHI, AT1508). When the number and name disagree and the name is not certain, or the name only resembles someone, the scan is **not guessed**: it goes to the **Confirm the matches** window. Scans stored by an older version are matched again with the current rules (only scans with nobody yet).
+
+### Confirming uncertain matches (before any report)
+After an upload, Weekly Mass and event pages show an amber **Confirm before reporting** banner (button **Review now**), and the window opens by itself for editors. It has two kinds of questions:
+- **Scans the app is unsure about**: pick the right person from the suggestions, search for someone else, or say it is nobody on the list. The answer is remembered, so the same scan never asks again on later uploads.
+- **Answers given before** (bottom of the window, or **Saved match answers** on the page): every answer can be taken back with **Undo**, and its scans are matched again. An answer of "not anyone on the list" whose printed name matches someone exactly is flagged in amber, because that person is then shown absent.
+- **Look-alikes**: someone counted present who looks like someone counted absent (same staff number with a similar name, or the same full name). Answer **Same person — merge** (the records become one and the person is present) or **Different people** (never asked again).
+Report generation, CSV downloads and the Reports page refuse to produce a report for that week/event until nothing is left to confirm.
 
 ### Merging Duplicate Staff
 - **Staff import** updates existing people instead of adding them again (it recognises `SA 534` and `SAC534` as the same person) and reads the registrar's `staffdb.xlsx` layout (`Staff Number`, `Surname`, `OtherNames`, `Staff_ID_on_machine`, ...). After every staff import, records that are certainly the same person are merged automatically.

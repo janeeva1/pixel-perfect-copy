@@ -3,6 +3,7 @@ import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import { PageHeader } from "@/components/PageHeader";
 import {
   BarChart3,
+  BadgeCheck,
   CalendarCheck,
   CalendarDays,
   ChevronDown,
@@ -11,6 +12,7 @@ import {
   GraduationCap,
   LayoutDashboard,
   LogOut,
+  RefreshCw,
   ShieldCheck,
   Sparkles,
   Users,
@@ -18,6 +20,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AppUpdate } from "@/components/AppUpdate";
+import { SyncStatusLine } from "@/components/SyncStatusLine";
 import { desktopBridge } from "@/lib/electron";
 import { useAuthActions, useRoles, useSession } from "@/lib/useAuth";
 import {
@@ -49,6 +52,7 @@ const nav = [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }] as
 const peopleNav = [
   { to: "/students", label: "Students", icon: GraduationCap },
   { to: "/staff", label: "Staff", icon: Users },
+  { to: "/always-present", label: "Always-present staff", icon: BadgeCheck },
 ] as const;
 
 /**
@@ -61,6 +65,7 @@ const editorNav = [
 ] as const;
 
 const adminNav = [
+  { to: "/sync", label: "Sync computers", icon: RefreshCw },
   { to: "/admin", label: "Admin Settings", icon: ShieldCheck },
   { to: "/users", label: "Users & Permissions", icon: UserCog },
 ] as const;
@@ -128,7 +133,8 @@ export function AppShell({ children }: { children: ReactNode }) {
     location.pathname === "/students" ||
     location.pathname.startsWith("/students/") ||
     location.pathname === "/staff" ||
-    location.pathname.startsWith("/staff/");
+    location.pathname.startsWith("/staff/") ||
+    location.pathname === "/always-present";
 
   return (
     <SidebarProvider>
@@ -174,6 +180,13 @@ export function AppShell({ children }: { children: ReactNode }) {
                 className={NESTED_LINK_CLASS}
               >
                 Weekly Mass Reports
+              </Link>
+              <Link
+                to="/mass/debts"
+                activeProps={{ className: ACTIVE_CLASS }}
+                className={NESTED_LINK_CLASS}
+              >
+                Mass debts
               </Link>
             </NavGroup>
 
@@ -264,6 +277,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         </SidebarContent>
         <SidebarFooter>
           <div className="border-t border-sidebar-border p-3">
+            <SyncStatusLine />
             <p className="truncate px-3 pb-2 text-xs opacity-70">{user?.email}</p>
             {bridge ? (
               <Dialog>
@@ -302,21 +316,21 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </SidebarFooter>
       </Sidebar>
-<SidebarInset>
-          <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-background px-4">
-            <SidebarTrigger className="-ml-1" aria-label="Toggle sidebar" />
-            <PageHeader />
-            <div className="flex-1" />
-            <div className="flex items-center gap-4 text-sm">
-              <span className="text-muted-foreground hidden sm:block">
-                {user?.fullName ?? user?.email}
-              </span>
-              <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={signOut.isPending}>
-                <LogOut className="mr-2 size-4" /> Sign out
-              </Button>
-            </div>
-          </header>
-          <main className="relative z-20 flex-1 p-4 lg:p-6">{children}</main>
+      <SidebarInset>
+        <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-background px-4">
+          <SidebarTrigger className="-ml-1" aria-label="Toggle sidebar" />
+          <PageHeader />
+          <div className="flex-1" />
+          <div className="flex items-center gap-4 text-sm">
+            <span className="text-muted-foreground hidden sm:block">
+              {user?.fullName ?? user?.email}
+            </span>
+            <Button variant="ghost" size="sm" onClick={handleSignOut} disabled={signOut.isPending}>
+              <LogOut className="mr-2 size-4" /> Sign out
+            </Button>
+          </div>
+        </header>
+        <main className="relative z-20 flex-1 p-4 lg:p-6">{children}</main>
       </SidebarInset>
     </SidebarProvider>
   );

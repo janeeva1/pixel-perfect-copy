@@ -1,3 +1,5 @@
+import { Search } from "lucide-react";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -171,6 +173,7 @@ export function ReportView({
     queryFn: () => api.students({ limit: 1 }),
   });
   const departments = useQuery({ queryKey: ["departments"], queryFn: api.departments });
+  const [groupText, setGroupText] = useState("");
   // Staff departments are free-text names with counts, not student codes.
   const staffDepartments = useQuery({
     queryKey: ["staff-departments"],
@@ -178,7 +181,13 @@ export function ReportView({
   });
 
   const series = report.data;
-  const buckets = series?.buckets ?? [];
+  const allBuckets = series?.buckets ?? [];
+  const typedGroup = groupText.trim().toUpperCase();
+  const buckets = typedGroup
+    ? allBuckets.filter((bucket) =>
+        typedGroup.split(/\s+/).every((word) => String(bucket.label).toUpperCase().includes(word)),
+      )
+    : allBuckets;
   const trend = buckets.map((bucket) => ({
     label: bucket.label,
     Expected: bucket.expected,
@@ -444,6 +453,18 @@ export function ReportView({
                 title={series.grouped ? "Breakdown" : `By ${periodNoun(search.period)}`}
                 description="Expected is the current master list for the chosen scope."
               >
+                <div className="relative mb-3 max-w-sm">
+                  <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    className="pl-8"
+                    placeholder={
+                      series.grouped ? "Search departments / groups" : "Search periods (e.g. Oct)"
+                    }
+                    value={groupText}
+                    onChange={(event) => setGroupText(event.target.value)}
+                    aria-label="Search the breakdown"
+                  />
+                </div>
                 <DataTable
                   head={[
                     series.grouped ? "Group" : "Period",

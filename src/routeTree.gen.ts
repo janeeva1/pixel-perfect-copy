@@ -14,11 +14,13 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as AuthenticatedAdminRouteImport } from './routes/_authenticated/admin'
+import { Route as AuthenticatedAlwaysPresentRouteImport } from './routes/_authenticated/always-present'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedImportRouteImport } from './routes/_authenticated/import'
 import { Route as AuthenticatedRecurringRouteImport } from './routes/_authenticated/recurring'
 import { Route as AuthenticatedStaffRouteImport } from './routes/_authenticated/staff'
 import { Route as AuthenticatedStudentsRouteImport } from './routes/_authenticated/students'
+import { Route as AuthenticatedSyncRouteImport } from './routes/_authenticated/sync'
 import { Route as AuthenticatedUsersRouteImport } from './routes/_authenticated/users'
 import { Route as ApiDashboardRouteImport } from './routes/api/dashboard'
 import { Route as ApiDepartmentsRouteImport } from './routes/api/departments'
@@ -26,6 +28,7 @@ import { Route as ApiLevelsRouteImport } from './routes/api/levels'
 import { Route as ApiSetupRouteImport } from './routes/api/setup'
 import { Route as ApiStaffDepartmentsRouteImport } from './routes/api/staff-departments'
 import { Route as AuthenticatedMassIndexRouteImport } from './routes/_authenticated/mass/index'
+import { Route as AuthenticatedMassDebtsRouteImport } from './routes/_authenticated/mass/debts'
 import { Route as AuthenticatedMassReportsRouteImport } from './routes/_authenticated/mass/reports'
 import { Route as AuthenticatedMassWeekdaysRouteImport } from './routes/_authenticated/mass/weekdays'
 import { Route as AuthenticatedReportsStaffRouteImport } from './routes/_authenticated/reports/staff'
@@ -41,16 +44,28 @@ import { Route as ApiAuthMeRouteImport } from './routes/api/auth/me'
 import { Route as ApiAuthSigninRouteImport } from './routes/api/auth/signin'
 import { Route as ApiAuthSignoutRouteImport } from './routes/api/auth/signout'
 import { Route as ApiAuthSignupRouteImport } from './routes/api/auth/signup'
+import { Route as ApiDebtsIndexRouteImport } from './routes/api/debts/index'
+import { Route as ApiDebtsDownloadRouteImport } from './routes/api/debts/download'
+import { Route as ApiDebtsRatesRouteImport } from './routes/api/debts/rates'
 import { Route as ApiDesktopDownloadRouteImport } from './routes/api/desktop/download'
 import { Route as ApiDesktopReleaseRouteImport } from './routes/api/desktop/release'
 import { Route as ApiDownloadsPreviewRouteImport } from './routes/api/downloads/preview'
 import { Route as ApiDownloadsReportRouteImport } from './routes/api/downloads/report'
 import { Route as ApiMassDepartmentsRouteImport } from './routes/api/mass/departments'
 import { Route as ApiMassSyncWeekdaysRouteImport } from './routes/api/mass/sync-weekdays'
+import { Route as ApiPeerIndexRouteImport } from './routes/api/peer/index'
+import { Route as ApiPeerBootRouteImport } from './routes/api/peer/boot'
+import { Route as ApiPeerDiscoverRouteImport } from './routes/api/peer/discover'
+import { Route as ApiPeerSyncRouteImport } from './routes/api/peer/sync'
 import { Route as ApiRecurringIndexRouteImport } from './routes/api/recurring/index'
 import { Route as ApiRecurringTemplateIdRouteImport } from './routes/api/recurring/$templateId'
 import { Route as ApiReportsStaffRouteImport } from './routes/api/reports/staff'
 import { Route as ApiReportsStudentsRouteImport } from './routes/api/reports/students'
+import { Route as ApiReviewIndexRouteImport } from './routes/api/review/index'
+import { Route as ApiReviewAnswersRouteImport } from './routes/api/review/answers'
+import { Route as ApiReviewPairRouteImport } from './routes/api/review/pair'
+import { Route as ApiReviewScanRouteImport } from './routes/api/review/scan'
+import { Route as ApiReviewSearchRouteImport } from './routes/api/review/search'
 import { Route as ApiStaffEventsIndexRouteImport } from './routes/api/staff-events/index'
 import { Route as ApiStaffEventsEventIdRouteImport } from './routes/api/staff-events/$eventId'
 import { Route as ApiStaffIndexRouteImport } from './routes/api/staff/index'
@@ -67,6 +82,7 @@ import { Route as ApiUsersIndexRouteImport } from './routes/api/users/index'
 import { Route as ApiUsersRolesRouteImport } from './routes/api/users/roles'
 import { Route as AuthenticatedMassWeekIdIndexRouteImport } from './routes/_authenticated/mass/$weekId/index'
 import { Route as AuthenticatedMassWeekIdReportsRouteImport } from './routes/_authenticated/mass/$weekId/reports'
+import { Route as ApiAdminExemptStaffIndexRouteImport } from './routes/api/admin/exempt-staff/index'
 import { Route as ApiAdminMassWeekdaysAssignmentIdRouteImport } from './routes/api/admin/mass-weekdays/$assignmentId'
 import { Route as ApiAdminStaffDeduplicateRouteImport } from './routes/api/admin/staff/deduplicate'
 import { Route as ApiAdminSyncIndexRouteImport } from './routes/api/admin/sync/index'
@@ -112,6 +128,12 @@ const AuthenticatedAdminRoute = AuthenticatedAdminRouteImport.update({
   path: '/admin',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAlwaysPresentRoute =
+  AuthenticatedAlwaysPresentRouteImport.update({
+    id: '/always-present',
+    path: '/always-present',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -135,6 +157,11 @@ const AuthenticatedStaffRoute = AuthenticatedStaffRouteImport.update({
 const AuthenticatedStudentsRoute = AuthenticatedStudentsRouteImport.update({
   id: '/students',
   path: '/students',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSyncRoute = AuthenticatedSyncRouteImport.update({
+  id: '/sync',
+  path: '/sync',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedUsersRoute = AuthenticatedUsersRouteImport.update({
@@ -170,6 +197,11 @@ const ApiStaffDepartmentsRoute = ApiStaffDepartmentsRouteImport.update({
 const AuthenticatedMassIndexRoute = AuthenticatedMassIndexRouteImport.update({
   id: '/mass/',
   path: '/mass/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedMassDebtsRoute = AuthenticatedMassDebtsRouteImport.update({
+  id: '/mass/debts',
+  path: '/mass/debts',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedMassReportsRoute =
@@ -255,6 +287,21 @@ const ApiAuthSignupRoute = ApiAuthSignupRouteImport.update({
   path: '/api/auth/signup',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDebtsIndexRoute = ApiDebtsIndexRouteImport.update({
+  id: '/api/debts/',
+  path: '/api/debts/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDebtsDownloadRoute = ApiDebtsDownloadRouteImport.update({
+  id: '/api/debts/download',
+  path: '/api/debts/download',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDebtsRatesRoute = ApiDebtsRatesRouteImport.update({
+  id: '/api/debts/rates',
+  path: '/api/debts/rates',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDesktopDownloadRoute = ApiDesktopDownloadRouteImport.update({
   id: '/api/desktop/download',
   path: '/api/desktop/download',
@@ -285,6 +332,26 @@ const ApiMassSyncWeekdaysRoute = ApiMassSyncWeekdaysRouteImport.update({
   path: '/api/mass/sync-weekdays',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPeerIndexRoute = ApiPeerIndexRouteImport.update({
+  id: '/api/peer/',
+  path: '/api/peer/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPeerBootRoute = ApiPeerBootRouteImport.update({
+  id: '/api/peer/boot',
+  path: '/api/peer/boot',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPeerDiscoverRoute = ApiPeerDiscoverRouteImport.update({
+  id: '/api/peer/discover',
+  path: '/api/peer/discover',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPeerSyncRoute = ApiPeerSyncRouteImport.update({
+  id: '/api/peer/sync',
+  path: '/api/peer/sync',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRecurringIndexRoute = ApiRecurringIndexRouteImport.update({
   id: '/api/recurring/',
   path: '/api/recurring/',
@@ -303,6 +370,31 @@ const ApiReportsStaffRoute = ApiReportsStaffRouteImport.update({
 const ApiReportsStudentsRoute = ApiReportsStudentsRouteImport.update({
   id: '/api/reports/students',
   path: '/api/reports/students',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewIndexRoute = ApiReviewIndexRouteImport.update({
+  id: '/api/review/',
+  path: '/api/review/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewAnswersRoute = ApiReviewAnswersRouteImport.update({
+  id: '/api/review/answers',
+  path: '/api/review/answers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewPairRoute = ApiReviewPairRouteImport.update({
+  id: '/api/review/pair',
+  path: '/api/review/pair',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewScanRoute = ApiReviewScanRouteImport.update({
+  id: '/api/review/scan',
+  path: '/api/review/scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiReviewSearchRoute = ApiReviewSearchRouteImport.update({
+  id: '/api/review/search',
+  path: '/api/review/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiStaffEventsIndexRoute = ApiStaffEventsIndexRouteImport.update({
@@ -386,6 +478,12 @@ const AuthenticatedMassWeekIdReportsRoute =
     id: '/mass/$weekId/reports',
     path: '/mass/$weekId/reports',
     getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const ApiAdminExemptStaffIndexRoute =
+  ApiAdminExemptStaffIndexRouteImport.update({
+    id: '/api/admin/exempt-staff/',
+    path: '/api/admin/exempt-staff/',
+    getParentRoute: () => rootRouteImport,
   } as any)
 const ApiAdminMassWeekdaysAssignmentIdRoute =
   ApiAdminMassWeekdaysAssignmentIdRouteImport.update({
@@ -507,17 +605,20 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/always-present': typeof AuthenticatedAlwaysPresentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/import': typeof AuthenticatedImportRoute
   '/recurring': typeof AuthenticatedRecurringRoute
   '/staff': typeof AuthenticatedStaffRoute
   '/students': typeof AuthenticatedStudentsRoute
+  '/sync': typeof AuthenticatedSyncRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/departments': typeof ApiDepartmentsRoute
   '/api/levels': typeof ApiLevelsRoute
   '/api/setup': typeof ApiSetupRoute
   '/api/staff-departments': typeof ApiStaffDepartmentsRoute
+  '/mass/debts': typeof AuthenticatedMassDebtsRoute
   '/mass/reports': typeof AuthenticatedMassReportsRoute
   '/mass/weekdays': typeof AuthenticatedMassWeekdaysRoute
   '/reports/staff': typeof AuthenticatedReportsStaffRoute
@@ -531,15 +632,24 @@ export interface FileRoutesByFullPath {
   '/api/auth/signin': typeof ApiAuthSigninRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
   '/api/auth/signup': typeof ApiAuthSignupRoute
+  '/api/debts/download': typeof ApiDebtsDownloadRoute
+  '/api/debts/rates': typeof ApiDebtsRatesRoute
   '/api/desktop/download': typeof ApiDesktopDownloadRoute
   '/api/desktop/release': typeof ApiDesktopReleaseRoute
   '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
   '/api/downloads/report': typeof ApiDownloadsReportRoute
   '/api/mass/departments': typeof ApiMassDepartmentsRoute
   '/api/mass/sync-weekdays': typeof ApiMassSyncWeekdaysRoute
+  '/api/peer/boot': typeof ApiPeerBootRoute
+  '/api/peer/discover': typeof ApiPeerDiscoverRoute
+  '/api/peer/sync': typeof ApiPeerSyncRoute
   '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
   '/api/reports/staff': typeof ApiReportsStaffRoute
   '/api/reports/students': typeof ApiReportsStudentsRoute
+  '/api/review/answers': typeof ApiReviewAnswersRoute
+  '/api/review/pair': typeof ApiReviewPairRoute
+  '/api/review/scan': typeof ApiReviewScanRoute
+  '/api/review/search': typeof ApiReviewSearchRoute
   '/api/staff-events/$eventId': typeof ApiStaffEventsEventIdRouteWithChildren
   '/api/staff/$staffId': typeof ApiStaffStaffIdRoute
   '/api/staff/download': typeof ApiStaffDownloadRoute
@@ -552,7 +662,10 @@ export interface FileRoutesByFullPath {
   '/mass/': typeof AuthenticatedMassIndexRoute
   '/staff-events/': typeof AuthenticatedStaffEventsIndexRoute
   '/student-events/': typeof AuthenticatedStudentEventsIndexRoute
+  '/api/debts/': typeof ApiDebtsIndexRoute
+  '/api/peer/': typeof ApiPeerIndexRoute
   '/api/recurring/': typeof ApiRecurringIndexRoute
+  '/api/review/': typeof ApiReviewIndexRoute
   '/api/staff-events/': typeof ApiStaffEventsIndexRoute
   '/api/staff/': typeof ApiStaffIndexRoute
   '/api/student-events/': typeof ApiStudentEventsIndexRoute
@@ -572,6 +685,7 @@ export interface FileRoutesByFullPath {
   '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
   '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
   '/mass/$weekId/': typeof AuthenticatedMassWeekIdIndexRoute
+  '/api/admin/exempt-staff/': typeof ApiAdminExemptStaffIndexRoute
   '/api/admin/sync/': typeof ApiAdminSyncIndexRoute
   '/api/mass/weeks/': typeof ApiMassWeeksIndexRoute
   '/api/mass/weeks/$weekId/report': typeof ApiMassWeeksWeekIdReportRoute
@@ -586,17 +700,20 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/admin': typeof AuthenticatedAdminRoute
+  '/always-present': typeof AuthenticatedAlwaysPresentRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
   '/import': typeof AuthenticatedImportRoute
   '/recurring': typeof AuthenticatedRecurringRoute
   '/staff': typeof AuthenticatedStaffRoute
   '/students': typeof AuthenticatedStudentsRoute
+  '/sync': typeof AuthenticatedSyncRoute
   '/users': typeof AuthenticatedUsersRoute
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/departments': typeof ApiDepartmentsRoute
   '/api/levels': typeof ApiLevelsRoute
   '/api/setup': typeof ApiSetupRoute
   '/api/staff-departments': typeof ApiStaffDepartmentsRoute
+  '/mass/debts': typeof AuthenticatedMassDebtsRoute
   '/mass/reports': typeof AuthenticatedMassReportsRoute
   '/mass/weekdays': typeof AuthenticatedMassWeekdaysRoute
   '/reports/staff': typeof AuthenticatedReportsStaffRoute
@@ -610,15 +727,24 @@ export interface FileRoutesByTo {
   '/api/auth/signin': typeof ApiAuthSigninRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
   '/api/auth/signup': typeof ApiAuthSignupRoute
+  '/api/debts/download': typeof ApiDebtsDownloadRoute
+  '/api/debts/rates': typeof ApiDebtsRatesRoute
   '/api/desktop/download': typeof ApiDesktopDownloadRoute
   '/api/desktop/release': typeof ApiDesktopReleaseRoute
   '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
   '/api/downloads/report': typeof ApiDownloadsReportRoute
   '/api/mass/departments': typeof ApiMassDepartmentsRoute
   '/api/mass/sync-weekdays': typeof ApiMassSyncWeekdaysRoute
+  '/api/peer/boot': typeof ApiPeerBootRoute
+  '/api/peer/discover': typeof ApiPeerDiscoverRoute
+  '/api/peer/sync': typeof ApiPeerSyncRoute
   '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
   '/api/reports/staff': typeof ApiReportsStaffRoute
   '/api/reports/students': typeof ApiReportsStudentsRoute
+  '/api/review/answers': typeof ApiReviewAnswersRoute
+  '/api/review/pair': typeof ApiReviewPairRoute
+  '/api/review/scan': typeof ApiReviewScanRoute
+  '/api/review/search': typeof ApiReviewSearchRoute
   '/api/staff-events/$eventId': typeof ApiStaffEventsEventIdRouteWithChildren
   '/api/staff/$staffId': typeof ApiStaffStaffIdRoute
   '/api/staff/download': typeof ApiStaffDownloadRoute
@@ -631,7 +757,10 @@ export interface FileRoutesByTo {
   '/mass': typeof AuthenticatedMassIndexRoute
   '/staff-events': typeof AuthenticatedStaffEventsIndexRoute
   '/student-events': typeof AuthenticatedStudentEventsIndexRoute
+  '/api/debts': typeof ApiDebtsIndexRoute
+  '/api/peer': typeof ApiPeerIndexRoute
   '/api/recurring': typeof ApiRecurringIndexRoute
+  '/api/review': typeof ApiReviewIndexRoute
   '/api/staff-events': typeof ApiStaffEventsIndexRoute
   '/api/staff': typeof ApiStaffIndexRoute
   '/api/student-events': typeof ApiStudentEventsIndexRoute
@@ -651,6 +780,7 @@ export interface FileRoutesByTo {
   '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
   '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
   '/mass/$weekId': typeof AuthenticatedMassWeekIdIndexRoute
+  '/api/admin/exempt-staff': typeof ApiAdminExemptStaffIndexRoute
   '/api/admin/sync': typeof ApiAdminSyncIndexRoute
   '/api/mass/weeks': typeof ApiMassWeeksIndexRoute
   '/api/mass/weeks/$weekId/report': typeof ApiMassWeeksWeekIdReportRoute
@@ -667,17 +797,20 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/setup': typeof SetupRoute
   '/_authenticated/admin': typeof AuthenticatedAdminRoute
+  '/_authenticated/always-present': typeof AuthenticatedAlwaysPresentRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/import': typeof AuthenticatedImportRoute
   '/_authenticated/recurring': typeof AuthenticatedRecurringRoute
   '/_authenticated/staff': typeof AuthenticatedStaffRoute
   '/_authenticated/students': typeof AuthenticatedStudentsRoute
+  '/_authenticated/sync': typeof AuthenticatedSyncRoute
   '/_authenticated/users': typeof AuthenticatedUsersRoute
   '/api/dashboard': typeof ApiDashboardRoute
   '/api/departments': typeof ApiDepartmentsRoute
   '/api/levels': typeof ApiLevelsRoute
   '/api/setup': typeof ApiSetupRoute
   '/api/staff-departments': typeof ApiStaffDepartmentsRoute
+  '/_authenticated/mass/debts': typeof AuthenticatedMassDebtsRoute
   '/_authenticated/mass/reports': typeof AuthenticatedMassReportsRoute
   '/_authenticated/mass/weekdays': typeof AuthenticatedMassWeekdaysRoute
   '/_authenticated/reports/staff': typeof AuthenticatedReportsStaffRoute
@@ -691,15 +824,24 @@ export interface FileRoutesById {
   '/api/auth/signin': typeof ApiAuthSigninRoute
   '/api/auth/signout': typeof ApiAuthSignoutRoute
   '/api/auth/signup': typeof ApiAuthSignupRoute
+  '/api/debts/download': typeof ApiDebtsDownloadRoute
+  '/api/debts/rates': typeof ApiDebtsRatesRoute
   '/api/desktop/download': typeof ApiDesktopDownloadRoute
   '/api/desktop/release': typeof ApiDesktopReleaseRoute
   '/api/downloads/preview': typeof ApiDownloadsPreviewRoute
   '/api/downloads/report': typeof ApiDownloadsReportRoute
   '/api/mass/departments': typeof ApiMassDepartmentsRoute
   '/api/mass/sync-weekdays': typeof ApiMassSyncWeekdaysRoute
+  '/api/peer/boot': typeof ApiPeerBootRoute
+  '/api/peer/discover': typeof ApiPeerDiscoverRoute
+  '/api/peer/sync': typeof ApiPeerSyncRoute
   '/api/recurring/$templateId': typeof ApiRecurringTemplateIdRouteWithChildren
   '/api/reports/staff': typeof ApiReportsStaffRoute
   '/api/reports/students': typeof ApiReportsStudentsRoute
+  '/api/review/answers': typeof ApiReviewAnswersRoute
+  '/api/review/pair': typeof ApiReviewPairRoute
+  '/api/review/scan': typeof ApiReviewScanRoute
+  '/api/review/search': typeof ApiReviewSearchRoute
   '/api/staff-events/$eventId': typeof ApiStaffEventsEventIdRouteWithChildren
   '/api/staff/$staffId': typeof ApiStaffStaffIdRoute
   '/api/staff/download': typeof ApiStaffDownloadRoute
@@ -712,7 +854,10 @@ export interface FileRoutesById {
   '/_authenticated/mass/': typeof AuthenticatedMassIndexRoute
   '/_authenticated/staff-events/': typeof AuthenticatedStaffEventsIndexRoute
   '/_authenticated/student-events/': typeof AuthenticatedStudentEventsIndexRoute
+  '/api/debts/': typeof ApiDebtsIndexRoute
+  '/api/peer/': typeof ApiPeerIndexRoute
   '/api/recurring/': typeof ApiRecurringIndexRoute
+  '/api/review/': typeof ApiReviewIndexRoute
   '/api/staff-events/': typeof ApiStaffEventsIndexRoute
   '/api/staff/': typeof ApiStaffIndexRoute
   '/api/student-events/': typeof ApiStudentEventsIndexRoute
@@ -732,6 +877,7 @@ export interface FileRoutesById {
   '/api/student-events/$eventId/status': typeof ApiStudentEventsEventIdStatusRoute
   '/api/student-events/$eventId/uploads': typeof ApiStudentEventsEventIdUploadsRoute
   '/_authenticated/mass/$weekId/': typeof AuthenticatedMassWeekIdIndexRoute
+  '/api/admin/exempt-staff/': typeof ApiAdminExemptStaffIndexRoute
   '/api/admin/sync/': typeof ApiAdminSyncIndexRoute
   '/api/mass/weeks/': typeof ApiMassWeeksIndexRoute
   '/api/mass/weeks/$weekId/report': typeof ApiMassWeeksWeekIdReportRoute
@@ -748,17 +894,20 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/admin'
+    | '/always-present'
     | '/dashboard'
     | '/import'
     | '/recurring'
     | '/staff'
     | '/students'
+    | '/sync'
     | '/users'
     | '/api/dashboard'
     | '/api/departments'
     | '/api/levels'
     | '/api/setup'
     | '/api/staff-departments'
+    | '/mass/debts'
     | '/mass/reports'
     | '/mass/weekdays'
     | '/reports/staff'
@@ -772,15 +921,24 @@ export interface FileRouteTypes {
     | '/api/auth/signin'
     | '/api/auth/signout'
     | '/api/auth/signup'
+    | '/api/debts/download'
+    | '/api/debts/rates'
     | '/api/desktop/download'
     | '/api/desktop/release'
     | '/api/downloads/preview'
     | '/api/downloads/report'
     | '/api/mass/departments'
     | '/api/mass/sync-weekdays'
+    | '/api/peer/boot'
+    | '/api/peer/discover'
+    | '/api/peer/sync'
     | '/api/recurring/$templateId'
     | '/api/reports/staff'
     | '/api/reports/students'
+    | '/api/review/answers'
+    | '/api/review/pair'
+    | '/api/review/scan'
+    | '/api/review/search'
     | '/api/staff-events/$eventId'
     | '/api/staff/$staffId'
     | '/api/staff/download'
@@ -793,7 +951,10 @@ export interface FileRouteTypes {
     | '/mass/'
     | '/staff-events/'
     | '/student-events/'
+    | '/api/debts/'
+    | '/api/peer/'
     | '/api/recurring/'
+    | '/api/review/'
     | '/api/staff-events/'
     | '/api/staff/'
     | '/api/student-events/'
@@ -813,6 +974,7 @@ export interface FileRouteTypes {
     | '/api/student-events/$eventId/status'
     | '/api/student-events/$eventId/uploads'
     | '/mass/$weekId/'
+    | '/api/admin/exempt-staff/'
     | '/api/admin/sync/'
     | '/api/mass/weeks/'
     | '/api/mass/weeks/$weekId/report'
@@ -827,17 +989,20 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/admin'
+    | '/always-present'
     | '/dashboard'
     | '/import'
     | '/recurring'
     | '/staff'
     | '/students'
+    | '/sync'
     | '/users'
     | '/api/dashboard'
     | '/api/departments'
     | '/api/levels'
     | '/api/setup'
     | '/api/staff-departments'
+    | '/mass/debts'
     | '/mass/reports'
     | '/mass/weekdays'
     | '/reports/staff'
@@ -851,15 +1016,24 @@ export interface FileRouteTypes {
     | '/api/auth/signin'
     | '/api/auth/signout'
     | '/api/auth/signup'
+    | '/api/debts/download'
+    | '/api/debts/rates'
     | '/api/desktop/download'
     | '/api/desktop/release'
     | '/api/downloads/preview'
     | '/api/downloads/report'
     | '/api/mass/departments'
     | '/api/mass/sync-weekdays'
+    | '/api/peer/boot'
+    | '/api/peer/discover'
+    | '/api/peer/sync'
     | '/api/recurring/$templateId'
     | '/api/reports/staff'
     | '/api/reports/students'
+    | '/api/review/answers'
+    | '/api/review/pair'
+    | '/api/review/scan'
+    | '/api/review/search'
     | '/api/staff-events/$eventId'
     | '/api/staff/$staffId'
     | '/api/staff/download'
@@ -872,7 +1046,10 @@ export interface FileRouteTypes {
     | '/mass'
     | '/staff-events'
     | '/student-events'
+    | '/api/debts'
+    | '/api/peer'
     | '/api/recurring'
+    | '/api/review'
     | '/api/staff-events'
     | '/api/staff'
     | '/api/student-events'
@@ -892,6 +1069,7 @@ export interface FileRouteTypes {
     | '/api/student-events/$eventId/status'
     | '/api/student-events/$eventId/uploads'
     | '/mass/$weekId'
+    | '/api/admin/exempt-staff'
     | '/api/admin/sync'
     | '/api/mass/weeks'
     | '/api/mass/weeks/$weekId/report'
@@ -907,17 +1085,20 @@ export interface FileRouteTypes {
     | '/auth'
     | '/setup'
     | '/_authenticated/admin'
+    | '/_authenticated/always-present'
     | '/_authenticated/dashboard'
     | '/_authenticated/import'
     | '/_authenticated/recurring'
     | '/_authenticated/staff'
     | '/_authenticated/students'
+    | '/_authenticated/sync'
     | '/_authenticated/users'
     | '/api/dashboard'
     | '/api/departments'
     | '/api/levels'
     | '/api/setup'
     | '/api/staff-departments'
+    | '/_authenticated/mass/debts'
     | '/_authenticated/mass/reports'
     | '/_authenticated/mass/weekdays'
     | '/_authenticated/reports/staff'
@@ -931,15 +1112,24 @@ export interface FileRouteTypes {
     | '/api/auth/signin'
     | '/api/auth/signout'
     | '/api/auth/signup'
+    | '/api/debts/download'
+    | '/api/debts/rates'
     | '/api/desktop/download'
     | '/api/desktop/release'
     | '/api/downloads/preview'
     | '/api/downloads/report'
     | '/api/mass/departments'
     | '/api/mass/sync-weekdays'
+    | '/api/peer/boot'
+    | '/api/peer/discover'
+    | '/api/peer/sync'
     | '/api/recurring/$templateId'
     | '/api/reports/staff'
     | '/api/reports/students'
+    | '/api/review/answers'
+    | '/api/review/pair'
+    | '/api/review/scan'
+    | '/api/review/search'
     | '/api/staff-events/$eventId'
     | '/api/staff/$staffId'
     | '/api/staff/download'
@@ -952,7 +1142,10 @@ export interface FileRouteTypes {
     | '/_authenticated/mass/'
     | '/_authenticated/staff-events/'
     | '/_authenticated/student-events/'
+    | '/api/debts/'
+    | '/api/peer/'
     | '/api/recurring/'
+    | '/api/review/'
     | '/api/staff-events/'
     | '/api/staff/'
     | '/api/student-events/'
@@ -972,6 +1165,7 @@ export interface FileRouteTypes {
     | '/api/student-events/$eventId/status'
     | '/api/student-events/$eventId/uploads'
     | '/_authenticated/mass/$weekId/'
+    | '/api/admin/exempt-staff/'
     | '/api/admin/sync/'
     | '/api/mass/weeks/'
     | '/api/mass/weeks/$weekId/report'
@@ -999,15 +1193,24 @@ export interface RootRouteChildren {
   ApiAuthSigninRoute: typeof ApiAuthSigninRoute
   ApiAuthSignoutRoute: typeof ApiAuthSignoutRoute
   ApiAuthSignupRoute: typeof ApiAuthSignupRoute
+  ApiDebtsDownloadRoute: typeof ApiDebtsDownloadRoute
+  ApiDebtsRatesRoute: typeof ApiDebtsRatesRoute
   ApiDesktopDownloadRoute: typeof ApiDesktopDownloadRoute
   ApiDesktopReleaseRoute: typeof ApiDesktopReleaseRoute
   ApiDownloadsPreviewRoute: typeof ApiDownloadsPreviewRoute
   ApiDownloadsReportRoute: typeof ApiDownloadsReportRoute
   ApiMassDepartmentsRoute: typeof ApiMassDepartmentsRoute
   ApiMassSyncWeekdaysRoute: typeof ApiMassSyncWeekdaysRoute
+  ApiPeerBootRoute: typeof ApiPeerBootRoute
+  ApiPeerDiscoverRoute: typeof ApiPeerDiscoverRoute
+  ApiPeerSyncRoute: typeof ApiPeerSyncRoute
   ApiRecurringTemplateIdRoute: typeof ApiRecurringTemplateIdRouteWithChildren
   ApiReportsStaffRoute: typeof ApiReportsStaffRoute
   ApiReportsStudentsRoute: typeof ApiReportsStudentsRoute
+  ApiReviewAnswersRoute: typeof ApiReviewAnswersRoute
+  ApiReviewPairRoute: typeof ApiReviewPairRoute
+  ApiReviewScanRoute: typeof ApiReviewScanRoute
+  ApiReviewSearchRoute: typeof ApiReviewSearchRoute
   ApiStaffEventsEventIdRoute: typeof ApiStaffEventsEventIdRouteWithChildren
   ApiStaffStaffIdRoute: typeof ApiStaffStaffIdRoute
   ApiStaffDownloadRoute: typeof ApiStaffDownloadRoute
@@ -1017,7 +1220,10 @@ export interface RootRouteChildren {
   ApiStudentsDownloadRoute: typeof ApiStudentsDownloadRoute
   ApiStudentsImportRoute: typeof ApiStudentsImportRoute
   ApiUsersRolesRoute: typeof ApiUsersRolesRoute
+  ApiDebtsIndexRoute: typeof ApiDebtsIndexRoute
+  ApiPeerIndexRoute: typeof ApiPeerIndexRoute
   ApiRecurringIndexRoute: typeof ApiRecurringIndexRoute
+  ApiReviewIndexRoute: typeof ApiReviewIndexRoute
   ApiStaffEventsIndexRoute: typeof ApiStaffEventsIndexRoute
   ApiStaffIndexRoute: typeof ApiStaffIndexRoute
   ApiStudentEventsIndexRoute: typeof ApiStudentEventsIndexRoute
@@ -1027,6 +1233,7 @@ export interface RootRouteChildren {
   ApiAdminSyncSettingsRoute: typeof ApiAdminSyncSettingsRoute
   ApiAdminSyncTestRoute: typeof ApiAdminSyncTestRoute
   ApiMassWeeksWeekIdRoute: typeof ApiMassWeeksWeekIdRouteWithChildren
+  ApiAdminExemptStaffIndexRoute: typeof ApiAdminExemptStaffIndexRoute
   ApiAdminSyncIndexRoute: typeof ApiAdminSyncIndexRoute
   ApiMassWeeksIndexRoute: typeof ApiMassWeeksIndexRoute
 }
@@ -1068,6 +1275,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/always-present': {
+      id: '/_authenticated/always-present'
+      path: '/always-present'
+      fullPath: '/always-present'
+      preLoaderRoute: typeof AuthenticatedAlwaysPresentRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/dashboard': {
       id: '/_authenticated/dashboard'
       path: '/dashboard'
@@ -1101,6 +1315,13 @@ declare module '@tanstack/react-router' {
       path: '/students'
       fullPath: '/students'
       preLoaderRoute: typeof AuthenticatedStudentsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/sync': {
+      id: '/_authenticated/sync'
+      path: '/sync'
+      fullPath: '/sync'
+      preLoaderRoute: typeof AuthenticatedSyncRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/users': {
@@ -1150,6 +1371,13 @@ declare module '@tanstack/react-router' {
       path: '/mass'
       fullPath: '/mass/'
       preLoaderRoute: typeof AuthenticatedMassIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/mass/debts': {
+      id: '/_authenticated/mass/debts'
+      path: '/mass/debts'
+      fullPath: '/mass/debts'
+      preLoaderRoute: typeof AuthenticatedMassDebtsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/mass/reports': {
@@ -1257,6 +1485,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSignupRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/debts/': {
+      id: '/api/debts/'
+      path: '/api/debts'
+      fullPath: '/api/debts/'
+      preLoaderRoute: typeof ApiDebtsIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/debts/download': {
+      id: '/api/debts/download'
+      path: '/api/debts/download'
+      fullPath: '/api/debts/download'
+      preLoaderRoute: typeof ApiDebtsDownloadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/debts/rates': {
+      id: '/api/debts/rates'
+      path: '/api/debts/rates'
+      fullPath: '/api/debts/rates'
+      preLoaderRoute: typeof ApiDebtsRatesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/desktop/download': {
       id: '/api/desktop/download'
       path: '/api/desktop/download'
@@ -1299,6 +1548,34 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiMassSyncWeekdaysRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/peer/': {
+      id: '/api/peer/'
+      path: '/api/peer'
+      fullPath: '/api/peer/'
+      preLoaderRoute: typeof ApiPeerIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/peer/boot': {
+      id: '/api/peer/boot'
+      path: '/api/peer/boot'
+      fullPath: '/api/peer/boot'
+      preLoaderRoute: typeof ApiPeerBootRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/peer/discover': {
+      id: '/api/peer/discover'
+      path: '/api/peer/discover'
+      fullPath: '/api/peer/discover'
+      preLoaderRoute: typeof ApiPeerDiscoverRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/peer/sync': {
+      id: '/api/peer/sync'
+      path: '/api/peer/sync'
+      fullPath: '/api/peer/sync'
+      preLoaderRoute: typeof ApiPeerSyncRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/recurring/': {
       id: '/api/recurring/'
       path: '/api/recurring'
@@ -1325,6 +1602,41 @@ declare module '@tanstack/react-router' {
       path: '/api/reports/students'
       fullPath: '/api/reports/students'
       preLoaderRoute: typeof ApiReportsStudentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review/': {
+      id: '/api/review/'
+      path: '/api/review'
+      fullPath: '/api/review/'
+      preLoaderRoute: typeof ApiReviewIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review/answers': {
+      id: '/api/review/answers'
+      path: '/api/review/answers'
+      fullPath: '/api/review/answers'
+      preLoaderRoute: typeof ApiReviewAnswersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review/pair': {
+      id: '/api/review/pair'
+      path: '/api/review/pair'
+      fullPath: '/api/review/pair'
+      preLoaderRoute: typeof ApiReviewPairRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review/scan': {
+      id: '/api/review/scan'
+      path: '/api/review/scan'
+      fullPath: '/api/review/scan'
+      preLoaderRoute: typeof ApiReviewScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/review/search': {
+      id: '/api/review/search'
+      path: '/api/review/search'
+      fullPath: '/api/review/search'
+      preLoaderRoute: typeof ApiReviewSearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/staff-events/': {
@@ -1438,6 +1750,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/mass/$weekId/reports'
       preLoaderRoute: typeof AuthenticatedMassWeekIdReportsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/admin/exempt-staff/': {
+      id: '/api/admin/exempt-staff/'
+      path: '/api/admin/exempt-staff'
+      fullPath: '/api/admin/exempt-staff/'
+      preLoaderRoute: typeof ApiAdminExemptStaffIndexRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/admin/mass-weekdays/$assignmentId': {
       id: '/api/admin/mass-weekdays/$assignmentId'
@@ -1584,12 +1903,15 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminRoute: typeof AuthenticatedAdminRoute
+  AuthenticatedAlwaysPresentRoute: typeof AuthenticatedAlwaysPresentRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedImportRoute: typeof AuthenticatedImportRoute
   AuthenticatedRecurringRoute: typeof AuthenticatedRecurringRoute
   AuthenticatedStaffRoute: typeof AuthenticatedStaffRoute
   AuthenticatedStudentsRoute: typeof AuthenticatedStudentsRoute
+  AuthenticatedSyncRoute: typeof AuthenticatedSyncRoute
   AuthenticatedUsersRoute: typeof AuthenticatedUsersRoute
+  AuthenticatedMassDebtsRoute: typeof AuthenticatedMassDebtsRoute
   AuthenticatedMassReportsRoute: typeof AuthenticatedMassReportsRoute
   AuthenticatedMassWeekdaysRoute: typeof AuthenticatedMassWeekdaysRoute
   AuthenticatedReportsStaffRoute: typeof AuthenticatedReportsStaffRoute
@@ -1605,12 +1927,15 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminRoute: AuthenticatedAdminRoute,
+  AuthenticatedAlwaysPresentRoute: AuthenticatedAlwaysPresentRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedImportRoute: AuthenticatedImportRoute,
   AuthenticatedRecurringRoute: AuthenticatedRecurringRoute,
   AuthenticatedStaffRoute: AuthenticatedStaffRoute,
   AuthenticatedStudentsRoute: AuthenticatedStudentsRoute,
+  AuthenticatedSyncRoute: AuthenticatedSyncRoute,
   AuthenticatedUsersRoute: AuthenticatedUsersRoute,
+  AuthenticatedMassDebtsRoute: AuthenticatedMassDebtsRoute,
   AuthenticatedMassReportsRoute: AuthenticatedMassReportsRoute,
   AuthenticatedMassWeekdaysRoute: AuthenticatedMassWeekdaysRoute,
   AuthenticatedReportsStaffRoute: AuthenticatedReportsStaffRoute,
@@ -1726,15 +2051,24 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAuthSigninRoute: ApiAuthSigninRoute,
   ApiAuthSignoutRoute: ApiAuthSignoutRoute,
   ApiAuthSignupRoute: ApiAuthSignupRoute,
+  ApiDebtsDownloadRoute: ApiDebtsDownloadRoute,
+  ApiDebtsRatesRoute: ApiDebtsRatesRoute,
   ApiDesktopDownloadRoute: ApiDesktopDownloadRoute,
   ApiDesktopReleaseRoute: ApiDesktopReleaseRoute,
   ApiDownloadsPreviewRoute: ApiDownloadsPreviewRoute,
   ApiDownloadsReportRoute: ApiDownloadsReportRoute,
   ApiMassDepartmentsRoute: ApiMassDepartmentsRoute,
   ApiMassSyncWeekdaysRoute: ApiMassSyncWeekdaysRoute,
+  ApiPeerBootRoute: ApiPeerBootRoute,
+  ApiPeerDiscoverRoute: ApiPeerDiscoverRoute,
+  ApiPeerSyncRoute: ApiPeerSyncRoute,
   ApiRecurringTemplateIdRoute: ApiRecurringTemplateIdRouteWithChildren,
   ApiReportsStaffRoute: ApiReportsStaffRoute,
   ApiReportsStudentsRoute: ApiReportsStudentsRoute,
+  ApiReviewAnswersRoute: ApiReviewAnswersRoute,
+  ApiReviewPairRoute: ApiReviewPairRoute,
+  ApiReviewScanRoute: ApiReviewScanRoute,
+  ApiReviewSearchRoute: ApiReviewSearchRoute,
   ApiStaffEventsEventIdRoute: ApiStaffEventsEventIdRouteWithChildren,
   ApiStaffStaffIdRoute: ApiStaffStaffIdRoute,
   ApiStaffDownloadRoute: ApiStaffDownloadRoute,
@@ -1744,7 +2078,10 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStudentsDownloadRoute: ApiStudentsDownloadRoute,
   ApiStudentsImportRoute: ApiStudentsImportRoute,
   ApiUsersRolesRoute: ApiUsersRolesRoute,
+  ApiDebtsIndexRoute: ApiDebtsIndexRoute,
+  ApiPeerIndexRoute: ApiPeerIndexRoute,
   ApiRecurringIndexRoute: ApiRecurringIndexRoute,
+  ApiReviewIndexRoute: ApiReviewIndexRoute,
   ApiStaffEventsIndexRoute: ApiStaffEventsIndexRoute,
   ApiStaffIndexRoute: ApiStaffIndexRoute,
   ApiStudentEventsIndexRoute: ApiStudentEventsIndexRoute,
@@ -1754,6 +2091,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiAdminSyncSettingsRoute: ApiAdminSyncSettingsRoute,
   ApiAdminSyncTestRoute: ApiAdminSyncTestRoute,
   ApiMassWeeksWeekIdRoute: ApiMassWeeksWeekIdRouteWithChildren,
+  ApiAdminExemptStaffIndexRoute: ApiAdminExemptStaffIndexRoute,
   ApiAdminSyncIndexRoute: ApiAdminSyncIndexRoute,
   ApiMassWeeksIndexRoute: ApiMassWeeksIndexRoute,
 }

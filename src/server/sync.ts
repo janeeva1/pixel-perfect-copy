@@ -316,9 +316,14 @@ CREATE TABLE IF NOT EXISTS staff (
   updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- A hub created before the staff machine ID was kept would otherwise reject the
--- rows a device pushes with that column.
+-- A hub created before these columns existed would otherwise reject the rows a
+-- device pushes with them: a device sends every column it has. Every column a
+-- local migration adds to a synchronized table must be listed here too.
 ALTER TABLE staff ADD COLUMN IF NOT EXISTS machine_id VARCHAR(64) NULL;
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS staff_id_on_machine VARCHAR(64) NULL;
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS designation VARCHAR(160) NULL;
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS staff_category VARCHAR(120) NULL;
+ALTER TABLE staff ADD COLUMN IF NOT EXISTS on_current_list TINYINT(1) NOT NULL DEFAULT 1;
 
 CREATE TABLE IF NOT EXISTS student_events (
   id CHAR(36) NOT NULL PRIMARY KEY,
@@ -440,6 +445,14 @@ CREATE TABLE IF NOT EXISTS staff_scans (
   in_scope TINYINT(1) NOT NULL DEFAULT 0,
   outside_window TINYINT(1) NOT NULL DEFAULT 0
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Columns added locally after the hub schema was first written (see above).
+ALTER TABLE staff_scans ADD COLUMN IF NOT EXISTS machine_id VARCHAR(64) NULL;
+ALTER TABLE staff_scans ADD COLUMN IF NOT EXISTS needs_review TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE staff_scans ADD COLUMN IF NOT EXISTS review_candidates TEXT NULL;
+ALTER TABLE student_scans ADD COLUMN IF NOT EXISTS machine_id VARCHAR(64) NULL;
+ALTER TABLE student_scans ADD COLUMN IF NOT EXISTS needs_review TINYINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE student_scans ADD COLUMN IF NOT EXISTS review_candidates TEXT NULL;
 
 CREATE TABLE IF NOT EXISTS recurring_schedule_departments (
   schedule_id CHAR(36) NOT NULL,

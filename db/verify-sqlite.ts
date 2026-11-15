@@ -86,8 +86,11 @@ describe("migrations", () => {
       "012_scans_machine_id.sql",
       "013_deduplicate_staff.sql",
       "014_recompute_outside_window.sql",
+      "015_match_review.sql",
+      "016_debt_rates.sql",
+      "017_peer_sync.sql",
     ]);
-    assert.equal(result.version, 14);
+    assert.equal(result.version, 17);
 
     const tables = (
       getDb()
@@ -101,16 +104,23 @@ describe("migrations", () => {
 
     assert.deepEqual(tables, [
       "audit_logs",
+      "change_log",
+      "debt_rates",
+      "distinct_people",
       "mass_department_weekdays",
       "mass_expected",
       "mass_scans",
       "mass_uploads",
       "mass_week_weekdays",
       "mass_weeks",
+      "peer_devices",
+      "peer_id_map",
+      "peer_settings",
       "profiles",
       "recurring_schedule_departments",
       "recurring_schedules",
       "recurring_templates",
+      "scan_aliases",
       "staff",
       "staff_event_departments",
       "staff_event_uploads",
@@ -122,6 +132,7 @@ describe("migrations", () => {
       "student_events",
       "student_scans",
       "students",
+      "sync_apply",
       "sync_log",
       "sync_meta",
       "sync_settings",
@@ -148,7 +159,7 @@ describe("migrations", () => {
   it("is not applied twice, so a second run is a no-op", () => {
     const result = migrate();
     assert.deepEqual(result.applied, []);
-    assert.equal(result.version, 14);
+    assert.equal(result.version, 17);
   });
 
   it("seeds every staff department with one weekday assignment", () => {
@@ -820,5 +831,176 @@ describe("student matric numbers written differently", () => {
       "SELECT first_name FROM students WHERE last_name = 'Identity'",
     );
     assert.equal(row?.first_name, "Second");
+  });
+});
+
+describe("one person despite spelling, word order and middle names", () => {
+  it("joins records with the same number whose names agree on two words", async () => {
+    const { staffCanonicalMap } = await import("../src/server/identity");
+    const map = staffCanonicalMap([
+      // Real shapes from the registrar's data.
+      {
+        id: "a1",
+        staff_no: "J 165",
+        last_name: "DADA",
+        first_name: "OLUSOLA",
+        middle_name: "EUNICE",
+      },
+      { id: "a2", staff_no: "SA165", last_name: "Dada", first_name: "Olushola", machine_id: "165" },
+      {
+        id: "b1",
+        staff_no: "AT 494",
+        last_name: "OKAFOR",
+        first_name: "CHINAEMELUM",
+        middle_name: "IJEOMA",
+      },
+      {
+        id: "b2",
+        staff_no: "A494",
+        last_name: "Okafor",
+        first_name: "Ijeoma",
+        middle_name: "Chinaeme",
+        machine_id: "494",
+      },
+      {
+        id: "c1",
+        staff_no: "SA 417",
+        last_name: "OBOYO-JAMES",
+        first_name: "ANOMUOGHARAN",
+        middle_name: "VICTORIA",
+      },
+      {
+        id: "c2",
+        staff_no: "SAT417",
+        last_name: "Ajuebishi",
+        first_name: "Anomuogharan",
+        middle_name: "Victoria",
+        machine_id: "417",
+      },
+      // Same number, different people: never joined.
+      {
+        id: "d1",
+        staff_no: "SW39",
+        last_name: "Ikpeama",
+        first_name: "Chilotam",
+        machine_id: "39",
+      },
+      { id: "d2", staff_no: "SA39", last_name: "Ali", first_name: "Simon", machine_id: "39" },
+      // Same number, only one word in common: not certain, so not joined.
+      { id: "e1", staff_no: "AT 302", last_name: "OLUSHOLA", first_name: "THERESA" },
+      {
+        id: "e2",
+        staff_no: "A302",
+        last_name: "Olaniyi",
+        first_name: "Theresa",
+        machine_id: "302",
+      },
+    ]);
+    assert.equal(map.get("a1"), "a2");
+    assert.equal(map.get("b1"), "b2");
+    assert.equal(map.get("c1"), "c2");
+    assert.notEqual(map.get("d1"), map.get("d2"));
+    assert.notEqual(map.get("e1"), map.get("e2"));
+  });
+
+  it("asks instead of guessing when the number and the printed name disagree", async () => {
+    const { matchRow } = await import("../src/server/events");
+    const { normalizeName } = await import("../src/lib/attendance");
+    const person = (id: string, name: string) => ({
+      id,
+      names: [normalizeName(name)],
+      words: [normalizeName(name).split(" ")],
+    });
+    const igwe = person("igwe", "IGWE CHICHI");
+    const markus = person("markus", "MARKUS AFINIKI EUNICE");
+    const lookup = {
+      kind: "staff" as const,
+      byMachine: new Map([
+        ["1548", [markus]],
+        ["1508", [igwe]],
+      ]),
+      byStaffNo: new Map(),
+      byName: new Map<string, string | null>([
+        [normalizeName("IGWE CHICHI"), "igwe"],
+        [normalizeName("MARKUS AFINIKI EUNICE"), "markus"],
+      ]),
+      everyone: [igwe, markus],
+      aliases: new Map<string, string | null>(),
+    };
+    // Number and name agree: certain.
+    const sure = matchRow(lookup, "1508", "IGWE CHICHI", null);
+    assert.equal(sure.id, "igwe");
+    assert.equal(sure.review, false);
+    // Machine number 1548 (MARKUS's) printed with IGWE's full name: the whole
+    // name is one person's beyond doubt, so it wins without asking.
+    const byName = matchRow(lookup, "1548", "IGWE CHICHI", null);
+    assert.equal(byName.id, "igwe");
+    assert.equal(byName.review, false);
+    // Only part of a name, and the number's owner does not fit: an admin decides.
+    const unsure = matchRow(lookup, "1548", "CHICHI", null);
+    assert.equal(unsure.id, null);
+    assert.equal(unsure.review, true);
+    // "Not anyone on the list" cannot leave a person both absent and unmatched:
+    // the printed full name is exactly IGWE CHICHI's, so the scan is hers.
+    lookup.aliases.set("1548|" + normalizeName("IGWE CHICHI"), null);
+    assert.equal(matchRow(lookup, "1548", "IGWE CHICHI", null).id, "igwe");
+    // ...but it holds for a name that is nobody's beyond doubt.
+    lookup.aliases.set("1548|" + normalizeName("CHICHI"), null);
+    const notListed = matchRow(lookup, "1548", "CHICHI", null);
+    assert.equal(notListed.id, null);
+    assert.equal(notListed.review, false);
+    // An answer naming a person is used next time.
+    lookup.aliases.set("1548|" + normalizeName("MARKUS"), "markus");
+    assert.equal(matchRow(lookup, "1548", "MARKUS", null).id, "markus");
+  });
+});
+
+describe("the number keeps the scan when its owner fits every printed word", () => {
+  it("779 CHIKEZIE IFEANYI is AT779 Chikezie Ifeanyichukwu, not Chekwas Chikezie Ifeanyi", async () => {
+    const { matchRow } = await import("../src/server/events");
+    const { normalizeName } = await import("../src/lib/attendance");
+    const person = (id: string, name: string) => ({
+      id,
+      names: [normalizeName(name)],
+      words: [normalizeName(name).split(" ")],
+    });
+    const owner = person("at779", "Chikezie Ifeanyichukwu Nnamdi");
+    const other = person("at1390", "CHEKWAS CHIKEZIE IFEANYI");
+    const lookup = {
+      kind: "staff" as const,
+      byMachine: new Map([
+        ["779", [owner]],
+        ["1390", [other]],
+      ]),
+      byStaffNo: new Map(),
+      byName: new Map<string, string | null>(),
+      everyone: [owner, other],
+      aliases: new Map<string, string | null>(),
+    };
+    assert.equal(matchRow(lookup, "779", "CHIKEZIE IFEANYI", null).id, "at779");
+    assert.equal(matchRow(lookup, "1390", "CHIKEZIE IFEANYI", null).id, "at1390");
+    // No number: the whole name settles it.
+    assert.equal(matchRow(lookup, null, "CHIKEZIE IFEANYI", null).id, "at1390");
+  });
+});
+
+describe("uploading a file again adds only new scans", () => {
+  it("skips rows already stored and repeats inside the file", async () => {
+    const { onlyNewScans, scanKey } = await import("../src/server/scan-dedup");
+    const at = new Date("2026-10-05T09:30:01Z");
+    // As SQLite stores it: UTC text with milliseconds.
+    const stored = new Set([scanKey("039", "ALI SIMON", "2026-10-05 09:30:01.000")]);
+    const rows = [
+      { scanNumber: "39", name: "SIMON ALI", scannedAt: at }, // already stored
+      { scanNumber: "65", name: "IDOKO AUGUSTINE", scannedAt: at }, // new
+      { scanNumber: "065", name: "Idoko Augustine", scannedAt: at }, // repeat in the file
+      { scanNumber: "39", name: "ALI SIMON", scannedAt: new Date("2026-10-06T09:30:01Z") }, // new day
+    ];
+    const { fresh, skipped } = onlyNewScans(rows, stored);
+    assert.equal(skipped, 2);
+    assert.deepEqual(
+      fresh.map((row) => row.scanNumber),
+      ["65", "39"],
+    );
   });
 });

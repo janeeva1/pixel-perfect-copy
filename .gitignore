@@ -45,6 +45,8 @@ staffmapping.txt
 db/*.db
 db/*.db-wal
 db/*.db-shm
+# The web version's copy of the real database (start-web.cmd)
+db/web/
 
 # One-off debugging scripts and scratch files
 /test*.ts

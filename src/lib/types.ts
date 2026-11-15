@@ -129,6 +129,8 @@ export type ImportResult = {
   skipped: number;
   /** Duplicate records of one person merged after the import. */
   duplicatesMerged?: number;
+  /** Staff, complete-list import: people not in the file, no longer expected. */
+  notOnCurrentList?: number;
 };
 
 // Events ------------------------------------------------------------------
@@ -205,6 +207,10 @@ export type EventUpload = {
 
 /** present + out_of_scope + unmatched always adds up to expected. */
 export type EventSummary = {
+  /** Scans waiting for an administrator to say who they are. Reports wait for these. */
+  pendingReview: number;
+  /** Present people who look like an absent person, not yet confirmed. Reports wait for these. */
+  lookAlikes: number;
   event: StudentEvent | StaffEvent;
   uploads: number;
   scans: number;
@@ -555,6 +561,8 @@ export type MassPresentRow = MassExpectedRow & {
   scan_count: number;
   first_scan_at: string;
   last_scan_at: string;
+  /** On the always-present list (e.g. the Vice-Chancellor): present without a scan. */
+  always_present?: boolean;
 };
 
 export type MassOutOfScopeRow = {
@@ -576,6 +584,10 @@ export type MassUnmatchedRow = {
 };
 
 export type MassSummary = {
+  /** Scans waiting for an administrator to say who they are. Reports wait for these. */
+  pending_review: number;
+  /** Present people who look like an absent person, not yet confirmed. Reports wait for these. */
+  look_alikes: number;
   week: MassWeek;
   participant_type: MassUploadParticipant;
   level: string | null;
@@ -607,4 +619,178 @@ export type MassUploadInput = {
     scannedAt: string | null;
     machineId: string | null;
   }>;
+};
+
+// Match review --------------------------------------------------------------
+
+/** One person, as the review window shows them. */
+export type ReviewPerson = {
+  id: string;
+  /** Staff number or matric number. */
+  code: string | null;
+  name: string;
+  department: string | null;
+  /** The number the attendance machine knows them by (staff). */
+  machine: string | null;
+};
+
+/** One machine entry the app could not match with certainty. */
+export type ReviewPendingScan = {
+  scanNumber: string | null;
+  scannedName: string | null;
+  count: number;
+  firstScanAt: string | null;
+  candidates: ReviewPerson[];
+};
+
+/** A present person who may be the same as an absent person. */
+export type ReviewLookAlike = {
+  kind: GroupKind;
+  /** The person who scanned. */
+  present: ReviewPerson;
+  /** How the scanned person is shown: present, or out of scope. */
+  shownAs: "present" | "out_of_scope";
+  absent: ReviewPerson;
+  reason: string;
+  /** What the machine printed for the scanned person (number and name). */
+  printed?: string[];
+};
+
+export type ReviewItems = {
+  kind: GroupKind;
+  scans: ReviewPendingScan[];
+  lookAlikes: ReviewLookAlike[];
+};
+
+/** An answer given in the review window, which can be taken back. */
+export type ReviewSavedAnswer = {
+  scanNumber: string;
+  /** The printed name, upper case, words sorted. */
+  nameKey: string;
+  /** Null: "not anyone on the list". */
+  person: ReviewPerson | null;
+  /** For a "not on the list" answer: who the printed name matches exactly now. */
+  nameMatches: ReviewPerson | null;
+  createdAt: string | null;
+};
+
+/** Which Mass week or event a review is for. */
+export type ReviewContext =
+  | { type: "mass"; weekId: string; participantType: MassUploadParticipant }
+  | { type: "event"; kind: GroupKind; eventId: string };
+
+// Mass debts ------------------------------------------------------------------
+
+export type DebtRates = { staff: number; student: number };
+
+/** One Mass week, for the debt page. */
+export type DebtWeek = {
+  weekId: string;
+  weekName: string;
+  /** The day of the week's first scan (local), or the day it was created. */
+  date: string;
+  /** "2026-10". */
+  month: string;
+  group: MassUploadParticipant;
+  expected: number;
+  present: number;
+  absent: number;
+  rate: number;
+  amount: number;
+  /** Matches still waiting for an administrator: the figures may still change. */
+  provisional: boolean;
+  /** Only these levels were uploaded (and charged); null when every level was. */
+  levels: string[] | null;
+};
+
+export type DebtPerson = {
+  group: MassUploadParticipant;
+  personId: string;
+  number: string | null;
+  name: string | null;
+  department: string | null;
+  absences: number;
+  amount: number;
+  /** The weeks missed, by name. */
+  weeks: string[];
+};
+
+export type DebtGroupTotal = {
+  group: MassUploadParticipant;
+  department: string;
+  people: number;
+  absences: number;
+  amount: number;
+};
+
+export type DebtMonth = {
+  month: string;
+  weeks: number;
+  staffAmount: number;
+  studentAmount: number;
+  amount: number;
+  absences: number;
+};
+
+export type DebtReport = {
+  rates: DebtRates;
+  filters: { month: string | null; group: MassUploadParticipant | null };
+  /** Every month with at least one counted week, newest first (for the picker). */
+  months: string[];
+  totals: {
+    amount: number;
+    staffAmount: number;
+    studentAmount: number;
+    absences: number;
+    people: number;
+    staffPeople: number;
+    studentPeople: number;
+    weeks: number;
+  };
+  byMonth: DebtMonth[];
+  byWeek: DebtWeek[];
+  byDepartment: DebtGroupTotal[];
+  people: DebtPerson[];
+};
+
+export type DebtView = "people" | "departments" | "weeks" | "months";
+
+/** Someone on the always-present list (staff_presence_overrides). */
+export type AlwaysPresentStaff = {
+  scanNumber: string;
+  reason: string;
+  isBuiltin: boolean;
+  staffId: string | null;
+  staffNo: string | null;
+  name: string | null;
+  department: string | null;
+  createdAt: string;
+  addedBy: string | null;
+};
+
+// Sync between computers -------------------------------------------------------
+
+export type PeerStatus = {
+  role: "off" | "main" | "member";
+  deviceName: string;
+  addresses: string[];
+  pairingCode: string | null;
+  main: { name: string | null; address: string | null } | null;
+  devices: Array<{ name: string | null; address: string | null; lastSeenAt: string | null }>;
+  lastSyncAt: string | null;
+  lastResult: string | null;
+  lastError: string | null;
+  pending: number;
+  syncing: boolean;
+  listening: boolean;
+};
+
+export type FoundMain = { name: string; address: string; deviceId: string };
+
+export type PeerSyncSummary = {
+  ok: boolean;
+  sent: number;
+  received: number;
+  at: string;
+  message: string;
 };

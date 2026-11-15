@@ -14,7 +14,15 @@ import {
   studentScopeWhere,
 } from "@/server/masters";
 import { normalizeName, parseScanTime, percent } from "@/lib/attendance";
-import { loadIdentity, type Identity } from "@/server/identity";
+import { lookAlikePairs } from "@/server/lookalikes";
+import { onlyNewScans, storedScanKeys } from "@/server/scan-dedup";
+import {
+  compareNames,
+  loadIdentity,
+  nameWords,
+  staffNumberDigits,
+  type Identity,
+} from "@/server/identity";
 import type {
   AbsentRow,
   EventCategory,
@@ -162,22 +170,31 @@ function numberKeys(value: string): string[] {
   return trimmed === digits ? [digits] : [digits, trimmed];
 }
 
-type Candidate = { id: string; names: string[] };
+type Candidate = {
+  /** The id that stands for the person (src/server/identity.ts). */
+  id: string;
+  /** Sorted name forms (full, and surname + first name) of every record of theirs. */
+  names: string[];
+  /** The words of each of their records' full names. */
+  words: string[][];
+};
 
 type Lookup = {
+  kind: GroupKind;
   /**
-   * the number the machine prints -> the people it could mean. There is more
-   * than one entry for the staff numbers whose digits collide ("AT 029" and
-   * "ST 029" are both 29), and for them the scanned name picks the right person.
+   * The number the attendance machine knows the person by -> the people it
+   * could mean: the machine id for staff (Staff_ID_on_machine), the tail of the
+   * matric number for students. Checked FIRST.
    */
-  byNumber: Map<string, Candidate[]>;
-  /**
-   * machine ID from the master list (e.g., staff_id_on_machine) -> people.
-   * Used as the PRIMARY matching key when the scan file provides a machine ID column.
-   */
-  byMachineId: Map<string, Candidate[]>;
+  byMachine: Map<string, Candidate[]>;
+  /** Staff only: the digits of the staff number ("SAT417", "SA 417" -> 417). Checked second. */
+  byStaffNo: Map<string, Candidate[]>;
   /** normalized name -> person id. A null value means two people share it. */
   byName: Map<string, string | null>;
+  /** Everyone, for the name-resemblance step. */
+  everyone: Candidate[];
+  /** Answers an administrator gave for a machine entry, by aliasKey(). */
+  aliases: Map<string, string | null>;
 };
 
 function claim(map: Map<string, string | null>, key: string | null, id: string): void {
@@ -202,41 +219,56 @@ function nameForms(lastName: string, firstName: string, middleName: string): str
 }
 
 /**
- * Load the whole master list for one group and index it for matching. The
- * number the machine prints is derived from the stored columns, so there is no
- * second copy of it to fall out of date.
+ * The key an administrator's answer is remembered under: the number and the
+ * name exactly as the machine prints them for that person (leading zeros, case,
+ * spacing and word order ignored).
+ */
+export function aliasKey(scanNumber: string | null, name: string | null): string {
+  const number = (scanNumber ?? "").trim().replace(/^0+(?=\d)/, "");
+  return `${number}|${normalizeName(name)}`;
+}
+
+/**
+ * Load the whole master list for one group and index it for matching. Rows that
+ * are the same person become ONE candidate under the id that stands for them,
+ * carrying every spelling of their name, so a number shared by a person's two
+ * records is one candidate, not a coin toss between two.
  */
 async function loadLookup(config: GroupConfig): Promise<Lookup> {
-  const hasMachineIdColumn = !!config.machineIdColumn;
+  const staff = config.kind === "staff";
   const rows = await query<
     RowDataPacket & {
       id: string;
-      scan_number: string | null;
-      machine_id: string | null;
+      machine_number: string | null;
+      machine_number2: string | null;
+      staff_no: string | null;
       last_name: string | null;
       first_name: string | null;
       middle_name: string | null;
     }
   >(
-    `SELECT ${config.personAlias}.id, ${config.scanNumber} AS scan_number,
-            ${hasMachineIdColumn ? `${config.machineIdColumn} AS machine_id,` : "NULL AS machine_id,"}
-            ${config.personAlias}.last_name, ${config.personAlias}.first_name,
-            ${config.personAlias}.middle_name, ${config.name} AS full_name
-     FROM ${config.people} ${config.personAlias}`,
+    staff
+      ? `SELECT f.id, f.staff_id_on_machine AS machine_number, f.machine_id AS machine_number2,
+                f.staff_no, f.last_name, f.first_name, f.middle_name
+         FROM staff f`
+      : `SELECT s.id, ${config.scanNumber} AS machine_number, NULL AS machine_number2,
+                NULL AS staff_no, s.last_name, s.first_name, s.middle_name
+         FROM students s`,
   );
+  const [identity, aliasRows] = await Promise.all([
+    loadIdentity(config.kind),
+    query<RowDataPacket & { scan_number: string; name_key: string; person_id: string | null }>(
+      "SELECT scan_number, name_key, person_id FROM scan_aliases WHERE kind = ?",
+      [config.kind],
+    ),
+  ]);
 
-  // Rows that are the same person (see src/server/identity.ts) become ONE
-  // candidate under the id that stands for them, carrying every spelling of
-  // their name. Otherwise the machine number "534" would find two candidates
-  // for one person and pick one at random, and the exact-name fallback would
-  // treat the twins as two people sharing a name and give up.
-  const identity = await loadIdentity(config.kind);
   const candidates = new Map<string, Candidate>();
   const candidateFor = (id: string): Candidate => {
     const canonical = identity.canonical(id);
     let candidate = candidates.get(canonical);
     if (!candidate) {
-      candidate = { id: canonical, names: [] };
+      candidate = { id: canonical, names: [], words: [] };
       candidates.set(canonical, candidate);
     }
     return candidate;
@@ -247,37 +279,235 @@ async function loadLookup(config: GroupConfig): Promise<Lookup> {
     map.set(key, list);
   };
 
-  const byNumber = new Map<string, Candidate[]>();
-  const byMachineId = new Map<string, Candidate[]>();
+  const byMachine = new Map<string, Candidate[]>();
+  const byStaffNo = new Map<string, Candidate[]>();
   const byName = new Map<string, string | null>();
   for (const row of rows) {
     const names = nameForms(row.last_name ?? "", row.first_name ?? "", row.middle_name ?? "");
     const candidate = candidateFor(row.id);
     for (const name of names) if (!candidate.names.includes(name)) candidate.names.push(name);
-    for (const key of numberKeys(row.scan_number ?? "")) addTo(byNumber, key, candidate);
-    if (hasMachineIdColumn && row.machine_id) {
-      const key = row.machine_id.trim();
-      if (key) addTo(byMachineId, key, candidate);
+    const words = nameWords(row.last_name, row.first_name, row.middle_name);
+    if (words.length > 0) candidate.words.push(words);
+    for (const number of [row.machine_number, row.machine_number2]) {
+      for (const key of numberKeys(number ?? "")) addTo(byMachine, key, candidate);
+    }
+    if (staff) {
+      const digits = staffNumberDigits(row.staff_no);
+      if (digits) addTo(byStaffNo, digits, candidate);
     }
     for (const name of names) claim(byName, name, candidate.id);
   }
-  return { byNumber, byMachineId, byName };
+  const aliases = new Map<string, string | null>();
+  for (const row of aliasRows) {
+    aliases.set(
+      `${row.scan_number}|${row.name_key}`,
+      row.person_id ? identity.canonical(row.person_id) : null,
+    );
+  }
+  return {
+    kind: config.kind,
+    byMachine,
+    byStaffNo,
+    byName,
+    everyone: [...candidates.values()],
+    aliases,
+  };
 }
 
 type Match = {
   id: string | null;
   method: "number" | "name" | "none";
   originalMethod: "machine_id" | "number" | "name" | "fuzzy_name" | "none";
+  /** True when the app is not certain: an administrator must pick the person. */
+  review: boolean;
+  /** For a review: the people it could be, most likely first. */
+  candidates: string[];
 };
 
+const NO_MATCH: Match = {
+  id: null,
+  method: "none",
+  originalMethod: "none",
+  review: false,
+  candidates: [],
+};
+
+/** How well a scanned name fits a candidate: their best-agreeing record. */
+function fit(scannedWords: string[], candidate: Candidate): { exact: number; total: number } {
+  let best = { exact: 0, total: 0 };
+  for (const words of candidate.words) {
+    const agreement = compareNames(scannedWords, words, true);
+    if (
+      agreement.total > best.total ||
+      (agreement.total === best.total && agreement.exact > best.exact)
+    ) {
+      best = { exact: agreement.exact, total: agreement.total };
+    }
+  }
+  return best;
+}
+
 /**
- * Resolve one scan row to a person.
+ * Pick among the people a number points at, using the scanned name.
  *
- * Priority order:
- * 1. Machine ID from scan file (matched against staff_id_on_machine)
- * 2. Scan number (derived from staff number digits or machine_id) with name disambiguation
- * 3. Exact name match (when unique)
- * 4. Fuzzy name match (best effort - finds closest name match)
+ *   one person, name fits (a word agrees) or no name printed -> certain
+ *   one person, name shares nothing with theirs              -> review
+ *   several people, exactly one fits best                    -> certain
+ *   several people, no clear best                            -> review
+ */
+function decide(
+  people: Candidate[],
+  scannedWords: string[],
+  method: "machine_id" | "number",
+): Match | { review: true; candidates: string[] } {
+  if (scannedWords.length === 0) {
+    if (people.length === 1) {
+      return {
+        id: people[0]!.id,
+        method: "number",
+        originalMethod: method,
+        review: false,
+        candidates: [],
+      };
+    }
+    return { review: true, candidates: people.map((person) => person.id) };
+  }
+  const scored = people
+    .map((person) => ({ person, ...fit(scannedWords, person) }))
+    .sort((a, b) => b.total - a.total || b.exact - a.exact);
+  const best = scored[0]!;
+  const second = scored[1];
+  const clear =
+    best.total >= 1 &&
+    (!second ||
+      best.total > second.total ||
+      (best.total === second.total && best.exact > second.exact));
+  if (clear) {
+    return {
+      id: best.person.id,
+      method: "number",
+      originalMethod: method,
+      review: false,
+      candidates: [],
+    };
+  }
+  return { review: true, candidates: scored.map((entry) => entry.person.id) };
+}
+
+/** People whose name resembles the scanned name (2+ words agree), best first. */
+function resembling(lookup: Lookup, scannedWords: string[], limit = 5): string[] {
+  if (scannedWords.length < 2) return [];
+  return lookup.everyone
+    .map((person) => ({ person, ...fit(scannedWords, person) }))
+    .filter((entry) => entry.total >= 2 && entry.exact >= 1)
+    .sort((a, b) => b.total - a.total || b.exact - a.exact)
+    .slice(0, limit)
+    .map((entry) => entry.person.id);
+}
+
+/**
+ * The one person whose name contains every printed word (two words or more,
+ * spelled exactly), or null when nobody or more than one person does.
+ */
+function wholeNameMatch(lookup: Lookup, scannedWords: string[]): string | null {
+  if (scannedWords.length < 2) return null;
+  let found: string | null = null;
+  for (const person of lookup.everyone) {
+    const fits = person.words.some((words) => {
+      const remaining = [...words];
+      for (const word of scannedWords) {
+        const index = remaining.indexOf(word);
+        if (index < 0) return false;
+        remaining.splice(index, 1);
+      }
+      return true;
+    });
+    if (!fits) continue;
+    if (found !== null && found !== person.id) return null;
+    found = person.id;
+  }
+  return found;
+}
+
+/**
+ * Students: every matric number, and so every number the machine prints for a
+ * student (its last part), is unique -- checked on the real list: 7,683
+ * students, 7,683 different numbers. The number alone decides, the name is not
+ * second-guessed, and nothing is ever put to an administrator. Without a known
+ * number, a name that exactly one student has decides; otherwise the scan is
+ * unmatched.
+ */
+function matchStudent(
+  lookup: Lookup,
+  scanNumber: string | null,
+  machineId: string | null,
+  scannedName: string,
+): Match {
+  for (const value of [machineId, scanNumber]) {
+    if (!value) continue;
+    const people = new Set<Candidate>();
+    for (const key of numberKeys(value.trim()))
+      for (const person of lookup.byMachine.get(key) ?? []) people.add(person);
+    if (people.size === 1) {
+      const [person] = [...people];
+      return {
+        id: person!.id,
+        method: "number",
+        originalMethod: "machine_id",
+        review: false,
+        candidates: [],
+      };
+    }
+  }
+  const byName = scannedName ? lookup.byName.get(scannedName) : undefined;
+  if (byName) {
+    return { id: byName, method: "name", originalMethod: "name", review: false, candidates: [] };
+  }
+  // A mistyped number ("149111" for 14911) with the student's name: the name
+  // decides when exactly one student has every printed word, or when exactly
+  // one student's name it is, cut short by the machine ("ONI MICHELLE P").
+  const words = scannedName ? scannedName.split(" ") : [];
+  const whole = wholeNameMatch(lookup, words);
+  if (whole) {
+    return { id: whole, method: "name", originalMethod: "name", review: false, candidates: [] };
+  }
+  if (words.length >= 2) {
+    let found: string | null = null;
+    for (const person of lookup.everyone) {
+      if (!person.names.some((full) => isShortenedName(scannedName, full, 2))) continue;
+      if (found !== null && found !== person.id) return NO_MATCH;
+      found = person.id;
+    }
+    if (found) {
+      return {
+        id: found,
+        method: "name",
+        originalMethod: "fuzzy_name",
+        review: false,
+        candidates: [],
+      };
+    }
+  }
+  return NO_MATCH;
+}
+
+/**
+ * Resolve one scan row to a person, in this order:
+ *
+ *   0. an answer an administrator already gave for this machine entry ("not
+ *      anyone on the list" never beats a printed full name that is exactly one
+ *      person's name, so nobody is both absent and unmatched);
+ *   1. the machine ID (the scan's ID column, or its machine-id column), when
+ *      the printed name agrees with that person;
+ *   2. the staff number's digits ("SAT417", "SA 417" and "417" are one number),
+ *      when the printed name agrees;
+ *   3. the full printed name, when it is exactly one person's name (2+ words);
+ *      this also overrides 1-2 when the number's owner shares only part of it;
+ *   4. the exact name, when only one person has it.
+ *
+ * A number that points at people the scanned name does not fit, or a name that
+ * only resembles someone, is never guessed: the scan is returned for review
+ * with the people it could be, and an administrator decides.
  */
 function matchRow(
   lookup: Lookup,
@@ -286,74 +516,94 @@ function matchRow(
   machineId: string | null,
 ): Match {
   const scannedName = normalizeName(name);
+  const scannedWords = scannedName ? scannedName.split(" ") : [];
+  if (lookup.kind === "student") return matchStudent(lookup, scanNumber, machineId, scannedName);
 
-  // 1. FIRST: Try machine ID from scan file (highest priority)
-  if (machineId) {
-    const machineIdKey = machineId.trim();
-    if (machineIdKey) {
-      const candidates = lookup.byMachineId.get(machineIdKey);
-      if (candidates && candidates.length === 1) {
-        return { id: candidates[0]!.id, method: "number", originalMethod: "machine_id" };
+  // 0. A remembered answer that names a person.
+  const remembered = lookup.aliases.get(aliasKey(scanNumber, name));
+  if (remembered) {
+    return {
+      id: remembered,
+      method: "number",
+      originalMethod: "number",
+      review: false,
+      candidates: [],
+    };
+  }
+
+  // The printed name, when it is one person's name beyond doubt: two or more
+  // words, every one of them in that person's name, and nobody else's. The
+  // machine often prints a number that is not the person's (a neighbour's, a
+  // mistyped one: "1548 IGWE CHICHI" for IGWE CHICHI, AT1508). Such a name wins
+  // over a number whose owner does not fit every printed word (another IGWE),
+  // and settles a number that fits nobody. A number whose owner fits every word
+  // (an initial or a cut-short word counts) keeps it: "779 CHIKEZIE IFEANYI" is
+  // AT779 Chikezie Ifeanyichukwu, not AT1390 Chekwas Chikezie Ifeanyi.
+  const named = wholeNameMatch(lookup, scannedWords);
+  const byName: Match | null = named
+    ? { id: named, method: "name", originalMethod: "name", review: false, candidates: [] }
+    : null;
+
+  // 0b. "Not anyone on the list" was answered for this entry. It holds -- except
+  //     when the printed name is exactly one person's: then that person scanned,
+  //     and leaving the scan unmatched would show them absent AND unmatched.
+  if (remembered === null) return byName ?? NO_MATCH;
+
+  const reviewWith: string[] = [];
+  const steps: Array<[Map<string, Candidate[]>, string | null, "machine_id" | "number"]> = [
+    [lookup.byMachine, machineId, "machine_id"],
+    [lookup.byMachine, scanNumber, "machine_id"],
+    [lookup.byStaffNo, scanNumber ? staffNumberDigits(scanNumber) : null, "number"],
+  ];
+  for (const [map, value, method] of steps) {
+    if (!value) continue;
+    const people = new Set<Candidate>();
+    for (const key of numberKeys(value.trim()))
+      for (const person of map.get(key) ?? []) people.add(person);
+    if (people.size === 0) continue;
+    const outcome = decide([...people], scannedWords, method);
+    if (!("review" in outcome && outcome.review === true && !("id" in outcome))) {
+      const chosen = outcome as Match;
+      if (byName && chosen.id !== byName.id) {
+        const owner = [...people].find((person) => person.id === chosen.id);
+        const fitsAll =
+          owner !== undefined && fit(scannedWords, owner).total >= scannedWords.length;
+        if (!fitsAll) return byName;
       }
-      if (candidates && candidates.length > 1) {
-        // Multiple people with same machine ID - use name to disambiguate
-        const scannedNameNorm = normalizeName(name);
-        const agreeing = candidates.filter((c) => c.names.includes(scannedNameNorm));
-        if (agreeing.length === 1) {
-          return { id: agreeing[0]!.id, method: "number", originalMethod: "machine_id" };
-        }
-        // Multiple matches with same name - unresolved, fall through to other methods
-      }
+      return chosen;
     }
+    for (const id of outcome.candidates) if (!reviewWith.includes(id)) reviewWith.push(id);
   }
 
-  // 2. SECOND: Try scan number (derived from staff number digits or machine_id)
-  for (const key of numberKeys(scanNumber ?? "")) {
-    const candidates = lookup.byNumber.get(key);
-    if (!candidates || candidates.length === 0) continue;
-    if (candidates.length === 1)
-      return { id: candidates[0]!.id, method: "number", originalMethod: "number" };
+  // The number pointed at people the name does not fit, or at nobody.
+  if (byName) return byName;
 
-    // Several people hold this number, so the name decides.
-    if (candidates.every((c) => c.names[0] === candidates[0]!.names[0])) {
-      return { id: candidates[0]!.id, method: "number", originalMethod: "number" };
-    }
-
-    const agreeing = candidates.filter((candidate) => candidate.names.includes(scannedName));
-    if (agreeing.length === 1) {
-      return { id: agreeing[0]!.id, method: "number", originalMethod: "number" };
-    }
-
-    // The machine cuts long names short ("ANOMU" for "ANOMUOGHARAN"). Among the
-    // few people this number can mean, one whose name the scanned name is a
-    // shortened form of is the person -- but only when exactly one fits.
-    const shortened = candidates.filter((candidate) =>
-      candidate.names.some((form) => isShortenedName(scannedName, form)),
-    );
-    if (shortened.length === 1) {
-      return { id: shortened[0]!.id, method: "number", originalMethod: "number" };
-    }
-  }
-
-  // 3. THIRD: Exact name match (when unique)
+  // 4. The exact name, when only one person has it.
   if (scannedName) {
-    const byName = lookup.byName.get(scannedName);
-    if (byName) return { id: byName, method: "name", originalMethod: "name" };
+    const exactName = lookup.byName.get(scannedName);
+    if (exactName && reviewWith.length === 0) {
+      return {
+        id: exactName,
+        method: "name",
+        originalMethod: "name",
+        review: false,
+        candidates: [],
+      };
+    }
+    if (exactName && !reviewWith.includes(exactName)) reviewWith.unshift(exactName);
   }
 
-  // 3b. A shortened name that fits exactly one person in the whole list.
-  if (scannedName) {
-    const shortened = findShortenedNameMatch(lookup.byName, scannedName);
-    if (shortened) return { id: shortened, method: "name", originalMethod: "name" };
-  }
-
-  // 4. FOURTH: Fuzzy name match - find closest name match as last resort
-  if (scannedName) {
-    const fuzzyMatch = findFuzzyNameMatch(lookup.byName, scannedName);
-    if (fuzzyMatch) return { id: fuzzyMatch, method: "name", originalMethod: "fuzzy_name" };
-  }
-
-  return { id: null, method: "none", originalMethod: "none" };
+  // Not certain: whoever the number pointed at, and whoever the name resembles.
+  for (const id of resembling(lookup, scannedWords))
+    if (!reviewWith.includes(id)) reviewWith.push(id);
+  if (reviewWith.length === 0) return NO_MATCH;
+  return {
+    id: null,
+    method: "none",
+    originalMethod: "none",
+    review: true,
+    candidates: reviewWith.slice(0, 6),
+  };
 }
 
 /**
@@ -392,68 +642,6 @@ function isShortenedName(scanned: string, full: string, minWholeWords = 1): bool
     remaining.splice(index, 1);
   }
   return wholeWords >= minWholeWords;
-}
-
-/** The one person whose name the scanned name is a shortened form of, if exactly one. */
-function findShortenedNameMatch(
-  byName: Map<string, string | null>,
-  scannedName: string,
-): string | null {
-  let found: string | null = null;
-  for (const [name, personId] of byName.entries()) {
-    // Across the whole list (no number to narrow it) at least two words must
-    // agree in full, so a visitor is not credited to a stranger.
-    if (!isShortenedName(scannedName, name, 2)) continue;
-    if (personId === null) return null; // a name two people share settles nothing
-    if (found !== null && found !== personId) return null; // fits two people
-    found = personId;
-  }
-  return found;
-}
-
-/**
- * Last-resort match on a name the machine misspelled slightly.
- *
- * A wrong match here credits attendance to the wrong person, which is worse
- * than leaving the scan unmatched for someone to review, so it is strict:
- *
- *   * the scanned name must have at least two words (a lone surname is far too
- *     easy to confuse);
- *   * the best candidate must score at least FUZZY_MIN_SCORE; and
- *   * it must be a clear winner: any other person scoring within FUZZY_MARGIN
- *     of it makes the scan ambiguous, and it is left unmatched.
- */
-const FUZZY_MIN_SCORE = 0.92;
-const FUZZY_MARGIN = 0.03;
-
-function findFuzzyNameMatch(
-  byName: Map<string, string | null>,
-  scannedName: string,
-): string | null {
-  if (scannedName.split(" ").length < 2) return null;
-
-  let bestId: string | null = null;
-  let bestScore = 0;
-  let runnerUpScore = 0;
-  for (const [name, personId] of byName.entries()) {
-    if (!personId) continue; // a name two people share settles nothing
-    const score = stringSimilarity(scannedName, name);
-    if (personId === bestId) {
-      bestScore = Math.max(bestScore, score); // same person under a second name form
-      continue;
-    }
-    if (score > bestScore) {
-      runnerUpScore = bestScore;
-      bestScore = score;
-      bestId = personId;
-    } else if (score > runnerUpScore) {
-      runnerUpScore = score;
-    }
-  }
-
-  if (bestId === null || bestScore < FUZZY_MIN_SCORE) return null;
-  if (bestScore - runnerUpScore < FUZZY_MARGIN) return null;
-  return bestId;
 }
 
 /**
@@ -990,7 +1178,7 @@ export async function uploadScans(
   eventId: string,
   input: ScanUploadInput,
   actorId: string,
-): Promise<{ upload: EventUpload; summary: EventSummary }> {
+): Promise<{ upload: EventUpload | null; summary: EventSummary; added: number; skipped: number }> {
   const config = GROUPS[kind];
   const event = await getEvent(kind, eventId);
   const scope = scopeOf(event);
@@ -1010,9 +1198,11 @@ export async function uploadScans(
     originalMethod: "machine_id" | "number" | "name" | "fuzzy_name" | "none";
     inScope: boolean;
     outsideWindow: boolean;
+    review: boolean;
+    candidates: string[];
   };
 
-  const prepared: Prepared[] = [];
+  const parsed: Prepared[] = [];
   for (const row of input.rows) {
     const scanNumber = row.scanNumber?.trim() || null;
     const name = row.name?.trim() || null;
@@ -1053,7 +1243,7 @@ export async function uploadScans(
       (startAt !== null && clock < startAt) ||
       (endAt !== null && clock > endAt);
 
-    prepared.push({
+    parsed.push({
       scanNumber,
       name,
       machineId,
@@ -1061,15 +1251,28 @@ export async function uploadScans(
       personId: match.id,
       method: match.method,
       originalMethod: match.originalMethod,
+      review: match.review,
+      candidates: match.candidates,
       inScope,
       outsideWindow,
     });
   }
 
+  // Rows already stored for this event are skipped: only new scans are added.
+  const { fresh: prepared, skipped } = onlyNewScans(
+    parsed,
+    await storedScanKeys(config.scans, "event_id = ?", [eventId]),
+  );
+  if (prepared.length === 0) {
+    return { upload: null, added: 0, skipped, summary: await eventSummary(kind, eventId) };
+  }
+
   const counts = { present: new Set<string>(), outOfScope: new Set<string>(), unmatched: 0 };
   for (const row of prepared) {
-    if (row.personId === null) counts.unmatched += 1;
-    else if (row.inScope) counts.present.add(row.personId);
+    if (row.personId === null) {
+      // A scan waiting for an administrator is not "unmatched" (yet).
+      if (!row.review) counts.unmatched += 1;
+    } else if (row.inScope) counts.present.add(row.personId);
     else counts.outOfScope.add(row.personId);
   }
 
@@ -1108,13 +1311,16 @@ export async function uploadScans(
           row.inScope ? 1 : 0,
           row.outsideWindow ? 1 : 0,
           row.machineId,
+          row.review ? 1 : 0,
+          row.review ? JSON.stringify(row.candidates) : null,
         );
       }
       await connection.query(
         `INSERT INTO ${config.scans}
            (id, event_id, upload_id, scan_number, scanned_name, scanned_at,
-            ${config.idColumn}, match_method, in_scope, outside_window, machine_id)
-         VALUES ${placeholders(batch.length, 11)}`,
+            ${config.idColumn}, match_method, in_scope, outside_window, machine_id,
+            needs_review, review_candidates)
+         VALUES ${placeholders(batch.length, 13)}`,
         values,
       );
     }
@@ -1141,7 +1347,7 @@ export async function uploadScans(
   const summary = await eventSummary(kind, eventId);
   const upload = (await listUploads(kind, eventId)).find((row) => row.id === uploadId);
   if (!upload) throw new Error("Upload was not stored.");
-  return { upload, summary };
+  return { upload, summary, added: prepared.length, skipped };
 }
 
 // Results ------------------------------------------------------------------
@@ -1190,6 +1396,7 @@ async function grantedPresentIds(
 }
 
 export async function eventSummary(kind: GroupKind, eventId: string): Promise<EventSummary> {
+  await (await import("@/server/rematch")).ensureRematched(kind);
   const config = GROUPS[kind];
   const event = await getEvent(kind, eventId);
   const scopeParams: SqlParam[] = [];
@@ -1206,9 +1413,10 @@ export async function eventSummary(kind: GroupKind, eventId: string): Promise<Ev
        WHERE event_id = ? AND ${config.idColumn} IS NOT NULL`,
       [eventId],
     ),
-    queryOne<RowDataPacket & { scans: number; unmatched: number }>(
+    queryOne<RowDataPacket & { scans: number; unmatched: number; pending: number }>(
       `SELECT COUNT(*) AS scans,
-              SUM(CASE WHEN match_method = 'none' THEN 1 ELSE 0 END) AS unmatched
+              SUM(CASE WHEN match_method = 'none' AND needs_review = 0 THEN 1 ELSE 0 END) AS unmatched,
+              SUM(CASE WHEN needs_review = 1 THEN 1 ELSE 0 END) AS pending
        FROM ${config.scans} WHERE event_id = ?`,
       [eventId],
     ),
@@ -1226,8 +1434,11 @@ export async function eventSummary(kind: GroupKind, eventId: string): Promise<Ev
   // Counted per PERSON: rows of the master list that are the same person
   // (src/server/identity.ts) count once, so nobody is both present and absent.
   const people = peopleOutcome(identity, inScope, scanned, granted);
+  const lookAlikes = await lookAlikePairs(kind, people.present, people.absent, people.outOfScope);
 
   return {
+    pendingReview: Number(counts?.pending ?? 0),
+    lookAlikes: lookAlikes.length,
     event,
     uploads: uploads.length,
     scans: Number(counts?.scans ?? 0),
@@ -1289,6 +1500,7 @@ function personGroupBy(config: GroupConfig): string {
 
 /** Everything the event page shows: totals, the three lists and the uploads. */
 export async function eventResult(kind: GroupKind, eventId: string): Promise<EventResult> {
+  await (await import("@/server/rematch")).ensureRematched(kind);
   const config = GROUPS[kind];
   const event = await getEvent(kind, eventId);
   const alias = config.personAlias;
@@ -1334,7 +1546,7 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
       `SELECT MIN(id) AS scan_id, scan_number, scanned_name, COUNT(*) AS scan_count,
               MIN(scanned_at) AS first_scan_at, MAX(scanned_at) AS last_scan_at
        FROM ${config.scans}
-       WHERE event_id = ? AND match_method = 'none'
+       WHERE event_id = ? AND match_method = 'none' AND needs_review = 0
        GROUP BY scan_number, scanned_name
        ORDER BY scan_count DESC, scanned_name
        LIMIT 500`,
@@ -1452,8 +1664,8 @@ export {
   GROUPS,
   loadLookup,
   matchRow,
+  wholeNameMatch,
   stringSimilarity,
-  findFuzzyNameMatch,
   isShortenedName,
   type GroupConfig,
   type Lookup,

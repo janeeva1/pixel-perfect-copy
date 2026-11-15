@@ -1,7 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "@/server/auth";
 import { eventResult } from "@/server/events";
-import { handleRoute } from "@/server/http";
+import { handleRoute, HttpError, jsonError } from "@/server/http";
+import { assertNoBlockers } from "@/server/review";
 import { eventCsv } from "@/server/reports";
 import { buildEventReport } from "@/server/mass-reports";
 
@@ -10,6 +11,14 @@ export const Route = createFileRoute("/api/student-events/$eventId/export")({
     handlers: {
       GET: async ({ params, request }) => {
         await requireSession();
+        // Nothing is reported while a scan or a possible duplicate is waiting
+        // for an administrator: the page opens the review window instead.
+        try {
+          await assertNoBlockers({ type: "event", kind: "student", eventId: params.eventId });
+        } catch (error) {
+          if (error instanceof HttpError) return jsonError(error.message, error.status);
+          throw error;
+        }
         const url = new URL(request.url);
         const format = url.searchParams.get("format");
         const result = await eventResult("student", params.eventId);

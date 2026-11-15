@@ -25,6 +25,12 @@ const bodySchema = z.object({
     )
     .min(1, "There is nothing to import.")
     .max(2000, "Import in batches of 2000 or fewer."),
+  /**
+   * The file is the registrar's complete, current staff list (staffdb.xlsx):
+   * anyone not in it is no longer expected. Only meaningful when every row is
+   * in this one request.
+   */
+  completeList: z.boolean().optional(),
 });
 
 export const Route = createFileRoute("/api/staff/import")({
@@ -35,7 +41,11 @@ export const Route = createFileRoute("/api/staff/import")({
           const session = await requireSession();
           requireEditor(session);
           const body = parse(bodySchema, await readJson(request));
-          return json(await importStaff(body.records, session.user.id));
+          return json(
+            await importStaff(body.records, session.user.id, {
+              completeList: body.completeList ?? false,
+            }),
+          );
         }),
     },
   },

@@ -29,6 +29,7 @@ import { staffDepartmentSql, staffScanNumberSql, staffScopeWhere } from "@/serve
 import type { GroupKind, StaffEvent } from "@/lib/types";
 import type { RowDataPacket } from "./db";
 import { randomUUID } from "node:crypto";
+import { loadIdentity } from "@/server/identity";
 
 /** The staff numbers seeded by migration 002, kept here for the admin UI. */
 export const BUILTIN_OVERRIDE_NUMBERS = ["1500", "140", "979"] as const;
@@ -133,7 +134,10 @@ export async function overriddenStaffIds(
     return all.map((row) => row.id);
   }
   // A department event: only the overrides whose own department is in scope.
-  const params: SqlParam[] = [...departments];
+  // staffScopeWhere pushes the departments itself; seeding them here as well
+  // passed every department twice and failed with "Too many parameter values"
+  // on every department-limited staff event.
+  const params: SqlParam[] = [];
   const scoped = await query<RowDataPacket & { id: string }>(
     `SELECT f.id FROM staff f
      WHERE ${staffScanNumberSql("f")} IN (SELECT scan_number FROM staff_presence_overrides)
@@ -237,14 +241,29 @@ export async function addOverride(input: {
 
   // Refuse a number that matches nobody, rather than storing a grant that can
   // never apply. A typo here would look like it worked and quietly do nothing.
-  const person = await queryOne<RowDataPacket & { id: string; staff_no: string }>(
-    `SELECT id, staff_no FROM staff WHERE ${staffScanNumberSql("f")} = ?`,
+  // (The alias matters: staffScanNumberSql("f") names f.staff_no, so the table
+  // must be "staff f". Without it every add failed with "no such column".)
+  const people = await query<RowDataPacket & { id: string; staff_no: string; name: string }>(
+    `SELECT f.id, f.staff_no, TRIM(f.last_name || ' ' || f.first_name) AS name
+       FROM staff f WHERE ${staffScanNumberSql("f")} = ?`,
     [scanNumber],
   );
-  if (!person) {
+  if (people.length === 0) {
     throw new HttpError(
       404,
       `No staff member has the number ${scanNumber}. Check the digits, since a number that matches nobody would never apply.`,
+    );
+  }
+  // A machine number two different people share would make both of them
+  // "always present". Refuse, and say who shares it, rather than over-grant.
+  const identity = await loadIdentity("staff");
+  const distinct = new Map(people.map((row) => [identity.canonical(row.id), row]));
+  if (distinct.size > 1) {
+    throw new HttpError(
+      409,
+      `The number ${scanNumber} belongs to more than one person (${[...distinct.values()]
+        .map((row) => `${row.staff_no} ${row.name}`)
+        .join(", ")}). Give one of them their own machine number first.`,
     );
   }
 
@@ -291,4 +310,18 @@ export async function removeOverride(scanNumberInput: string, actorId: string): 
       scanNumber,
     ],
   );
+}
+
+/**
+ * Every staff member on the always-present list (the ids that stand for each
+ * person). Used by Weekly Mass and the debt page: such a person is present in
+ * any staff Mass week that has an upload, never absent, never owing.
+ */
+export async function exemptStaffIds(): Promise<Set<string>> {
+  const rows = await query<RowDataPacket & { id: string }>(
+    `SELECT f.id FROM staff f
+      WHERE ${staffScanNumberSql("f")} IN (SELECT scan_number FROM staff_presence_overrides)`,
+  );
+  const identity = await loadIdentity("staff");
+  return new Set(rows.map((row) => identity.canonical(row.id)));
 }

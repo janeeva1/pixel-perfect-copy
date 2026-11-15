@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { requireSession } from "@/server/auth";
 import { handleRoute } from "@/server/http";
 import { buildMassReport, type MassReportCategory, type ReportFormat } from "@/server/mass-reports";
+import { assertNoBlockers } from "@/server/review";
 import type { MassReportGroupBy } from "@/lib/types";
 
 const CATEGORIES: readonly string[] = ["present", "absent", "out_of_scope", "unmatched", "summary"];
@@ -35,6 +36,10 @@ export const Route = createFileRoute("/api/mass/weeks/$weekId/report")({
           const groupBy: MassReportGroupBy = GROUP_BY.includes(groupByParam)
             ? (groupByParam as MassReportGroupBy)
             : "none";
+
+          // Nothing is reported while a scan or a possible duplicate is waiting
+          // for an administrator: the page opens the review window instead.
+          await assertNoBlockers({ type: "mass", weekId: params.weekId, participantType });
 
           const report = await buildMassReport(
             params.weekId,

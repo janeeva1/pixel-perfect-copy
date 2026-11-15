@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +19,28 @@ import { EventStatusToggle } from "@/components/EventStatusToggle";
 import { api } from "@/lib/api";
 import { pick, readSpreadsheet } from "@/lib/spreadsheet";
 import { useRoles } from "@/lib/useAuth";
+import { MatchReviewBanner } from "@/components/MatchReviewDialog";
+import { ReportFilterBar } from "@/components/ReportFilters";
+import {
+  EMPTY_FILTER,
+  passesFilter,
+  shownOf,
+  type FilterFields,
+  type ReportFilterState,
+} from "@/lib/report-filter";
 import type { GroupKind } from "@/lib/types";
+
+/** One message for a batch of files: what was added and what was already there. */
+function batchMessage(
+  results: Array<{ file: string; added: number; skipped: number; error?: string }>,
+) {
+  const added = results.reduce((sum, item) => sum + item.added, 0);
+  const skipped = results.reduce((sum, item) => sum + item.skipped, 0);
+  const files = results.filter((item) => !item.error).length;
+  const parts = [`${files} file(s): ${added} new scan(s) added`];
+  if (skipped > 0) parts.push(`${skipped} already uploaded, skipped`);
+  return parts.join(" · ");
+}
 
 /**
  * One event, for either group. Uploading is additive: an event can take a
@@ -31,6 +53,7 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
   const fileRef = useRef<HTMLInputElement>(null);
   const [label, setLabel] = useState("");
   const [editing, setEditing] = useState(false);
+  const [filter, setFilter] = useState<ReportFilterState>(EMPTY_FILTER);
 
   const result = useQuery({
     queryKey: [group, "event", eventId],
@@ -53,18 +76,40 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
 
   const refresh = () => queryClient.invalidateQueries({ queryKey: [group, "event", eventId] });
 
+  // Several files can be chosen at once; they go up one after another, and
+  // rows already uploaded (from any earlier file) are skipped by the server.
   const upload = useMutation({
-    mutationFn: async (file: File) => {
-      const { rows: sheet } = await readSpreadsheet(file);
-      const rows = sheet.map((row) => ({
-        scanNumber: pick(row, "ID", "id", "Id", "userId", "card") || null,
-        name: pick(row, "NAME", "name", "Name", "userName") || null,
-        scannedAt: pick(row, "Time", "time", "DATE_TIME", "datetime", "CheckInTime") || null,
-        machineId: pick(row, "Machine_ID", "machine_id", "machineId", "MachineID", "machineID") || null,
-      }));
-      return api.uploadScans(group, eventId, { fileName: file.name, label: label || null, rows });
+    mutationFn: async (files: File[]) => {
+      const results: Array<{ file: string; added: number; skipped: number; error?: string }> = [];
+      for (const file of files) {
+        try {
+          const { rows: sheet } = await readSpreadsheet(file);
+          const rows = sheet.map((row) => ({
+            scanNumber: pick(row, "ID", "id", "Id", "userId", "card") || null,
+            name: pick(row, "NAME", "name", "Name", "userName") || null,
+            scannedAt: pick(row, "Time", "time", "DATE_TIME", "datetime", "CheckInTime") || null,
+            machineId:
+              pick(row, "Machine_ID", "machine_id", "machineId", "MachineID", "machineID") || null,
+          }));
+          const result = await api.uploadScans(group, eventId, {
+            fileName: file.name,
+            label: label || null,
+            rows,
+          });
+          results.push({ file: file.name, added: result.added, skipped: result.skipped });
+        } catch (error) {
+          results.push({ file: file.name, added: 0, skipped: 0, error: (error as Error).message });
+        }
+      }
+      return results;
     },
-    onSuccess: refresh,
+    onSuccess: (results) => {
+      toast.success(batchMessage(results));
+      for (const item of results) {
+        if (item.error) toast.error(`${item.file}: ${item.error}`);
+      }
+      void refresh();
+    },
   });
 
   if (result.isError) {
@@ -76,7 +121,40 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
   }
   if (!result.data) return <p className="text-sm text-muted-foreground">Loading the event…</p>;
 
+  const fields = (row: {
+    name: string;
+    code: string;
+    level: string | null;
+    department_code: string | null;
+  }): FilterFields => ({
+    name: row.name,
+    number: row.code,
+    department: row.department_code,
+    level: row.level,
+  });
+  const presentFields = result.data.presentList.map(fields);
+  const absentFields = result.data.absentList.map(fields);
+  const outFields = result.data.outOfScopeList.map(fields);
+  const presentRows = result.data.presentList.filter((_, index) =>
+    passesFilter(filter, presentFields[index]!),
+  );
+  const absentRows = result.data.absentList.filter((_, index) =>
+    passesFilter(filter, absentFields[index]!),
+  );
+  const outRows = result.data.outOfScopeList.filter((_, index) =>
+    passesFilter(filter, outFields[index]!),
+  );
+  // Unmatched scans have only what the machine printed: found by text alone.
+  const unmatchedRows = result.data.unmatchedList.filter((row) =>
+    passesFilter(
+      { ...filter, department: "", day: "", level: "" },
+      { name: row.scanned_name, number: row.scan_number },
+    ),
+  );
+
   const event = result.data.event;
+  // Reports wait until every uncertain match is confirmed (the server refuses too).
+  const blocked = result.data.pendingReview + result.data.lookAlikes > 0;
   const scope = [
     "category" in event && event.category ? categoryLabel(event.category) : "everyone",
     "level" in event && event.level ? `level ${event.level}` : null,
@@ -89,14 +167,25 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
 
   return (
     <div className="space-y-6">
+      <MatchReviewBanner
+        context={{ type: "event", kind: group, eventId }}
+        pendingScans={result.data.pendingReview}
+        lookAlikes={result.data.lookAlikes}
+      />
       <Panel
         title={event.title}
         description={`${event.event_date} · ${scope} · ${event.status}`}
         actions={
           <>
-            <a href={api.eventExportUrl(group, eventId)} download>
-              <Button variant="outline">Download CSV</Button>
-            </a>
+            {blocked ? (
+              <Button variant="outline" disabled title="Confirm the matches first">
+                Download CSV
+              </Button>
+            ) : (
+              <a href={api.eventExportUrl(group, eventId)} download>
+                <Button variant="outline">Download CSV</Button>
+              </a>
+            )}
             {canEdit ? (
               <>
                 <Button variant="outline" onClick={() => setEditing((open) => !open)}>
@@ -165,10 +254,13 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
               ref={fileRef}
               type="file"
               accept=".csv,.xlsx,.xls"
+              multiple
               className="hidden"
               onChange={(event) => {
-                const file = event.target.files?.[0];
-                if (file) upload.mutate(file, { onSettled: () => (event.target.value = "") });
+                const files = [...(event.target.files ?? [])];
+                if (files.length > 0) {
+                  upload.mutate(files, { onSettled: () => (event.target.value = "") });
+                }
               }}
             />
             <Input
@@ -182,7 +274,7 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
               disabled={upload.isPending}
               onClick={() => fileRef.current?.click()}
             >
-              {upload.isPending ? "Uploading…" : "Choose machine file"}
+              {upload.isPending ? "Uploading…" : "Choose machine file(s)"}
             </Button>
             <span className="text-xs text-muted-foreground">Expected columns: ID, NAME, Time</span>
           </div>
@@ -190,11 +282,7 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
             <p className="mt-3 text-sm text-rose-600">{(upload.error as Error).message}</p>
           ) : null}
           {upload.isSuccess ? (
-            <p className="mt-3 text-sm text-emerald-600">
-              Stored {upload.data.upload.row_count} rows · {upload.data.upload.present_count} in
-              scope · {upload.data.upload.out_of_scope_count} out of scope ·{" "}
-              {upload.data.upload.unmatched_count} unmatched
-            </p>
+            <p className="mt-3 text-sm text-emerald-600">{batchMessage(upload.data)}</p>
           ) : null}
 
           {result.data.uploadList.length > 0 ? (
@@ -241,24 +329,45 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
         </Panel>
       ) : null}
 
+      <ReportFilterBar
+        state={filter}
+        onChange={setFilter}
+        rows={[...presentFields, ...absentFields, ...outFields]}
+        placeholder={
+          group === "student"
+            ? "Search by name, matric number or department"
+            : "Search by name, staff number or department/unit"
+        }
+      />
+
       <Tabs defaultValue="present">
         <TabsList>
-          <TabsTrigger value="present">Present ({result.data.presentList.length})</TabsTrigger>
-          <TabsTrigger value="absent">Absent ({result.data.absentList.length})</TabsTrigger>
+          <TabsTrigger value="present">
+            Present ({shownOf(presentRows.length, result.data.presentList.length)})
+          </TabsTrigger>
+          <TabsTrigger value="absent">
+            Absent ({shownOf(absentRows.length, result.data.absentList.length)})
+          </TabsTrigger>
           <TabsTrigger value="out-of-scope">
-            Out of scope ({result.data.outOfScopeList.length})
+            Out of scope ({shownOf(outRows.length, result.data.outOfScopeList.length)})
           </TabsTrigger>
           <TabsTrigger value="unmatched">
-            Unmatched ({result.data.unmatchedList.length})
+            Unmatched ({shownOf(unmatchedRows.length, result.data.unmatchedList.length)})
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="present" className="mt-4">
-          {result.data.presentList.length === 0 ? (
-            <EmptyState title="Nobody marked present yet" />
+          {presentRows.length === 0 ? (
+            <EmptyState
+              title={
+                result.data.presentList.length === 0
+                  ? "Nobody marked present yet"
+                  : "Nobody here matches the search"
+              }
+            />
           ) : (
             <DataTable head={["Name", "Code", "Level", "Department", "Scans", "First", "Last"]}>
-              {result.data.presentList.map((row) => (
+              {presentRows.map((row) => (
                 <DataRow
                   key={row.person_id}
                   cells={[
@@ -277,11 +386,17 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
         </TabsContent>
 
         <TabsContent value="absent" className="mt-4">
-          {result.data.absentList.length === 0 ? (
-            <EmptyState title="Nobody is absent" />
+          {absentRows.length === 0 ? (
+            <EmptyState
+              title={
+                result.data.absentList.length === 0
+                  ? "Nobody is absent"
+                  : "Nobody here matches the search"
+              }
+            />
           ) : (
             <DataTable head={["Name", "Code", "Level", "Department"]}>
-              {result.data.absentList.map((row) => (
+              {absentRows.map((row) => (
                 <DataRow
                   key={row.person_id}
                   cells={[
@@ -297,11 +412,17 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
         </TabsContent>
 
         <TabsContent value="out-of-scope" className="mt-4">
-          {result.data.outOfScopeList.length === 0 ? (
-            <EmptyState title="No scans fell outside the scope" />
+          {outRows.length === 0 ? (
+            <EmptyState
+              title={
+                result.data.outOfScopeList.length === 0
+                  ? "No scans fell outside the scope"
+                  : "Nobody here matches the search"
+              }
+            />
           ) : (
             <DataTable head={["Name", "Code", "Level", "Department", "Scans"]}>
-              {result.data.outOfScopeList.map((row) => (
+              {outRows.map((row) => (
                 <DataRow
                   key={row.person_id}
                   cells={[
@@ -318,8 +439,14 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
         </TabsContent>
 
         <TabsContent value="unmatched" className="mt-4">
-          {result.data.unmatchedList.length === 0 ? (
-            <EmptyState title="Every scan matched a master record" />
+          {unmatchedRows.length === 0 ? (
+            <EmptyState
+              title={
+                result.data.unmatchedList.length === 0
+                  ? "Every scan matched a master record"
+                  : "No scan here matches the search"
+              }
+            />
           ) : (
             <DataTable
               head={[
@@ -331,7 +458,7 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
                 "Last",
               ]}
             >
-              {result.data.unmatchedList.map((row) => (
+              {unmatchedRows.map((row) => (
                 <DataRow
                   key={row.scan_id}
                   cells={[

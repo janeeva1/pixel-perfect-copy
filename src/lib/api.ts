@@ -1,4 +1,16 @@
 import type {
+  GroupKind,
+  ReviewContext,
+  ReviewItems,
+  ReviewPerson,
+  ReviewSavedAnswer,
+  FoundMain,
+  PeerStatus,
+  PeerSyncSummary,
+  AlwaysPresentStaff,
+  DebtRates,
+  DebtReport,
+  DebtView,
   AppRole,
   AppUser,
   Dashboard,
@@ -198,6 +210,8 @@ export type ImportStaffInput = {
     designation?: string | null;
     staffCategory?: string | null;
   }>;
+  /** The file is the complete current staff list: anyone not in it is no longer expected. */
+  completeList?: boolean;
 };
 
 /**
@@ -224,7 +238,73 @@ export type StaffEditInput = {
   machineId?: string | null;
 };
 
+function reviewQuery(context: ReviewContext): string {
+  return context.type === "mass"
+    ? search({ type: "mass", weekId: context.weekId, participantType: context.participantType })
+    : search({ type: "event", kind: context.kind, eventId: context.eventId });
+}
+
 export const api = {
+  peer: {
+    status: () => request<PeerStatus>("/api/peer/"),
+    becomeMain: () => post<PeerStatus>("/api/peer/", { action: "main" }),
+    join: (address: string, code: string) =>
+      post<PeerStatus>("/api/peer/", { action: "join", address, code }),
+    leave: () => post<PeerStatus>("/api/peer/", { action: "leave" }),
+    rename: (name: string) => post<PeerStatus>("/api/peer/", { action: "rename", name }),
+    discover: () => request<FoundMain[]>("/api/peer/discover"),
+    syncNow: () => post<PeerSyncSummary>("/api/peer/sync"),
+  },
+  debts: {
+    report: (params: { month?: string | null; group?: "staff" | "student" | null }) =>
+      request<DebtReport>(
+        `/api/debts/${search({ month: params.month ?? undefined, group: params.group ?? undefined })}`,
+      ),
+    rates: () => request<DebtRates>("/api/debts/rates"),
+    setRates: (rates: DebtRates) => post<DebtRates>("/api/debts/rates", rates),
+    downloadUrl: (params: {
+      view: DebtView;
+      format: "csv" | "xlsx" | "pdf";
+      month?: string | null;
+      group?: "staff" | "student" | null;
+      department?: string | null;
+      q?: string | null;
+    }) =>
+      `/api/debts/download${search({
+        view: params.view,
+        format: params.format,
+        month: params.month ?? undefined,
+        group: params.group ?? undefined,
+        department: params.department ?? undefined,
+        q: params.q ?? undefined,
+      })}`,
+  },
+  alwaysPresent: {
+    list: () => request<AlwaysPresentStaff[]>("/api/admin/exempt-staff/"),
+    add: (body: { staffNo: string; reason: string }) =>
+      post<AlwaysPresentStaff>("/api/admin/exempt-staff/", body),
+    remove: (scanNumber: string) =>
+      request<{ ok: boolean }>(`/api/admin/exempt-staff/${search({ scanNumber })}`, {
+        method: "DELETE",
+      }),
+  },
+  review: {
+    items: (context: ReviewContext) => request<ReviewItems>(`/api/review/${reviewQuery(context)}`),
+    resolveScan: (body: {
+      kind: GroupKind;
+      scanNumber: string | null;
+      scannedName: string | null;
+      personId: string | null;
+    }) => post<{ updated: number }>("/api/review/scan", body),
+    resolvePair: (body: { kind: GroupKind; presentId: string; absentId: string; same: boolean }) =>
+      post<{ kept: string | null }>("/api/review/pair", body),
+    search: (kind: GroupKind, q: string) =>
+      request<ReviewPerson[]>(`/api/review/search${search({ kind, q })}`),
+    answers: (kind: GroupKind) =>
+      request<ReviewSavedAnswer[]>(`/api/review/answers${search({ kind })}`),
+    forget: (body: { kind: GroupKind; scanNumber: string; nameKey: string }) =>
+      post<{ updated: number }>("/api/review/answers", body),
+  },
   /** The signed-in user, or null when the session cookie is missing or expired. */
   me: async (): Promise<Me | null> => {
     try {
@@ -309,8 +389,12 @@ export const api = {
     group: "student" | "staff",
     eventId: string,
     input: ScanUploadInput,
-  ): Promise<{ upload: EventUpload; summary: EventSummary }> =>
-    post(`/api/${group}-events/${eventId}/uploads`, input),
+  ): Promise<{
+    upload: EventUpload | null;
+    summary: EventSummary;
+    added: number;
+    skipped: number;
+  }> => post(`/api/${group}-events/${eventId}/uploads`, input),
   eventExportUrl: (group: "student" | "staff", eventId: string) =>
     `/api/${group}-events/${eventId}/export`,
 
@@ -395,8 +479,12 @@ export const api = {
     upload: (
       weekId: string,
       input: MassUploadInput,
-    ): Promise<{ upload: MassUpload; summary: MassSummary }> =>
-      post(`/api/mass/weeks/${weekId}/uploads`, input),
+    ): Promise<{
+      upload: MassUpload | null;
+      summary: MassSummary;
+      added: number;
+      skipped: number;
+    }> => post(`/api/mass/weeks/${weekId}/uploads`, input),
     reset: (weekId: string, participantType: "student" | "staff") =>
       post<{ ok: boolean }>(`/api/mass/weeks/${weekId}/reset`, { participantType }),
     reportUrl: (

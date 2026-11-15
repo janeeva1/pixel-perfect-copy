@@ -306,6 +306,14 @@ async function start(): Promise<void> {
   await importServer(pathToFileURL(entry).href);
   await waitForServer(serverUrl);
   log("Server is ready");
+  // Sync between computers: a Main computer starts listening on the office
+  // network, a member starts its automatic sync. Nothing happens on a computer
+  // that has not been set up for it.
+  try {
+    await fetch(`${serverUrl}/api/peer/boot`);
+  } catch (error) {
+    log(`Sync services did not start: ${String(error)}`);
+  }
 }
 
 if (!app.requestSingleInstanceLock()) {

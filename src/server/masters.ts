@@ -23,7 +23,7 @@ import type {
   StaffScope,
 } from "@/lib/types";
 import { HttpError } from "@/server/http";
-import { refreshMassExpectations, syncMassWeekdays } from "@/server/mass";
+import { addMissingExpectations, refreshMassExpectations, syncMassWeekdays } from "@/server/mass";
 import {
   matricKey,
   staffCanonicalMap,
@@ -224,11 +224,14 @@ export function studentScopeWhere(scope: StudentScope, params: SqlParam[], alias
  * that can be stated truthfully.
  */
 export function staffScopeWhere(scope: StaffScope, params: SqlParam[], alias = "f"): string {
+  // Only staff on the registrar's current list are expected anywhere. Someone
+  // a complete-list import left out still matches a scan (as out of scope).
+  const current = `COALESCE(${alias}.on_current_list, 1) = 1`;
   const departments = normalizeScopeList(scope.departments);
-  if (departments.length === 0) return "1 = 1";
+  if (departments.length === 0) return current;
   const placeholders = departments.map(() => "?").join(", ");
   params.push(...departments);
-  return `(${staffDepartmentSql(alias)}) IN (${placeholders})`;
+  return `${current} AND (${staffDepartmentSql(alias)}) IN (${placeholders})`;
 }
 
 /**
@@ -441,6 +444,9 @@ export async function importStudents(
   // Fold together any records that are one student (e.g. created on another
   // computer, or by an older version of this import).
   const merged = await deduplicateStudents(actorId);
+  (await import("@/server/rematch")).markStale("student");
+  // Students added by this import are expected in the weeks already running.
+  await addMissingExpectations("student");
 
   // Ensure any new departments from this import get a weekday assignment.
   await syncMassWeekdays(actorId);
@@ -469,7 +475,11 @@ export async function importStudents(
  * column. A row with neither a staff number nor a name cannot be identified and
  * is counted as skipped.
  */
-export async function importStaff(records: StaffInput[], actorId: string): Promise<ImportResult> {
+export async function importStaff(
+  records: StaffInput[],
+  actorId: string,
+  options: { completeList?: boolean } = {},
+): Promise<ImportResult> {
   const parsed = records.map((record) => ({
     staffNo: nullIfBlank(record.staffNo),
     lastName: nullIfBlank(record.lastName),
@@ -487,7 +497,8 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
 
   const result = await transaction(async (connection) => {
     const [existing] = await connection.query<Array<RowDataPacket & StaffIdentityRow>>(
-      `SELECT id, staff_no, last_name, first_name, staff_id_on_machine, machine_id, updated_at
+      `SELECT id, staff_no, last_name, first_name, middle_name, staff_id_on_machine, machine_id,
+              updated_at
          FROM staff`,
     );
 
@@ -524,6 +535,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
     let created = 0;
     let updated = 0;
     const now = utcStamp();
+    const inFile = new Set<string>();
     for (const record of usable) {
       const asRow: StaffIdentityRow = {
         id: "",
@@ -590,6 +602,7 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
           staff_id_on_machine: record.staffIdOnMachine ?? before?.staff_id_on_machine ?? null,
           machine_id: record.machineId ?? before?.machine_id ?? null,
         });
+        inFile.add(targetId);
         updated += 1;
         continue;
       }
@@ -617,12 +630,48 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
         ],
       );
       index({ ...asRow, id });
+      inFile.add(id);
       created += 1;
     }
 
+    // Everyone in the file is on the registrar's current list. When the file IS
+    // the complete list (staffdb.xlsx), everyone else is not: they stop being
+    // expected, but stay on record and still match a scan. Importing a file
+    // that includes them again puts them back.
+    const ids = [...inFile];
+    for (let index = 0; index < ids.length; index += 400) {
+      const batch = ids.slice(index, index + 400);
+      await connection.execute(
+        `UPDATE staff SET on_current_list = 1 WHERE id IN (${batch.map(() => "?").join(", ")})`,
+        batch,
+      );
+    }
+    let leftOff = 0;
+    if (options.completeList && ids.length > 0) {
+      const [current] = await connection.query<Array<RowDataPacket & { id: string }>>(
+        "SELECT id FROM staff WHERE on_current_list = 1",
+      );
+      const notInFile = current.map((row) => row.id).filter((id) => !inFile.has(id));
+      for (let index = 0; index < notInFile.length; index += 400) {
+        const batch = notInFile.slice(index, index + 400);
+        await connection.execute(
+          `UPDATE staff SET on_current_list = 0, updated_at = ?
+            WHERE id IN (${batch.map(() => "?").join(", ")})`,
+          [now, ...batch],
+        );
+      }
+      leftOff = notInFile.length;
+    }
+
     const skipped = records.length - usable.length;
-    await audit(connection, actorId, "staff.imported", "staff", { created, updated, skipped });
-    return { saved: created + updated, skipped };
+    await audit(connection, actorId, "staff.imported", "staff", {
+      created,
+      updated,
+      skipped,
+      completeList: Boolean(options.completeList),
+      notOnCurrentList: leftOff,
+    });
+    return { saved: created + updated, skipped, notOnCurrentList: leftOff };
   });
 
   // Fold together any rows that are certainly one person (same name and same
@@ -630,10 +679,23 @@ export async function importStaff(records: StaffInput[], actorId: string): Promi
   // them, so the list holds each member of staff once. Only certain matches are
   // merged; look-alikes are left for the review list on the Admin page.
   const merged = await deduplicateStaff(actorId);
+  (await import("@/server/rematch")).markStale("staff");
+  // Staff added by this import are expected in the weeks already running.
+  await addMissingExpectations("staff");
+  // After merging, who is left off the current list (a merged twin is not "left off").
+  const notOnCurrentList = options.completeList
+    ? Number(
+        (
+          await queryOne<CountRow>(
+            "SELECT COUNT(*) AS total FROM staff WHERE COALESCE(on_current_list, 1) = 0",
+          )
+        )?.total ?? 0,
+      )
+    : 0;
 
   // Ensure any new departments from this import get a weekday assignment.
   await syncMassWeekdays(actorId);
-  return { ...result, duplicatesMerged: merged.duplicatesRemoved };
+  return { ...result, notOnCurrentList, duplicatesMerged: merged.duplicatesRemoved };
 }
 
 // Editing a person ------------------------------------------------------------
@@ -1212,7 +1274,7 @@ export async function previewStaffDeduplication(): Promise<{
  * extra records are removed. Returns how many scans were moved. Runs inside
  * the caller's transaction, so a failure leaves everything as it was.
  */
-async function mergeInto(
+export async function mergeInto(
   connection: DbConnection,
   kind: "student" | "staff",
   canonicalId: string,
@@ -1255,6 +1317,15 @@ async function mergeInto(
     `UPDATE mass_expected SET person_id = ? WHERE participant_type = ? AND person_id IN (${marks})`,
     [canonicalId, kind, ...ids],
   );
+  if (kind === "staff") {
+    // The kept record is on the current list if either of them was.
+    await connection.execute(
+      `UPDATE staff SET on_current_list = 1
+        WHERE id = ? AND EXISTS (
+          SELECT 1 FROM staff WHERE id IN (${marks}) AND on_current_list = 1)`,
+      [canonicalId, ...ids],
+    );
+  }
   await connection.execute(`DELETE FROM ${table} WHERE id IN (${marks})`, ids);
   await connection.execute(`UPDATE ${table} SET updated_at = ? WHERE id = ?`, [now, canonicalId]);
   return Number(counted[0]?.total ?? 0);

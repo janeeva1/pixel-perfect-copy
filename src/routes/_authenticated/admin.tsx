@@ -217,8 +217,8 @@ function AdminPage() {
       </Panel>
 
       <Panel
-        title="Synchronization"
-        description="Push and pull changes with the shared office database. Runs offline-first: this machine works alone and exchanges its edits with the hub on demand."
+        title="Advanced: MariaDB hub synchronization"
+        description="Only for offices that run their own MariaDB server. For computers in the same office, use Sync computers (in the menu) instead: it needs nothing but this app."
       >
         {/* Sync Configuration */}
         <div className="space-y-4">

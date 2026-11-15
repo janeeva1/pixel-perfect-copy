@@ -411,7 +411,10 @@ export async function buildDownload(request: DownloadRequest): Promise<DownloadR
     return { sql: clauses.join(" AND "), params };
   });
 
-  const whereSql = union.map((u) => `(${u.sql})`).join(" OR ");
+  const whereSql =
+    `(${union.map((u) => `(${u.sql})`).join(" OR ")})` +
+    // Only staff on the registrar's current list are expected.
+    (student ? "" : ` AND COALESCE(${config.personAlias}.on_current_list, 1) = 1`);
   const unionParams = union.flatMap((u) => u.params);
 
   const rawPeople = await query<PersonRow>(

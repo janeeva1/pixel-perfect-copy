@@ -13,6 +13,8 @@ import { EmptyState } from "@/components/attendance-ui";
 import { Download } from "lucide-react";
 
 const BATCH = 500;
+/** Staff go in one request (the server takes up to 2000), so "complete list" sees everyone. */
+const STAFF_BATCH = 2000;
 
 type MappedRow = {
   matricNo?: string | null;
@@ -56,6 +58,8 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
   const [file, setFile] = useState<File | null>(null);
   const [rows, setRows] = useState<MappedRow[]>([]);
   const [problem, setProblem] = useState<string | null>(null);
+  // The registrar's staffdb.xlsx is the complete, current list of staff.
+  const [completeList, setCompleteList] = useState(true);
   const queryClient = useQueryClient();
 
   const student = group === "student";
@@ -79,21 +83,31 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
   }
 
   const upload = useMutation({
-    mutationFn: async (): Promise<{ saved: number; skipped: number; merged: number }> => {
+    mutationFn: async (): Promise<{
+      saved: number;
+      skipped: number;
+      merged: number;
+      notCurrent: number;
+    }> => {
       let saved = 0;
       let skipped = 0;
       let merged = 0;
-      for (let index = 0; index < rows.length; index += BATCH) {
-        const batch = rows.slice(index, index + BATCH);
+      let notCurrent = 0;
+      const size = student ? BATCH : STAFF_BATCH;
+      // "Complete list" only means something when the server sees every row at once.
+      const whole = !student && completeList && rows.length <= STAFF_BATCH;
+      for (let index = 0; index < rows.length; index += size) {
+        const batch = rows.slice(index, index + size);
         const result = student
           ? await api.importStudents({ records: batch.filter(hasMatricNo) })
-          : await api.importStaff({ records: batch });
+          : await api.importStaff({ records: batch, completeList: whole });
         saved += result.saved;
         skipped += result.skipped;
         merged += result.duplicatesMerged ?? 0;
+        notCurrent += result.notOnCurrentList ?? 0;
       }
-      await queryClient.invalidateQueries({ queryKey: [student ? "students" : "staff"] });
-      return { saved, skipped, merged };
+      await queryClient.invalidateQueries();
+      return { saved, skipped, merged, notCurrent };
     },
   });
 
@@ -202,6 +216,27 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
             </table>
           </div>
 
+          {student ? null : (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={completeList}
+                onChange={(event) => setCompleteList(event.target.checked)}
+              />
+              <span>
+                <span className="font-medium">
+                  This file is the complete, current staff list (e.g. staffdb.xlsx)
+                </span>
+                <span className="block text-muted-foreground">
+                  Staff not in this file stop being expected at Mass and events. They are kept on
+                  record (a scan of theirs still matches) and come back if a later file includes
+                  them.
+                </span>
+              </span>
+            </label>
+          )}
+
           <Button
             disabled={upload.isPending}
             onClick={() => {
@@ -235,6 +270,9 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
           Imported {upload.data.saved.toLocaleString()} rows. The master list is now up to date.
           {upload.data.merged > 0
             ? ` ${upload.data.merged.toLocaleString()} duplicate record(s) of the same person were merged.`
+            : ""}
+          {upload.data.notCurrent > 0
+            ? ` ${upload.data.notCurrent.toLocaleString()} staff not in this file are no longer expected.`
             : ""}
         </p>
       ) : null}

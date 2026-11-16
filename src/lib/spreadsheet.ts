@@ -21,7 +21,11 @@ export async function readSpreadsheet(
   const rows = matrix.slice(1).map((line) => {
     const row: SheetRow = {};
     headers.forEach((header, index) => {
-      row[header] = String(line?.[index] ?? "").trim();
+      const value = String(line?.[index] ?? "").trim();
+      // A file can repeat a column name (the registrar's export has "level"
+      // twice, the second always empty): the first filled value wins, so an
+      // empty repeat never wipes a real one.
+      if (!(header in row) || (row[header] === "" && value !== "")) row[header] = value;
     });
     return row;
   });

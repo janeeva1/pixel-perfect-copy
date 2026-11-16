@@ -10,6 +10,7 @@ const createSchema = z.object({
   scope: z.enum(["weekday", "sunday"]).optional(),
   participantType: z.enum(["students", "staff", "both"]).optional(),
   weekdays: z.array(z.number().int().min(1).max(5)).optional(),
+  studentCategory: z.enum(["undergraduate", "postgraduate", "both"]).optional(),
 });
 
 /** Weekly Community Mass records: list them, or open a new week. */
@@ -34,6 +35,7 @@ export const Route = createFileRoute("/api/mass/weeks/")({
                 scope: body.scope,
                 participantType: body.participantType,
                 weekdays: body.weekdays ?? [],
+                studentCategory: body.studentCategory,
               },
               session.user.id,
             ),

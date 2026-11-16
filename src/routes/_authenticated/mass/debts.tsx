@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -89,6 +90,7 @@ function MassDebtsPage() {
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <Label htmlFor="debt-month">Month</Label>
+            <Hint>Show one month, or all.</Hint>
             <Select
               value={month || "all"}
               onValueChange={(value) => {
@@ -111,6 +113,7 @@ function MassDebtsPage() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="debt-group">Who</Label>
+            <Hint>Staff, students, or both.</Hint>
             <Select
               value={group || "all"}
               onValueChange={(value) => {
@@ -131,6 +134,7 @@ function MassDebtsPage() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="debt-format">Download as</Label>
+            <Hint>File type for the Download buttons.</Hint>
             <Select
               value={format}
               onValueChange={(value) =>
@@ -183,7 +187,12 @@ function MassDebtsPage() {
           ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <StatTile label="Total owed" value={naira(data.totals.amount)} tone="bad" />
+            <StatTile
+              label="Total owed"
+              value={naira(data.totals.amount)}
+              tone="bad"
+              hint="Everything owed for the month and people chosen above"
+            />
             <StatTile
               label="Staff owe"
               value={naira(data.totals.staffAmount)}
@@ -211,7 +220,18 @@ function MassDebtsPage() {
               <TabsTrigger value="months">By month ({data.byMonth.length})</TabsTrigger>
             </TabsList>
 
+            <Hint>
+              Each person: who owes and how much. By department / unit, By week, By month: the same
+              debts added up. Download saves the list you are looking at.
+            </Hint>
             <TabsContent value="people" className="mt-4 space-y-3">
+              <ColumnGuide
+                items={[
+                  ["Weeks missed", "the weeks they were absent"],
+                  ["Absences", "how many times absent"],
+                  ["Owes", "absences × the rate"],
+                ]}
+              />
               <ReportFilterBar
                 state={filter}
                 onChange={(next) => {
@@ -277,6 +297,13 @@ function MassDebtsPage() {
             </TabsContent>
 
             <TabsContent value="departments" className="mt-4 space-y-3">
+              <ColumnGuide
+                items={[
+                  ["People owing", "how many in the department owe"],
+                  ["Absences", "their absences added up"],
+                  ["Owes", "absences × the rate"],
+                ]}
+              />
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="relative w-80">
                   <Search className="pointer-events-none absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -310,6 +337,13 @@ function MassDebtsPage() {
             </TabsContent>
 
             <TabsContent value="weeks" className="mt-4 space-y-3">
+              <ColumnGuide
+                items={[
+                  ["Rate", "₦ per absence"],
+                  ["Owed", "absent × rate"],
+                  ["Status", "provisional until the week's matches are confirmed"],
+                ]}
+              />
               <div className="flex justify-end">
                 <a href={download("weeks")} download>
                   <Button variant="outline" size="sm">
@@ -425,6 +459,7 @@ function RatesEditor({ staff, student }: { staff: number; student: number }) {
             Change
           </Button>
         ) : null}
+        <Hint>Change sets the amount charged per absence (admins only).</Hint>
       </div>
     );
   }

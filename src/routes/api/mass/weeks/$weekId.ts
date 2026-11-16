@@ -9,6 +9,7 @@ const patchSchema = z.object({
   notes: z.string().trim().max(500).nullable().optional(),
   scope: z.enum(["weekday", "sunday"]).optional(),
   participantType: z.enum(["students", "staff", "both"]).optional(),
+  studentCategory: z.enum(["undergraduate", "postgraduate", "both"]).optional(),
 });
 
 /**

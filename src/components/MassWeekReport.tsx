@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { MatchReviewBanner } from "@/components/MatchReviewDialog";
@@ -63,11 +64,14 @@ export function MassWeekReport({
   weekId,
   title,
   uploadedFor = null,
+  uploadedLevel = null,
 }: {
   weekId: string;
   title?: string;
   /** The group of the latest upload on this page, if any: shown straight away. */
   uploadedFor?: MassUploadParticipant | null;
+  /** The level of the latest student upload ("" = all levels): the report follows it. */
+  uploadedLevel?: { value: string; at: number } | null;
 }) {
   const [chosen, setChosen] = useState<MassUploadParticipant | null>(null);
   const [level, setLevel] = useState("");
@@ -85,6 +89,10 @@ export function MassWeekReport({
   useEffect(() => {
     if (uploadedFor) setChosen(uploadedFor);
   }, [uploadedFor]);
+  // A file uploaded for one level: show that level's report straight away.
+  useEffect(() => {
+    if (uploadedLevel) setLevel(uploadedLevel.value);
+  }, [uploadedLevel]);
   const participant: MassUploadParticipant | null =
     covered.length === 1 ? covered[0]! : chosen && covered.includes(chosen) ? chosen : null;
 
@@ -226,6 +234,7 @@ export function MassWeekReport({
                   ))}
                 </SelectContent>
               </Select>
+              <Hint>Whose report to show.</Hint>
             </div>
           ) : null}
 
@@ -240,7 +249,7 @@ export function MassWeekReport({
                   <SelectValue placeholder="All levels" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All levels</SelectItem>
+                  <SelectItem value="all">All uploaded levels</SelectItem>
                   {(levels.data ?? []).map((value) => (
                     <SelectItem key={value} value={value}>
                       Level {value}
@@ -248,6 +257,7 @@ export function MassWeekReport({
                   ))}
                 </SelectContent>
               </Select>
+              <Hint>Show one level, or every level uploaded.</Hint>
             </div>
           ) : null}
 
@@ -268,6 +278,7 @@ export function MassWeekReport({
                 ))}
               </SelectContent>
             </Select>
+            <Hint>How rows are grouped in the downloaded file.</Hint>
           </div>
 
           <div className="space-y-1">
@@ -316,6 +327,11 @@ export function MassWeekReport({
                 </>
               )}
             </div>
+            <Hint>
+              Present / Absent list: download who attended or who did not. Out of scope: people who
+              scanned but were not expected this week. Unmatched: scans that match nobody on the
+              list. Summary: the totals by group.
+            </Hint>
           </div>
         </div>
       </Panel>
@@ -330,22 +346,34 @@ export function MassWeekReport({
       ) : (
         <>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            <StatTile label="Expected" value={result.data.expected} />
-            <StatTile label="Present" value={result.data.present} tone="good" />
+            <StatTile
+              label="Expected"
+              value={result.data.expected}
+              hint="People who should have attended this week"
+            />
+            <StatTile
+              label="Present"
+              value={result.data.present}
+              tone="good"
+              hint="Expected people who scanned"
+            />
             <StatTile
               label="Absent"
               value={result.data.absent}
               tone={result.data.absent > 0 ? "bad" : "good"}
+              hint="Expected people with no scan (charged on Mass debts)"
             />
             <StatTile
               label="Out of scope"
               value={result.data.out_of_scope}
               tone={result.data.out_of_scope > 0 ? "warn" : "default"}
+              hint="Scanned, but not expected this week (another day, not on the current list)"
             />
             <StatTile
               label="Unmatched"
               value={result.data.unmatched}
               tone={result.data.unmatched > 0 ? "warn" : "default"}
+              hint="Printed entries that are nobody on the list"
             />
           </div>
           <div className="flex items-center gap-3 text-sm text-muted-foreground">
@@ -364,6 +392,7 @@ export function MassWeekReport({
             placeholder="Search by name, staff/matric number or department"
           />
 
+          <Hint>Search and the filters narrow every tab below. Click a tab to see that list.</Hint>
           <Tabs defaultValue="present">
             <TabsList>
               <TabsTrigger value="present">
@@ -379,6 +408,15 @@ export function MassWeekReport({
                 Unmatched ({shownOf(unmatchedRows.length, result.data.unmatchedList.length)})
               </TabsTrigger>
             </TabsList>
+            <ColumnGuide
+              items={[
+                ["Number", "staff or matric number"],
+                ["Day", "the weekday their department attends"],
+                ["Scans", "how many times they scanned"],
+                ["First / Last", "earliest and latest scan time"],
+                ["Number / Name on the machine", "exactly what the machine printed"],
+              ]}
+            />
 
             <TabsContent value="present" className="mt-4">
               {presentRows.length === 0 ? (

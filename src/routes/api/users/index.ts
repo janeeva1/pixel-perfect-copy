@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import type { RowDataPacket } from "@/server/db";
-import { requireAdmin, requireSession } from "@/server/auth";
+import { requireAdmin, requireSession, updateAccount } from "@/server/auth";
 import { dialect, query } from "@/server/db";
 import { handleRoute, json, parse, readJson } from "@/server/http";
 import { HttpError } from "@/server/http";
@@ -41,6 +41,24 @@ export const Route = createFileRoute("/api/users/")({
             createdAt: row.created_at,
           }));
           return json({ users });
+        }),
+      // Change a user's name, email or password: an administrator for anyone,
+      // everyone for themselves (with their current password).
+      PATCH: ({ request }) =>
+        handleRoute(async () => {
+          const session = await requireSession();
+          const body = parse(
+            z.object({
+              userId: z.string().trim().min(1).max(36),
+              email: z.string().trim().max(200).optional(),
+              fullName: z.string().trim().max(120).nullable().optional(),
+              password: z.string().max(200).optional(),
+              currentPassword: z.string().max(200).optional(),
+            }),
+            await readJson(request),
+          );
+          await updateAccount(session, body);
+          return json({ ok: true });
         }),
       DELETE: ({ request }) =>
         handleRoute(async () => {

@@ -8,7 +8,7 @@ const nullable = z.string().trim().max(200).nullable().default(null);
 
 const uploadSchema = z.object({
   participantType: z.enum(["student", "staff"]),
-  level: z.string().trim().max(20).nullable().optional(),
+  level: z.string().trim().max(80).nullable().optional(),
   fileName: z.string().trim().min(1).max(255),
   label: z.string().trim().max(80).nullable().default(null),
   rows: z

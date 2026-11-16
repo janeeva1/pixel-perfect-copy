@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useRef, useState } from "react";
@@ -14,10 +15,13 @@ import {
 } from "@/components/ui/select";
 import { EmptyState, Panel, formatDateTime } from "@/components/attendance-ui";
 import { api } from "@/lib/api";
+import { uploadLevels } from "@/lib/attendance";
 import { pick, readSpreadsheet } from "@/lib/spreadsheet";
 import {
   MASS_STATUS_LABELS,
+  MASS_STUDENT_CATEGORY_LABELS,
   MASS_WEEKDAY_LABELS,
+  type MassStudentCategory,
   type MassUploadParticipant,
   type MassWeekParticipantType,
   type MassWeekStatus,
@@ -61,6 +65,7 @@ function MassWeekPage() {
   const [uploadLabel, setUploadLabel] = useState("");
   // The group just uploaded: the report below switches to it.
   const [lastUploaded, setLastUploaded] = useState<MassUploadParticipant | null>(null);
+  const [lastLevel, setLastLevel] = useState<{ value: string; at: number } | null>(null);
 
   const week = useQuery({
     queryKey: ["mass-week", weekId],
@@ -118,6 +123,16 @@ function MassWeekPage() {
     setStatus.mutate(status);
   };
 
+  const setCategory = useMutation({
+    mutationFn: (studentCategory: MassStudentCategory) =>
+      api.mass.updateWeek(weekId, { studentCategory }),
+    onSuccess: () => {
+      toast.success("Students expected updated");
+      refresh();
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
   const setWeekdays = useMutation({
     mutationFn: (days: number[]) => api.mass.setWeekdays(weekId, days),
     onSuccess: () => {
@@ -171,13 +186,24 @@ function MassWeekPage() {
           }));
           const result = await api.mass.upload(weekId, {
             participantType: uploadParticipant,
-            level:
-              uploadParticipant === "student" && uploadLevel.trim() ? uploadLevel.trim() : null,
+            level: uploadParticipant === "student" && uploadLevel ? uploadLevel : null,
             fileName: file.name,
             label: uploadLabel.trim() || null,
             rows,
           });
           results.push({ file: file.name, added: result.added, skipped: result.skipped });
+          if (result.otherLevels) {
+            toast.warning(
+              `${file.name}: ${result.otherLevels.students} student(s) in this file are in other levels (${result.otherLevels.levels.map((value) => `${value}L`).join(", ")}), so they are out of scope for ${uploadLevels(
+                uploadLevel,
+              )
+                .map((value) => `${value}L`)
+                .join(
+                  " and ",
+                )}. If the file holds every level, reset and upload it with “All levels”.`,
+              { duration: 15000 },
+            );
+          }
         } catch (error) {
           results.push({ file: file.name, added: 0, skipped: 0, error: (error as Error).message });
         }
@@ -189,7 +215,14 @@ function MassWeekPage() {
       for (const item of results) {
         if (item.error) toast.error(`${item.file}: ${item.error}`);
       }
-      if (results.some((item) => !item.error)) setLastUploaded(uploadParticipant);
+      if (results.some((item) => !item.error)) {
+        setLastUploaded(uploadParticipant);
+        if (uploadParticipant === "student") {
+          const picked = uploadLevels(uploadLevel);
+          // One level: show its report; several: all uploaded levels.
+          setLastLevel({ value: picked.length === 1 ? picked[0]! : "", at: Date.now() });
+        }
+      }
       refresh();
     },
     onError: (e) => toast.error(e.message),
@@ -222,6 +255,9 @@ function MassWeekPage() {
 
   const record = week.data;
   const hasUploads = (uploads.data?.uploads.length ?? 0) > 0;
+  const hasStudentUploads = (uploads.data?.uploads ?? []).some(
+    (item) => item.participant_type === "student",
+  );
   const closed = week.data?.status === "completed" || week.data?.status === "archived";
   const coveredParticipants: MassUploadParticipant[] =
     record.participant_type === "both"
@@ -236,6 +272,9 @@ function MassWeekPage() {
         title={record.name}
         description={[
           record.scope === "sunday" ? "Sunday Mass" : "Weekday Mass",
+          record.participant_type !== "staff"
+            ? MASS_STUDENT_CATEGORY_LABELS[record.student_category ?? "undergraduate"]
+            : null,
           MASS_STATUS_LABELS[record.status],
         ]
           .filter(Boolean)
@@ -282,6 +321,47 @@ function MassWeekPage() {
             </Button>
           ))}
         </div>
+        <Hint className="mt-1">
+          Draft / Active: the week is open and files can be added. Completed / Archived: the week is
+          closed and its numbers no longer change. Report on its own page opens the report full
+          screen; Delete week removes the week and all its files (admins only).
+        </Hint>
+        {record.participant_type !== "staff" ? (
+          <>
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="text-sm text-muted-foreground">Students expected:</span>
+              {(["undergraduate", "postgraduate", "both"] as const).map((category) => (
+                <Button
+                  key={category}
+                  size="sm"
+                  variant={
+                    (record.student_category ?? "undergraduate") === category
+                      ? "default"
+                      : "outline"
+                  }
+                  disabled={!canEdit || hasStudentUploads || closed || setCategory.isPending}
+                  title={
+                    hasStudentUploads
+                      ? "Locked while student files exist: reset the students first to change it."
+                      : undefined
+                  }
+                  onClick={() => setCategory.mutate(category)}
+                >
+                  {MASS_STUDENT_CATEGORY_LABELS[category]}
+                </Button>
+              ))}
+              {hasStudentUploads ? (
+                <span className="text-xs text-muted-foreground">
+                  Locked while student files exist (reset students to change).
+                </span>
+              ) : null}
+            </div>
+            <Hint className="mt-1">
+              Which students this week expects: undergraduates (VUG…), postgraduates (VPG…) or both.
+              Only they are counted absent and charged.
+            </Hint>
+          </>
+        ) : null}
         <div
           className={`mt-4 flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm ${
             closed ? "border-border bg-muted/40" : "border-amber-200 bg-amber-50/60"
@@ -365,26 +445,46 @@ function MassWeekPage() {
                   ))}
                 </SelectContent>
               </Select>
+              <Hint>Whose scans the file holds.</Hint>
             </div>
             {uploadParticipant === "student" ? (
               <div className="space-y-1">
-                <Label htmlFor="upload-level">Level (optional)</Label>
-                <Select
-                  value={uploadLevel || "all"}
-                  onValueChange={(value) => setUploadLevel(value === "all" ? "" : value)}
-                >
-                  <SelectTrigger id="upload-level" className="h-9 w-32">
-                    <SelectValue placeholder="All levels" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All levels</SelectItem>
-                    {(levels.data ?? []).map((value) => (
-                      <SelectItem key={value} value={value}>
-                        Level {value}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Level(s) in this file</Label>
+                <div className="flex flex-wrap gap-1">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant={uploadLevel === "" ? "default" : "outline"}
+                    onClick={() => setUploadLevel("")}
+                  >
+                    All levels
+                  </Button>
+                  {(levels.data ?? []).map((value) => {
+                    const chosen = uploadLevels(uploadLevel);
+                    const on = chosen.includes(value);
+                    return (
+                      <Button
+                        key={value}
+                        type="button"
+                        size="sm"
+                        variant={on ? "default" : "outline"}
+                        onClick={() =>
+                          setUploadLevel(
+                            (on
+                              ? chosen.filter((item) => item !== value)
+                              : [...chosen, value]
+                            ).join(","),
+                          )
+                        }
+                      >
+                        {value}
+                      </Button>
+                    );
+                  })}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Pick every level the file holds (e.g. 500 and 600 for a 5-600L file).
+                </p>
               </div>
             ) : null}
             <div className="space-y-1">
@@ -396,6 +496,7 @@ function MassWeekPage() {
                 value={uploadLabel}
                 onChange={(e) => setUploadLabel(e.target.value)}
               />
+              <Hint>A note to tell files apart.</Hint>
             </div>
             <input
               ref={fileRef}
@@ -421,6 +522,11 @@ function MassWeekPage() {
             </Button>
             <span className="text-xs text-muted-foreground">Expected columns: ID, NAME, Time</span>
           </div>
+          <Hint className="mt-2">
+            Choose file(s) opens your computer to pick one or more machine exports (Excel or CSV).
+            Upload staff and student files separately. Scans already uploaded are skipped, so a file
+            can safely be uploaded again.
+          </Hint>
           {upload.isError ? (
             <p className="mt-3 text-sm text-rose-600">{(upload.error as Error).message}</p>
           ) : null}
@@ -489,7 +595,9 @@ function MassWeekPage() {
                     <td className="px-3 py-2">
                       {item.participant_type === "student" ? "Students" : "Staff"}
                     </td>
-                    <td className="px-3 py-2">{item.level ?? "—"}</td>
+                    <td className="px-3 py-2">
+                      {item.level ? `Level ${item.level}` : "All levels"}
+                    </td>
                     <td className="px-3 py-2">{item.label ?? "—"}</td>
                     <td className="px-3 py-2 tabular-nums">{item.row_count}</td>
                     <td className="px-3 py-2 tabular-nums">{item.present_count}</td>
@@ -506,9 +614,25 @@ function MassWeekPage() {
         ) : (
           <EmptyState title="No uploads yet">Choose a machine file above to begin.</EmptyState>
         )}
+        <ColumnGuide
+          items={[
+            ["For", "staff or students"],
+            ["Level", "the level(s) the file was uploaded for"],
+            ["Rows", "scans in the file"],
+            ["Present", "expected people found in this file"],
+            ["Out of scope", "people found who were not expected"],
+            ["Unmatched", "entries that are nobody on the list"],
+            ["Reset", "deletes this week's files for that group so you can start again"],
+          ]}
+        />
       </Panel>
 
-      <MassWeekReport weekId={weekId} title="Report" uploadedFor={lastUploaded} />
+      <MassWeekReport
+        weekId={weekId}
+        title="Report"
+        uploadedFor={lastUploaded}
+        uploadedLevel={lastLevel}
+      />
     </div>
   );
 }

@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -83,6 +84,11 @@ function AlwaysPresentPage() {
         title="Always-present staff"
         description="Staff on this list (Vice-Chancellor, DVCs, Provost and so on) are shown present at every staff event and every staff Weekly Mass that has an upload. They are never absent and never owe on the debt page."
       >
+        <Hint className="mb-3">
+          Search for a member of staff, pick them, add their office and press Add to the list.
+          Machine number: the number the attendance machine knows them by. Remove takes them off the
+          list. Entries marked "built in" come with the app.
+        </Hint>
         {isAdmin ? (
           <div className="space-y-3">
             {picked ? (
@@ -101,6 +107,7 @@ function AlwaysPresentPage() {
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="reason">Office / reason</Label>
+                  <Hint>Their office, shown on the list.</Hint>
                   <Input
                     id="reason"
                     list="always-present-roles"

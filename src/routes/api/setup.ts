@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { handleRoute, HttpError, json, parse, readJson } from "@/server/http";
-import { isSetupComplete, createAccount } from "@/server/auth";
+import { createAccount, ensureDefaultAdmins, isSetupComplete } from "@/server/auth";
 import { query } from "@/server/db";
 
 const setupSchema = z.object({
@@ -15,6 +15,7 @@ export const Route = createFileRoute("/api/setup")({
     handlers: {
       GET: () =>
         handleRoute(async () => {
+          await ensureDefaultAdmins();
           const complete = await isSetupComplete();
           return json({ complete });
         }),

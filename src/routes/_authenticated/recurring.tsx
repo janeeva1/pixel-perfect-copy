@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
@@ -221,6 +222,10 @@ function RecurringPage() {
             One template is one day of the week, for students or for staff, so each day can be
             changed on its own. Generate the events for a semester date range in one click.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            New template opens the form. In the list: Edit changes a template, Generate creates its
+            events for the date range, Delete removes the template (events already made stay).
+          </p>
         </div>
         <Button
           onClick={() => {
@@ -312,6 +317,7 @@ function RecurringPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="event_title_template">Event Title Template</Label>
+                <Hint>The title each generated event gets.</Hint>
                 <Input
                   id="event_title_template"
                   name="event_title_template"
@@ -339,6 +345,7 @@ function RecurringPage() {
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="start_date">Start Date</Label>
+                <Hint>First date events are made for.</Hint>
                 <Input
                   id="start_date"
                   name="start_date"
@@ -351,6 +358,7 @@ function RecurringPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="end_date">End Date</Label>
+                <Hint>Last date events are made for.</Hint>
                 <Input
                   id="end_date"
                   name="end_date"
@@ -469,6 +477,7 @@ function RecurringPage() {
 
             <div className="space-y-2">
               <Label htmlFor="suffix">Title Suffix</Label>
+              <Hint>Added to the end of each generated title, e.g. a semester name.</Hint>
               <Input
                 id="suffix"
                 value={schedule.suffix ?? ""}

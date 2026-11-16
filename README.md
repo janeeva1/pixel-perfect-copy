@@ -94,7 +94,11 @@ Opens <http://127.0.0.1:3000> in your browser.
 ### Viewing Reports
 - **Weekly Mass**: the report is right under the uploads on the week's page, with the same per-person results and the downloads (CSV, Excel, PDF). A staff week shows staff, a student week shows students, and a week with both asks which one (and switches to the group you just uploaded).
 - **Search and filters** on every report table: search by name (any word order) or number (`SA 39`, `sa39` and `39` find SA39 but not SA393; `15336` finds VUG/PCS/25/15336), and filter by department/unit, weekday and level where the table has them. Tab counts show "12 of 509" while a filter is on.
-- **Students** are matched by matric/machine number alone (every number is unique), so student uploads never ask you to confirm or merge. A mistyped number with a name that only one student has still counts for that student.
+- **Students** are matched by matric/machine number (every number is unique), so student uploads never ask you to confirm or merge. A mistyped number with a name that only one student has still counts for that student. When the printed name has nothing in common with the number's owner and is clearly another student's name (`14897 MASUOMO EBIMIL` is Amasuomo Ebimi Lewisa, 14890), the name decides.
+- **Undergraduates or postgraduates**: when a Weekly Mass week covers students, you choose who is expected — Undergraduates (VUG…), Postgraduates (VPG…) or both. Only those students are expected, counted absent and charged on the debt page. It can be changed until the first student file is uploaded.
+- **Student files per level**: pick every level the file holds when you upload (one file can be for several, e.g. 500 and 600 for `5-600LVL PROCESSED.xlsx`). The week's report covers only the levels uploaded so far (a level whose file is not in yet is not shown absent), and the report under the upload switches to the level you just uploaded. A student who scanned in any of the week's files is present, whichever level's file it was (the 300L file often holds 100L and 200L students); you are told when a file holds other levels.
+- **Importing the student list** (`Main_updated.csv`): tick "complete, current student list" and students not in the file (graduated, withdrawn) stop being expected and charged; they stay on record and still match a scan. A file that repeats a column name (two `level` columns) keeps the first filled one. Departments renamed by the file ("Nursing" → "Nursing Sciences") keep their Mass weekday. Departments are matched to weekdays ignoring capitals.
+- **Import summary**: only what changed is written. Each import says, for example, "The file has 200 staff: 70 added, 2 updated, 128 already up to date."
 - **Event** → **Open reports** → Present / Absent / Late / Out of Scope
 - **Reports** page → filter by date range, department, category
 - **Download CSV** for Excel/records
@@ -219,6 +223,12 @@ Two staff records are joined into one person **only when the staff number is the
 
 ### Unmatched
 "Unmatched" counts the different entries the machine printed that are nobody on the list — one per number + name, however many times it was scanned and in however many files (`039 ADA OKO` and `39 Ada Oko` are one entry). The card, the Unmatched tab, the per-file table and the downloads all show this same number. The per-file table shows each file's numbers as they are now.
+
+### Accounts
+- Every installation has two administrator accounts, created the first time the app starts if they are not there yet: `bassan@veritas.edu.ng` and `tapiyadi@veritas.edu.ng`, password `welcome@123`. **Change these passwords after the first sign-in** (My account, at the bottom of the menu). An account that already exists is never reset.
+- **My account** (everyone): change your name, sign-in email or password; your current password is asked for before the email or password changes.
+- **Users & Permissions** (admins): change anyone's role, name, email or password (Edit), or delete an account. Nobody can delete their own account or remove their own admin role.
+- **Staff** (admins): the bin button deletes a member of staff; their scans stay but match nobody, and they are no longer expected in open weeks and events.
 
 ### Confirming uncertain matches (before any report)
 After an upload, Weekly Mass and event pages show an amber **Confirm before reporting** banner (button **Review now**), and the window opens by itself for editors. It has two kinds of questions:

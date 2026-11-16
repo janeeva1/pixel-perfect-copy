@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "@tanstack/react-router";
@@ -131,6 +132,7 @@ export function EventForm({
         <label className="text-sm font-medium" htmlFor={`${group}-title`}>
           Event title
         </label>
+        <Hint>A name people will recognise.</Hint>
         <Input
           id={`${group}-title`}
           required
@@ -147,6 +149,7 @@ export function EventForm({
         <label className="text-sm font-medium" htmlFor={`${group}-event-category`}>
           Event type
         </label>
+        <Hint>What kind of event it is, for reports.</Hint>
         <Select
           value={form.eventCategory}
           onValueChange={(value) => set({ eventCategory: value as EventCategory })}
@@ -168,6 +171,7 @@ export function EventForm({
         <label className="text-sm font-medium" htmlFor={`${group}-date`}>
           Date
         </label>
+        <Hint>The day it took place.</Hint>
         <Input
           id={`${group}-date`}
           type="date"
@@ -182,6 +186,7 @@ export function EventForm({
           <label className="text-sm font-medium" htmlFor={`${group}-start`}>
             Opens (optional)
           </label>
+          <Hint>Scans before this are flagged on the report.</Hint>
           <Input
             id={`${group}-start`}
             type="time"
@@ -193,6 +198,7 @@ export function EventForm({
           <label className="text-sm font-medium" htmlFor={`${group}-end`}>
             Closes (optional)
           </label>
+          <Hint>Scans after this are flagged on the report.</Hint>
           <Input
             id={`${group}-end`}
             type="time"
@@ -206,6 +212,7 @@ export function EventForm({
         <>
           <div className="space-y-1">
             <label className="text-sm font-medium">Category</label>
+            <Hint>Undergraduates, postgraduates or all students.</Hint>
             <Select
               value={form.category}
               onValueChange={(value) => set({ category: value as StudentCategory | "all" })}
@@ -222,6 +229,7 @@ export function EventForm({
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium">Level</label>
+            <Hint>Only students of this level are expected (or all levels).</Hint>
             <Select value={form.level} onValueChange={(value) => set({ level: value })}>
               <SelectTrigger>
                 <SelectValue />

@@ -355,11 +355,25 @@ export const api = {
       departments: Array<{ department: string; day: number }>;
     }>("/api/mass/sync-weekdays", { method: "POST" }),
   importStudents: (input: ImportStudentsInput) => post<ImportResult>("/api/students/import", input),
+  setStudentCurrentList: (matricNumbers: string[]) =>
+    post<{ current: number; notOnCurrentList: number; removedFromOpenWeeks: number }>(
+      "/api/students/current-list",
+      { matricNumbers },
+    ),
   importStaff: (input: ImportStaffInput) => post<ImportResult>("/api/staff/import", input),
   updateStudent: (studentId: string, input: StudentEditInput) =>
     patch<{ ok: true; staleWeeks: string[] }>(`/api/students/${studentId}`, input),
   updateStaff: (staffId: string, input: StaffEditInput) =>
     patch<{ ok: true; staleWeeks: string[] }>(`/api/staff/${staffId}`, input),
+  deleteStaff: (staffId: string) =>
+    request<{ ok: true }>(`/api/staff/${staffId}`, { method: "DELETE" }),
+  updateAccount: (input: {
+    userId: string;
+    email?: string;
+    fullName?: string | null;
+    password?: string;
+    currentPassword?: string;
+  }) => patch<{ ok: true }>("/api/users", input),
 
   studentEvents: (params: EventListParams = {}) =>
     request<StudentEvent[]>(`/api/student-events${search(params)}`),
@@ -442,6 +456,7 @@ export const api = {
       scope?: "weekday" | "sunday";
       participantType?: "students" | "staff" | "both";
       weekdays?: number[];
+      studentCategory?: "undergraduate" | "postgraduate" | "both";
     }) => post<MassWeek>("/api/mass/weeks", input),
     week: (weekId: string) => request<MassWeek>(`/api/mass/weeks/${weekId}`),
     updateWeek: (
@@ -449,6 +464,7 @@ export const api = {
       input: {
         name?: string;
         notes?: string | null;
+        studentCategory?: "undergraduate" | "postgraduate" | "both";
       },
     ) =>
       request<MassWeek>(`/api/mass/weeks/${weekId}`, {
@@ -484,6 +500,7 @@ export const api = {
       summary: MassSummary;
       added: number;
       skipped: number;
+      otherLevels?: { students: number; levels: string[] };
     }> => post(`/api/mass/weeks/${weekId}/uploads`, input),
     reset: (weekId: string, participantType: "student" | "staff") =>
       post<{ ok: boolean }>(`/api/mass/weeks/${weekId}/reset`, { participantType }),

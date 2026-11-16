@@ -45,6 +45,11 @@ function Dashboard() {
             Students and staff are tracked separately, each with their own events, reports and
             charts.
           </p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Import Data: load the staff and student lists. Recurring Events: set up events that
+            repeat every week. Admin Settings: clearing data, updates and other settings. Use the
+            menu on the left for Weekly Mass, events, people and reports.
+          </p>
         </div>
         {canEdit ? (
           <div className="flex flex-wrap gap-2">

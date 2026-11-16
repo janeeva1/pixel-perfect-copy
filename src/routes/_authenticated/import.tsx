@@ -1,3 +1,5 @@
+import { toast } from "sonner";
+import { importSummary } from "@/lib/attendance";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -44,6 +46,7 @@ function ImportPage() {
   const [file, setFile] = useState<File | null>(null);
   const [label, setLabel] = useState("");
   const [preview, setPreview] = useState<Array<Record<string, string>> | null>(null);
+  const [studentCompleteList, setStudentCompleteList] = useState(true);
 
   const studentImport = useMutationWithToast(
     async (file: File) => {
@@ -59,7 +62,40 @@ function ImportPage() {
           maritalStatus: pick(row, "marital_status", "maritalstatus", "marital"),
         }))
         .filter((r) => r.matricNo);
-      return api.importStudents({ records: rowsData });
+      // The server takes 2000 rows at a time; the registrar's file has more.
+      let saved = 0;
+      const carried: Array<{ department: string; from: string; day: number }> = [];
+      const counts = { inFile: 0, added: 0, updated: 0, unchanged: 0, repeated: 0, skipped: 0 };
+      for (let index = 0; index < rowsData.length; index += 500) {
+        const batch = rowsData.slice(index, index + 500);
+        const result = await api.importStudents({ records: batch });
+        saved += result.saved;
+        carried.push(...(result.departmentsCarried ?? []));
+        counts.inFile += result.inFile ?? batch.length;
+        counts.added += result.added ?? 0;
+        counts.updated += result.updated ?? 0;
+        counts.unchanged += result.unchanged ?? 0;
+        counts.repeated += result.repeated ?? 0;
+        counts.skipped += result.skipped ?? 0;
+      }
+      toast.success(importSummary("students", counts), { duration: 15000 });
+      let notCurrent = 0;
+      if (studentCompleteList) {
+        notCurrent = (await api.setStudentCurrentList(rowsData.map((r) => r.matricNo)))
+          .notOnCurrentList;
+      }
+      if (carried.length > 0) {
+        toast.info(
+          `Renamed departments kept their Mass day: ${carried.map((c) => `${c.from} → ${c.department}`).join(", ")}.`,
+          { duration: 15000 },
+        );
+      }
+      if (notCurrent > 0) {
+        toast.info(`${notCurrent} students not in this file are no longer expected.`, {
+          duration: 15000,
+        });
+      }
+      return { saved };
     },
     {
       successMessage: "Students imported successfully",
@@ -82,7 +118,19 @@ function ImportPage() {
       const rowsData = rows
         .map(staffRecordFromRow)
         .filter((r) => r.staffNo || (r.lastName && r.firstName));
-      return api.importStaff({ records: rowsData });
+      const result = await api.importStaff({ records: rowsData });
+      toast.success(
+        importSummary("staff", {
+          inFile: result.inFile ?? rowsData.length,
+          added: result.added ?? 0,
+          updated: result.updated ?? 0,
+          unchanged: result.unchanged ?? 0,
+          repeated: result.repeated ?? 0,
+          skipped: result.skipped ?? 0,
+        }),
+        { duration: 15000 },
+      );
+      return result;
     },
     {
       successMessage: "Staff imported successfully",
@@ -138,6 +186,11 @@ function ImportPage() {
           Upload CSV or Excel files to import students or staff. Download templates for the correct
           format.
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Download Template gives an empty file with the right column names. Choose File picks your
+          file; a preview of the first rows appears so you can check it. Import adds new people and
+          updates changed ones, and tells you how many were added, updated or already up to date.
+        </p>
       </header>
 
       <Tabs
@@ -165,7 +218,7 @@ function ImportPage() {
                   Download the CSV template with correct column headers
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex items-center gap-4">
+              <CardContent className="flex flex-wrap items-center gap-4">
                 <Button variant="outline" onClick={() => downloadTemplate("students")}>
                   <Download className="mr-2 h-4 w-4" />
                   Download Student Template
@@ -223,6 +276,23 @@ function ImportPage() {
                   onChange={(e) => setLabel(e.target.value)}
                   disabled={studentImport.isPending}
                 />
+                <label className="flex items-start gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={studentCompleteList}
+                    onChange={(event) => setStudentCompleteList(event.target.checked)}
+                  />
+                  <span>
+                    <span className="font-medium">
+                      This file is the complete, current student list (e.g. Main_updated.csv)
+                    </span>
+                    <span className="block text-muted-foreground">
+                      Students not in it (graduated, withdrawn) stop being expected and are not
+                      charged. Untick for a file with only some students.
+                    </span>
+                  </span>
+                </label>
                 <Button
                   onClick={() => file && studentImport.mutate(file)}
                   disabled={!file || studentImport.isPending}
@@ -289,7 +359,7 @@ function ImportPage() {
                   Download the CSV template with correct column headers
                 </CardDescription>
               </CardHeader>
-              <CardContent className="flex items-center gap-4">
+              <CardContent className="flex flex-wrap items-center gap-4">
                 <Button variant="outline" onClick={() => downloadTemplate("staff")}>
                   <Download className="mr-2 h-4 w-4" />
                   Download Staff Template

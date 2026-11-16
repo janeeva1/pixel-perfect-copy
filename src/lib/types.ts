@@ -131,6 +131,16 @@ export type ImportResult = {
   duplicatesMerged?: number;
   /** Staff, complete-list import: people not in the file, no longer expected. */
   notOnCurrentList?: number;
+  /** Rows in the file, and what became of them. */
+  inFile?: number;
+  added?: number;
+  updated?: number;
+  /** Already on the list with nothing different: left as they were. */
+  unchanged?: number;
+  /** The same person listed again further down the file. */
+  repeated?: number;
+  /** Departments renamed by the file that kept their Mass weekday. */
+  departmentsCarried?: Array<{ department: string; from: string; day: number }>;
 };
 
 // Events ------------------------------------------------------------------
@@ -518,6 +528,14 @@ export type MassWeekdayAssignment = {
   updated_at: string;
 };
 
+export type MassStudentCategory = "undergraduate" | "postgraduate" | "both";
+
+export const MASS_STUDENT_CATEGORY_LABELS: Record<MassStudentCategory, string> = {
+  undergraduate: "Undergraduates",
+  postgraduate: "Postgraduates",
+  both: "Undergraduates & postgraduates",
+};
+
 export type MassWeek = {
   id: string;
   name: string;
@@ -527,6 +545,8 @@ export type MassWeek = {
   status: MassWeekStatus;
   /** The weekdays selected for this week, sorted. Empty for Sunday scope. */
   weekdays: number[];
+  /** Which students it expects. */
+  student_category: MassStudentCategory;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -119,6 +120,7 @@ function MassWeekdaysPage() {
         <div className="grid gap-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
           <div className="space-y-2">
             <Label htmlFor="department">Department</Label>
+            <Hint>A department from the staff or student list.</Hint>
             <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
               <SelectTrigger id="department" className="w-full">
                 <SelectValue placeholder="Pick a department" />
@@ -140,6 +142,7 @@ function MassWeekdaysPage() {
           </div>
           <div className="space-y-2">
             <Label htmlFor="day">Weekday</Label>
+            <Hint>The day its people are expected at weekday Mass.</Hint>
             <Select value={selectedDay} onValueChange={setSelectedDay}>
               <SelectTrigger id="day" className="w-full">
                 <SelectValue />
@@ -168,6 +171,13 @@ function MassWeekdaysPage() {
         title="Current assignments"
         description="Switch a department off to stop expecting it at new weeks without forgetting its weekday."
       >
+        <ColumnGuide
+          items={[
+            ["Weekday", "the day the department attends"],
+            ["Active", "untick to stop expecting the department without deleting it"],
+            ["Remove", "deletes the assignment"],
+          ]}
+        />
         {rows.length === 0 ? (
           <EmptyState title="No departments assigned yet">
             Assign each department a weekday above.

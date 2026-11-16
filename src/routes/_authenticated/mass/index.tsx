@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -19,6 +20,8 @@ import { api } from "@/lib/api";
 import {
   MASS_STATUS_LABELS,
   MASS_WEEKDAY_LABELS,
+  MASS_STUDENT_CATEGORY_LABELS,
+  type MassStudentCategory,
   type MassWeek,
   type MassWeekParticipantType,
   type MassWeekStatus,
@@ -88,6 +91,10 @@ function MassWeeksPage() {
           ) : null
         }
       >
+        <Hint className="mb-3">
+          Department weekdays: choose which day each department attends Mass. Sync Weekdays: give a
+          day to any new department from the staff or student list. Click a week card to open it.
+        </Hint>
         {weeks.isError ? (
           <p role="alert" className="text-sm text-rose-600">
             {(weeks.error as Error).message}
@@ -114,6 +121,9 @@ function MassWeeksPage() {
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {PARTICIPANT_LABELS[week.participant_type]}
+                  {week.participant_type !== "staff"
+                    ? ` · ${MASS_STUDENT_CATEGORY_LABELS[week.student_category ?? "undergraduate"]}`
+                    : ""}
                 </p>
                 <div className="mt-3 flex flex-wrap items-center gap-2">
                   {week.scope === "sunday" ? (
@@ -148,6 +158,7 @@ function CreateWeekPanel() {
   const [scope, setScope] = useState<"weekday" | "sunday">("weekday");
   const [participantType, setParticipantType] = useState<MassWeekParticipantType>("both");
   const [weekdays, setWeekdays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [studentCategory, setStudentCategory] = useState<MassStudentCategory | "">("");
 
   const create = useMutation({
     mutationFn: () =>
@@ -157,6 +168,7 @@ function CreateWeekPanel() {
         scope,
         participantType,
         weekdays: scope === "weekday" ? weekdays : [],
+        ...(studentCategory ? { studentCategory } : {}),
       }),
     onSuccess: (week) => {
       toast.success("Week created");
@@ -172,7 +184,11 @@ function CreateWeekPanel() {
     );
   }
 
-  const blocked = !name.trim() || (scope === "weekday" && weekdays.length === 0);
+  const forStudents = participantType !== "staff";
+  const blocked =
+    !name.trim() ||
+    (scope === "weekday" && weekdays.length === 0) ||
+    (forStudents && studentCategory === "");
 
   return (
     <Panel
@@ -182,6 +198,7 @@ function CreateWeekPanel() {
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="mass-name">Name</Label>
+          <Hint>A name you will recognise, e.g. Week 3 Community Mass.</Hint>
           <Input
             id="mass-name"
             placeholder="e.g. Week 3 Community Mass"
@@ -191,6 +208,10 @@ function CreateWeekPanel() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="mass-scope">Scope</Label>
+          <Hint>
+            Weekday: only departments assigned to the chosen days are expected. Sunday: everyone is
+            expected.
+          </Hint>
           <Select
             value={scope}
             onValueChange={(value) => setScope(value === "sunday" ? "sunday" : "weekday")}
@@ -206,6 +227,7 @@ function CreateWeekPanel() {
         </div>
         <div className="space-y-2">
           <Label htmlFor="mass-participants">Who it is for</Label>
+          <Hint>Whose attendance this week records.</Hint>
           <Select
             value={participantType}
             onValueChange={(value) =>
@@ -222,8 +244,30 @@ function CreateWeekPanel() {
             </SelectContent>
           </Select>
         </div>
+        {forStudents ? (
+          <div className="space-y-2">
+            <Label htmlFor="mass-category">Which students are expected</Label>
+            <Select
+              value={studentCategory}
+              onValueChange={(value) => setStudentCategory(value as MassStudentCategory)}
+            >
+              <SelectTrigger id="mass-category" className="w-full">
+                <SelectValue placeholder="Choose undergraduates or postgraduates" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="undergraduate">Undergraduates</SelectItem>
+                <SelectItem value="postgraduate">Postgraduates</SelectItem>
+                <SelectItem value="both">Undergraduates &amp; postgraduates</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              Only these students are expected, counted absent and charged.
+            </p>
+          </div>
+        ) : null}
         <div className="space-y-2 sm:col-span-2">
           <Label htmlFor="mass-notes">Notes</Label>
+          <Hint>Anything worth remembering about this week.</Hint>
           <Input
             id="mass-notes"
             placeholder="Optional"

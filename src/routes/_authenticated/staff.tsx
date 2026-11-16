@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useState } from "react";
@@ -16,7 +17,7 @@ import { MasterEditDialog, type EditField } from "@/components/MasterEditDialog"
 import { api, type StaffListParams } from "@/lib/api";
 import { useRoles } from "@/lib/useAuth";
 import type { Staff } from "@/lib/types";
-import { Download, Pencil, RotateCcw } from "lucide-react";
+import { Download, Pencil, RotateCcw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 export type StaffSearch = {
@@ -49,7 +50,15 @@ function StaffPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const { canEdit } = useRoles();
+  const { canEdit, isAdmin } = useRoles();
+  const removeStaff = useMutation({
+    mutationFn: (id: string) => api.deleteStaff(id),
+    onSuccess: () => {
+      toast.success("Removed from the staff list.");
+      void queryClient.invalidateQueries({ queryKey: ["staff"] });
+    },
+    onError: (error) => toast.error((error as Error).message),
+  });
 
   const term = search.search ?? "";
   const params: StaffListParams = {
@@ -183,6 +192,7 @@ function StaffPage() {
           </Button>
         ) : null}
       </header>
+      <Hint>Refresh reloads the list after changes made on another computer.</Hint>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <StatTile label="Staff" value={list.data?.total} />
@@ -230,6 +240,12 @@ function StaffPage() {
           </div>
         }
       >
+        <Hint className="mb-2">
+          Download CSV saves the whole list. Sync Weekdays gives a Mass day to any new department.
+          Search by name or staff number. Admin dept.: the older department column from the
+          registrar's file. The pencil button corrects a staff member's details; the bin deletes
+          them (admins only).
+        </Hint>
         {staff.length === 0 ? (
           <EmptyState title="No staff match">
             {list.isLoading
@@ -270,14 +286,38 @@ function StaffPage() {
                     person.department ?? "—",
                     person.admin_department ?? "—",
                     canEdit ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditing(person)}
-                        aria-label={`Edit ${person.full_name}`}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
+                      <span className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditing(person)}
+                          aria-label={`Edit ${person.full_name}`}
+                          title="Edit"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        {isAdmin ? (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-rose-600"
+                            disabled={removeStaff.isPending}
+                            onClick={() => {
+                              if (
+                                window.confirm(
+                                  `Delete ${person.full_name} from the staff list? Their scans stay but match nobody, and they are no longer expected anywhere. This cannot be undone.`,
+                                )
+                              ) {
+                                removeStaff.mutate(person.id);
+                              }
+                            }}
+                            aria-label={`Delete ${person.full_name}`}
+                            title="Delete"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : null}
+                      </span>
                     ) : null,
                   ]}
                 />

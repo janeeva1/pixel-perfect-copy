@@ -34,7 +34,10 @@ function StudentEvents() {
       </header>
 
       {canEdit ? (
-        <Panel title="New event">
+        <Panel
+          title="New event"
+          description="Fill in the details and press Create. Then open the event to upload its machine files."
+        >
           <EventForm
             group="student"
             levels={students.data?.levels ?? []}
@@ -43,7 +46,10 @@ function StudentEvents() {
         </Panel>
       ) : null}
 
-      <Panel title="Events">
+      <Panel
+        title="Events"
+        description="Click an event to open it. Open: files can still be added. Closed: its numbers no longer change. The button on the right closes or reopens it."
+      >
         {(list.data ?? []).length === 0 ? (
           <EmptyState title="No events yet">
             {list.isLoading ? "Loading…" : "Create the first student event above."}

@@ -261,7 +261,8 @@ async function loadLookup(config: GroupConfig): Promise<Lookup> {
                 COALESCE(f.on_current_list, 1) AS current
          FROM staff f`
       : `SELECT s.id, ${config.scanNumber} AS machine_number, NULL AS machine_number2,
-                NULL AS staff_no, s.last_name, s.first_name, s.middle_name, 1 AS current
+                NULL AS staff_no, s.last_name, s.first_name, s.middle_name,
+                COALESCE(s.on_current_list, 1) AS current
          FROM students s`,
   );
   const [identity, aliasRows] = await Promise.all([
@@ -489,22 +490,40 @@ function matchStudent(
   machineId: string | null,
   scannedName: string,
 ): Match {
+  const words = scannedName ? scannedName.split(" ").filter(Boolean) : [];
+  let owner: Candidate | null = null;
   for (const value of [machineId, scanNumber]) {
-    if (!value) continue;
+    if (!value || owner) continue;
     const people = new Set<Candidate>();
     for (const key of numberKeys(value.trim()))
       for (const person of lookup.byMachine.get(key) ?? []) people.add(person);
-    if (people.size === 1) {
-      const [person] = [...people];
-      return {
-        id: person!.id,
-        method: "number",
-        originalMethod: "machine_id",
-        review: false,
-        candidates: [],
-      };
-    }
+    if (people.size === 1) owner = [...people][0]!;
   }
+  const byNumber = (person: Candidate): Match => ({
+    id: person.id,
+    method: "number",
+    originalMethod: "machine_id",
+    review: false,
+    candidates: [],
+  });
+  // The matric number decides -- unless the printed name has nothing at all in
+  // common with its owner (not a word, not a shortened or misspelt one) and
+  // is clearly another student's name ("14897 MASUOMO EBIMIL" is Amasuomo
+  // Ebimi Lewisa, 14890, not Omoruyi Judith, 14897). Then the name decides.
+  if (owner && (words.length === 0 || fit(words, owner).total > 0)) return byNumber(owner);
+  const byNameMatch = studentByName(lookup, scannedName, words);
+  if (byNameMatch) return byNameMatch;
+  if (owner) return byNumber(owner);
+  return NO_MATCH;
+}
+
+/**
+ * The one student whose name the printed name is: exactly, with every printed
+ * word, cut short by the machine, or -- when nobody fits that well -- with
+ * every printed word a close spelling of one of theirs. Null when no single
+ * student fits.
+ */
+function studentByName(lookup: Lookup, scannedName: string, words: string[]): Match | null {
   const byName = scannedName ? lookup.byName.get(scannedName) : undefined;
   if (byName) {
     return { id: byName, method: "name", originalMethod: "name", review: false, candidates: [] };
@@ -512,7 +531,6 @@ function matchStudent(
   // A mistyped number ("149111" for 14911) with the student's name: the name
   // decides when exactly one student has every printed word, or when exactly
   // one student's name it is, cut short by the machine ("ONI MICHELLE P").
-  const words = scannedName ? scannedName.split(" ") : [];
   const whole = wholeNameMatch(lookup, words);
   if (whole) {
     return { id: whole, method: "name", originalMethod: "name", review: false, candidates: [] };
@@ -521,7 +539,7 @@ function matchStudent(
     let found: string | null = null;
     for (const person of lookup.everyone) {
       if (!person.names.some((full) => isShortenedName(scannedName, full, 2))) continue;
-      if (found !== null && found !== person.id) return NO_MATCH;
+      if (found !== null && found !== person.id) return null;
       found = person.id;
     }
     if (found) {
@@ -533,8 +551,23 @@ function matchStudent(
         candidates: [],
       };
     }
+    // Every printed word a close spelling of one of theirs (a letter dropped or
+    // added: "MASUOMO" / AMASUOMO, "EBIMIL" / EBIMI), and only one student.
+    const close = lookup.everyone.filter(
+      (person) =>
+        words.every((word) => word.length >= 3) && fit(words, person).total === words.length,
+    );
+    if (close.length === 1) {
+      return {
+        id: close[0]!.id,
+        method: "name",
+        originalMethod: "fuzzy_name",
+        review: false,
+        candidates: [],
+      };
+    }
   }
-  return NO_MATCH;
+  return null;
 }
 
 /**

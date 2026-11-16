@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { handleRoute, json } from "@/server/http";
 import { ensurePeerServices } from "@/server/peer";
+import { ensureDefaultAdmins } from "@/server/auth";
 
 /**
  * Called by the desktop app once its server is up, so a Main computer starts
@@ -13,6 +14,7 @@ export const Route = createFileRoute("/api/peer/boot")({
     handlers: {
       GET: () =>
         handleRoute(async () => {
+          await ensureDefaultAdmins();
           ensurePeerServices();
           return json({ ok: true });
         }),

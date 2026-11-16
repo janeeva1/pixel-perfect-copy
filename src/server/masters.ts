@@ -23,7 +23,13 @@ import type {
   StaffScope,
 } from "@/lib/types";
 import { HttpError } from "@/server/http";
-import { addMissingExpectations, refreshMassExpectations, syncMassWeekdays } from "@/server/mass";
+import {
+  addMissingExpectations,
+  carryDepartmentWeekdays,
+  pruneNotCurrent,
+  refreshMassExpectations,
+  syncMassWeekdays,
+} from "@/server/mass";
 import {
   matricKey,
   staffCanonicalMap,
@@ -201,7 +207,8 @@ export function staffScanNumberSql(alias = "f"): string {
  * three chances to disagree about who was expected.
  */
 export function studentScopeWhere(scope: StudentScope, params: SqlParam[], alias = "s"): string {
-  const clauses = ["1 = 1"];
+  // Only students on the current list (see "complete list" on import) are expected.
+  const clauses = [`COALESCE(${alias}.on_current_list, 1) = 1`];
   if (scope.category) {
     clauses.push(`(${studentCategorySql(alias)}) = ?`);
     params.push(scope.category);
@@ -337,6 +344,16 @@ function studentDepartment(matricNo: string, provided: string | null): string | 
   return code ? (STUDENT_DEPARTMENT_BY_CODE[code] ?? null) : null;
 }
 
+/** Two stored values that mean the same: blanks are equal, spacing and case of text ignored. */
+function same(a: unknown, b: unknown): boolean {
+  const clean = (value: unknown) =>
+    String(value ?? "")
+      .trim()
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+  return clean(a) === clean(b);
+}
+
 /**
  * Stores an uploaded student list. matric_no is the natural key, so a corrected
  * re-upload updates the same rows instead of creating duplicates. The file's id
@@ -370,12 +387,24 @@ export async function importStudents(
   // ignored, so a file that writes "vug/csc/25/01001" updates
   // "VUG/CSC/25/1001" instead of adding the same student a second time -- and
   // only a student not on the list is added.
+  const moves = new Map<string, Map<string, number>>();
   const result = await transaction(async (connection) => {
     let saved = 0;
     let skipped = 0;
-    const [existing] = await connection.query<Array<RowDataPacket & StudentIdentityRow>>(
-      "SELECT id, matric_no, updated_at FROM students",
+    const [existing] = await connection.query<
+      Array<RowDataPacket & StudentIdentityRow & { department: string | null }>
+    >(
+      `SELECT id, matric_no, updated_at, department, last_name, first_name, middle_name, level,
+              marital_status
+         FROM students`,
     );
+    const stored = new Map(existing.map((row) => [row.id, row]));
+    const seen = new Set<string>();
+    let added = 0;
+    let updated = 0;
+    let unchanged = 0;
+    let repeated = 0;
+    const departmentOf = new Map(existing.map((row) => [row.id, row.department ?? null]));
     const canonical = studentCanonicalMap(existing);
     const byKey = new Map<string, string>();
     const byExact = new Map<string, string>();
@@ -391,10 +420,43 @@ export async function importStudents(
       const key = matricKey(record.matric);
       const targetId = byExact.get(record.matric) ?? (key ? byKey.get(key) : undefined);
       if (targetId) {
+        // A department renamed by the file: remember where its people came
+        // from, so the new name keeps the old name's Mass weekday.
+        const oldDepartment = departmentOf.get(targetId)?.trim();
+        const newDepartment = record.department?.trim();
+        if (
+          oldDepartment &&
+          newDepartment &&
+          oldDepartment.toLowerCase() !== newDepartment.toLowerCase()
+        ) {
+          const sources = moves.get(newDepartment) ?? new Map<string, number>();
+          sources.set(oldDepartment, (sources.get(oldDepartment) ?? 0) + 1);
+          moves.set(newDepartment, sources);
+        }
         // Keep the file's spelling of the matric number unless another record
         // already holds that exact text (matric_no is unique).
         const holder = byExact.get(record.matric);
         const matric = holder === undefined || holder === targetId ? record.matric : null;
+        if (seen.has(targetId)) {
+          repeated += 1;
+          continue;
+        }
+        seen.add(targetId);
+        const now0 = stored.get(targetId) as Record<string, string | null> | undefined;
+        if (
+          now0 &&
+          (matric === null || same(now0["matric_no"], matric)) &&
+          same(now0["last_name"], record.lastName) &&
+          same(now0["first_name"], record.firstName) &&
+          same(now0["middle_name"], record.middleName) &&
+          same(now0["level"], record.level) &&
+          same(now0["department"], record.department) &&
+          same(now0["marital_status"], record.maritalStatus)
+        ) {
+          unchanged += 1;
+          continue;
+        }
+        updated += 1;
         await connection.execute(
           `UPDATE students SET matric_no = COALESCE(?, matric_no), last_name = ?, first_name = ?,
              middle_name = ?, level = ?, department = ?, marital_status = ?, updated_at = ?
@@ -433,12 +495,27 @@ export async function importStudents(
         );
         byExact.set(record.matric, id);
         if (key) byKey.set(key, id);
+        seen.add(id);
+        added += 1;
       }
       saved += 1;
     }
 
-    await audit(connection, actorId, "students.imported", "students", { saved, skipped });
-    return { saved, skipped };
+    await audit(connection, actorId, "students.imported", "students", {
+      added,
+      updated,
+      unchanged,
+      skipped,
+    });
+    return {
+      saved: added + updated,
+      skipped,
+      inFile: records.length,
+      added,
+      updated,
+      unchanged,
+      repeated,
+    };
   });
 
   // Fold together any records that are one student (e.g. created on another
@@ -448,9 +525,66 @@ export async function importStudents(
   // Students added by this import are expected in the weeks already running.
   await addMissingExpectations("student");
 
-  // Ensure any new departments from this import get a weekday assignment.
+  // Renamed departments keep their weekday; any other new department gets one.
+  const carried = await carryDepartmentWeekdays(moves, actorId);
   await syncMassWeekdays(actorId);
-  return { ...result, duplicatesMerged: merged.duplicatesRemoved };
+  return {
+    ...result,
+    duplicatesMerged: merged.duplicatesRemoved,
+    ...(carried.length > 0 ? { departmentsCarried: carried } : {}),
+  };
+}
+
+/**
+ * The student file just imported (possibly in several parts) is the complete,
+ * current list: every student in it is current, everyone else is not -- they
+ * stop being expected at Mass and events (and are taken off open weeks'
+ * expected lists unless they scanned), but stay on record and still match a
+ * scan. Returns how many students are left off.
+ */
+export async function setStudentCurrentList(
+  matricNumbers: string[],
+  actorId: string,
+): Promise<{ current: number; notOnCurrentList: number; removedFromOpenWeeks: number }> {
+  const inFile = new Set(matricNumbers.map((value) => matricKey(value)).filter(Boolean));
+  if (inFile.size === 0) throw new HttpError(400, "The file has no matric numbers.");
+  const rows = await query<RowDataPacket & { id: string; matric_no: string | null }>(
+    "SELECT id, matric_no FROM students",
+  );
+  const current: string[] = [];
+  const notCurrent: string[] = [];
+  for (const row of rows)
+    (inFile.has(matricKey(row.matric_no)) ? current : notCurrent).push(row.id);
+  // A file that matches almost nobody is the wrong file, not a new list.
+  if (current.length < rows.length * 0.5) {
+    throw new HttpError(
+      400,
+      `Only ${current.length} of the ${rows.length} students on the app are in this file, so it does not look like the complete list. Nothing was changed.`,
+    );
+  }
+  const now = utcStamp();
+  await transaction(async (connection) => {
+    for (const [ids, value] of [
+      [current, 1],
+      [notCurrent, 0],
+    ] as const) {
+      for (let index = 0; index < ids.length; index += 400) {
+        const batch = ids.slice(index, index + 400);
+        await connection.execute(
+          `UPDATE students SET on_current_list = ?, updated_at = ?
+            WHERE COALESCE(on_current_list, 1) <> ? AND id IN (${batch.map(() => "?").join(", ")})`,
+          [value, now, value, ...batch],
+        );
+      }
+    }
+    await audit(connection, actorId, "students.current_list", "students", {
+      current: current.length,
+      notOnCurrentList: notCurrent.length,
+    });
+  });
+  const removedFromOpenWeeks = await pruneNotCurrent("student");
+  (await import("@/server/rematch")).markStale("student");
+  return { current: current.length, notOnCurrentList: notCurrent.length, removedFromOpenWeeks };
 }
 
 /**
@@ -496,11 +630,15 @@ export async function importStaff(
   const usable = parsed.filter((record) => record.staffNo !== null || personName(record));
 
   const result = await transaction(async (connection) => {
-    const [existing] = await connection.query<Array<RowDataPacket & StaffIdentityRow>>(
+    const [existing] = await connection.query<
+      Array<RowDataPacket & StaffIdentityRow & Record<string, string | null>>
+    >(
       `SELECT id, staff_no, last_name, first_name, middle_name, staff_id_on_machine, machine_id,
-              updated_at
+              faculty, department, admin_department, designation, staff_category, updated_at
          FROM staff`,
     );
+    // What each record holds now, to tell a real change from a row already up to date.
+    const stored = new Map(existing.map((row) => [row.id, row]));
 
     // Indexes over the records as they stand, kept current as the file is applied.
     const compactNo = (value: string | null | undefined) => compactStaffNumber(value);
@@ -528,6 +666,8 @@ export async function importStaff(
 
     let created = 0;
     let updated = 0;
+    let unchanged = 0;
+    let repeated = 0;
     const now = utcStamp();
     const inFile = new Set<string>();
     for (const record of usable) {
@@ -561,6 +701,30 @@ export async function importStaff(
           record.staffNo && (holder === undefined || holder === targetId)
             ? record.staffNo
             : (rowsById.get(targetId)?.staff_no ?? null);
+        if (inFile.has(targetId)) {
+          repeated += 1;
+          continue;
+        }
+        const now0 = stored.get(targetId);
+        const unchangedRow =
+          now0 !== undefined &&
+          same(now0.staff_no, staffNo) &&
+          same(now0.last_name, record.lastName) &&
+          same(now0.first_name, record.firstName) &&
+          same(now0.middle_name, record.middleName) &&
+          same(now0["faculty"], record.faculty) &&
+          same(now0["department"], record.department) &&
+          same(now0["admin_department"], record.adminDepartment) &&
+          (record.machineId === null || same(now0.machine_id, record.machineId)) &&
+          (record.staffIdOnMachine === null ||
+            same(now0.staff_id_on_machine, record.staffIdOnMachine)) &&
+          same(now0["designation"], record.designation) &&
+          same(now0["staff_category"], record.staffCategory);
+        if (unchangedRow) {
+          inFile.add(targetId);
+          unchanged += 1;
+          continue;
+        }
         await connection.execute(
           `UPDATE staff SET
              staff_no = ?, last_name = ?, first_name = ?, middle_name = ?, faculty = ?,
@@ -663,8 +827,18 @@ export async function importStaff(
       skipped,
       completeList: Boolean(options.completeList),
       notOnCurrentList: leftOff,
+      unchanged,
     });
-    return { saved: created + updated, skipped, notOnCurrentList: leftOff };
+    return {
+      saved: created + updated,
+      skipped,
+      notOnCurrentList: leftOff,
+      inFile: records.length,
+      added: created,
+      updated,
+      unchanged,
+      repeated,
+    };
   });
 
   // Fold together any rows that are certainly one person (same name and same
@@ -686,6 +860,8 @@ export async function importStaff(
       )
     : 0;
 
+  // People left off the list are taken off open weeks (unless they scanned).
+  if (options.completeList) await pruneNotCurrent("staff");
   // Ensure any new departments from this import get a weekday assignment.
   await syncMassWeekdays(actorId);
   return { ...result, notOnCurrentList, duplicatesMerged: merged.duplicatesRemoved };
@@ -1422,4 +1598,39 @@ export async function deduplicateEveryone(
   actorId: string,
 ): Promise<{ staff: DeduplicationResult; students: DeduplicationResult }> {
   return { staff: await deduplicateStaff(actorId), students: await deduplicateStudents(actorId) };
+}
+
+/**
+ * Remove a member of staff from the list (administrators). Their scans stay,
+ * no longer matched to anyone; they are taken off the expected lists of open
+ * weeks and events. Closed weeks keep what they recorded.
+ */
+export async function deleteStaff(id: string, actorId: string): Promise<void> {
+  const found = await queryOne<CountRow>("SELECT COUNT(*) AS total FROM staff WHERE id = ?", [id]);
+  if (!found || Number(found.total) === 0)
+    throw new HttpError(404, "That member of staff no longer exists.");
+  await transaction(async (connection) => {
+    await connection.execute(
+      `DELETE FROM mass_expected
+        WHERE participant_type = 'staff' AND person_id = ?
+          AND mass_week_id IN (SELECT id FROM mass_weeks WHERE status NOT IN ('completed', 'archived'))`,
+      [id],
+    );
+    await connection.execute(
+      `DELETE FROM event_expected
+        WHERE kind = 'staff' AND person_id = ?
+          AND event_id IN (SELECT id FROM staff_events WHERE status <> 'finalized')`,
+      [id],
+    );
+    await connection.execute("DELETE FROM scan_aliases WHERE kind = 'staff' AND person_id = ?", [
+      id,
+    ]);
+    await connection.execute(
+      "DELETE FROM distinct_people WHERE kind = 'staff' AND (person_a = ? OR person_b = ?)",
+      [id, id],
+    );
+    await connection.execute("DELETE FROM staff WHERE id = ?", [id]);
+    await audit(connection, actorId, "staff.deleted", "staff", { id });
+  });
+  (await import("@/server/rematch")).markStale("staff");
 }

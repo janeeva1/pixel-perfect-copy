@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -200,13 +201,28 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
           </>
         }
       >
+        <Hint className="mb-3">
+          Download CSV saves every list of this event in one file. Edit changes the event's name,
+          date, time and who it is for. Close — stop counting keeps the numbers as they are now;
+          Reopen undoes it.
+        </Hint>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatTile label="Expected" value={result.data.expected} hint="From the master list" />
-          <StatTile label="Present" value={result.data.present} tone="good" />
+          <StatTile
+            label="Expected"
+            value={result.data.expected}
+            hint="People this event is for, from the staff or student list"
+          />
+          <StatTile
+            label="Present"
+            value={result.data.present}
+            tone="good"
+            hint="Expected people who scanned (or are always present)"
+          />
           <StatTile
             label="Absent"
             value={result.data.absent}
             tone={result.data.absent > 0 ? "bad" : "good"}
+            hint="Expected people with no scan"
           />
           <StatTile
             label="Out of scope"
@@ -218,7 +234,7 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
             label="Unmatched"
             value={result.data.unmatched}
             tone={result.data.unmatched > 0 ? "warn" : "default"}
-            hint="No match in the master list"
+            hint="Printed entries that are nobody on the list"
           />
         </div>
         <div className="mt-4 flex flex-wrap items-center gap-6 text-sm">
@@ -348,6 +364,15 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
               </table>
             </div>
           ) : null}
+          <ColumnGuide
+            items={[
+              ["Label", "your note for the file"],
+              ["Rows", "scans in the file"],
+              ["Present", "expected people found in this file"],
+              ["Out of scope", "people found who this event is not for"],
+              ["Unmatched", "entries that are nobody on the list"],
+            ]}
+          />
         </Panel>
       ) : null}
 
@@ -377,6 +402,14 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
             Unmatched ({shownOf(unmatchedRows.length, result.data.unmatchedList.length)})
           </TabsTrigger>
         </TabsList>
+        <ColumnGuide
+          items={[
+            ["Code", "staff or matric number"],
+            ["Scans", "how many times they scanned"],
+            ["First / Last", "earliest and latest scan time"],
+            ["Number / Name on the machine", "exactly what the machine printed"],
+          ]}
+        />
 
         <TabsContent value="present" className="mt-4">
           {presentRows.length === 0 ? (

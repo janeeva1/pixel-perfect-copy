@@ -375,7 +375,7 @@ function AdminPage() {
 
       <Panel
         title="Staff Deduplication"
-        description="Find staff entered more than once. Only records with the same name and the same staff or machine number are merged; anything less certain is listed for you to check. Merges are not synced, so run this on each computer."
+        description="Find staff entered more than once. Only records with the same staff number (spaces and capitals aside) are merged; anything less certain is listed for you to check. Scan shows what would happen; Merge does it. Merges are not synced, so run this on each computer."
       >
         <div className="space-y-4">
           <Button

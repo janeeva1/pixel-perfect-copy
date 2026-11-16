@@ -152,7 +152,7 @@ export function DataTable({
               ? `Showing ${Math.min((page - 1) * pageSize + 1, total)}–${Math.min(page * pageSize, total)} of ${total.toLocaleString()}`
               : ""}
           </p>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <select
               className="h-8 px-2 text-sm border border-input rounded bg-background"
               value={pageSize?.toString() ?? "20"}

@@ -13,6 +13,7 @@
 // machine file for that group has been uploaded to it. A week with no upload
 // has collected nothing, and would otherwise charge everyone expected.
 
+import { uploadLevels } from "@/lib/attendance";
 import type { RowDataPacket } from "./db";
 import { dialect, query, utcStamp } from "@/server/db";
 import { HttpError } from "@/server/http";
@@ -145,7 +146,7 @@ export async function debtReport(filters: {
       [week.weekId, week.group],
     );
     const everyLevel = levels.some((row) => !row.level || !row.level.trim());
-    const uploadedLevels = new Set(levels.map((row) => (row.level ?? "").trim()));
+    const uploadedLevels = new Set(levels.flatMap((row) => uploadLevels(row.level)));
     const absentees = everyLevel
       ? result.absentList
       : result.absentList.filter((row) => uploadedLevels.has((row.level ?? "").trim()));

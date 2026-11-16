@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { requireEditor, requireSession } from "@/server/auth";
+import { requireAdmin, requireEditor, requireSession } from "@/server/auth";
 import { handleRoute, json, parse, readJson } from "@/server/http";
-import { updateStaff } from "@/server/masters";
+import { deleteStaff, updateStaff } from "@/server/masters";
 
 /**
  * Correct one member of staff. The department is the registrar's own full name
@@ -32,6 +32,13 @@ export const Route = createFileRoute("/api/staff/$staffId")({
           const body = parse(bodySchema, await readJson(request));
           const result = await updateStaff(params.staffId, body, session.user.id);
           return json({ ok: true, staleWeeks: result.staleWeeks });
+        }),
+      DELETE: ({ params }) =>
+        handleRoute(async () => {
+          const session = await requireSession();
+          requireAdmin(session);
+          await deleteStaff(params.staffId, session.user.id);
+          return json({ ok: true });
         }),
     },
   },

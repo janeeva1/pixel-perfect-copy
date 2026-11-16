@@ -35,7 +35,7 @@ import {
   studentNameSql,
   studentScanNumberSql,
 } from "@/server/masters";
-import { parseScanTime, percent } from "@/lib/attendance";
+import { parseScanTime, percent, uploadLevels } from "@/lib/attendance";
 import { loadIdentity, type Identity } from "@/server/identity";
 import { lookAlikePairs } from "@/server/lookalikes";
 import { ensureRematched } from "@/server/rematch";
@@ -57,6 +57,7 @@ import type {
   MassWeekStatus,
   MassWeekParticipantType,
   MassScope,
+  MassStudentCategory,
   MassUploadParticipant,
 } from "@/lib/types";
 
@@ -78,6 +79,7 @@ type WeekRow = RowDataPacket & {
   scope: MassScope;
   participant_type: MassWeekParticipantType;
   status: MassWeekStatus;
+  student_category?: string | null;
   created_by: string | null;
   created_at: string | Date;
   updated_at: string | Date;
@@ -301,6 +303,91 @@ export async function deleteWeekdayAssignment(
 }
 
 /**
+ * A department renamed in a new registrar file ("Nursing" -> "Nursing
+ * Sciences", "Computer Science" -> "Computer and Information Technology")
+ * keeps its Mass weekday: the new name gets the weekday of the old name most
+ * of its people came from, instead of the next free day. `moves` is new name
+ * -> old name -> how many people moved. Names that already have a weekday are
+ * left alone.
+ */
+export async function carryDepartmentWeekdays(
+  moves: Map<string, Map<string, number>>,
+  actorId: string,
+): Promise<Array<{ department: string; from: string; day: number }>> {
+  if (moves.size === 0) return [];
+  const existing = await query<
+    RowDataPacket & { department_code: string; day_of_week: number; is_active: number }
+  >("SELECT department_code, day_of_week, is_active FROM mass_department_weekdays");
+  const byName = new Map(existing.map((row) => [row.department_code.trim().toLowerCase(), row]));
+  const carried: Array<{ department: string; from: string; day: number }> = [];
+  const stamp = utcStamp();
+  for (const [newName, sources] of moves) {
+    if (byName.has(newName.trim().toLowerCase())) continue;
+    const best = [...sources.entries()]
+      .filter(([oldName]) => byName.has(oldName.trim().toLowerCase()))
+      .sort((a, b) => b[1] - a[1])[0];
+    if (!best) continue;
+    const source = byName.get(best[0].trim().toLowerCase())!;
+    await query(
+      `INSERT INTO mass_department_weekdays
+         (id, department_code, day_of_week, is_active, created_by, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        randomUUID(),
+        newName.trim(),
+        Number(source.day_of_week),
+        Number(source.is_active),
+        actorId,
+        stamp,
+        stamp,
+      ],
+    );
+    byName.set(newName.trim().toLowerCase(), source);
+    carried.push({ department: newName.trim(), from: best[0], day: Number(source.day_of_week) });
+  }
+  if (carried.length > 0) {
+    await audit(actorId, "mass_weekday.carried", "mass_department_weekdays", null, { carried });
+  }
+  return carried;
+}
+
+/**
+ * People taken off the current list (a "complete list" import left them out)
+ * are taken off the expected lists of open weeks -- unless they scanned that
+ * week, in which case they stay and count present. Closed weeks are left alone.
+ */
+export async function pruneNotCurrent(participantType: MassUploadParticipant): Promise<number> {
+  const people = participantType === "student" ? "students" : "staff";
+  const weekType = participantType === "student" ? "students" : "staff";
+  const before = await queryOne<CountRow>(
+    `SELECT COUNT(*) AS total FROM mass_expected e
+      WHERE e.participant_type = ?
+        AND e.person_id IN (SELECT id FROM ${people} WHERE COALESCE(on_current_list, 1) = 0)
+        AND e.mass_week_id IN (SELECT id FROM mass_weeks
+                                WHERE (participant_type = ? OR participant_type = 'both')
+                                  AND status NOT IN ('completed', 'archived'))
+        AND NOT EXISTS (SELECT 1 FROM mass_scans s
+                         WHERE s.mass_week_id = e.mass_week_id AND s.person_id = e.person_id)`,
+    [participantType, weekType],
+  );
+  const total = Number(before?.total ?? 0);
+  if (total === 0) return 0;
+  await query(
+    `DELETE FROM mass_expected
+      WHERE participant_type = ?
+        AND person_id IN (SELECT id FROM ${people} WHERE COALESCE(on_current_list, 1) = 0)
+        AND mass_week_id IN (SELECT id FROM mass_weeks
+                              WHERE (participant_type = ? OR participant_type = 'both')
+                                AND status NOT IN ('completed', 'archived'))
+        AND NOT EXISTS (SELECT 1 FROM mass_scans s
+                         WHERE s.mass_week_id = mass_expected.mass_week_id
+                           AND s.person_id = mass_expected.person_id)`,
+    [participantType, weekType],
+  );
+  return total;
+}
+
+/**
  * Ensure every department that appears in the live staff or student roster has
  * a row in mass_department_weekdays. Departments already present are untouched
  * (an administrator may have moved them). New departments are assigned to the
@@ -410,6 +497,7 @@ function mapWeek(row: WeekRow, weekdays: number[]): MassWeek {
     participant_type: row.participant_type,
     status: row.status,
     weekdays,
+    student_category: studentCategoryOf(row.student_category),
     created_by: row.created_by ?? null,
     created_at: toIso(row.created_at) ?? "",
     updated_at: toIso(row.updated_at) ?? "",
@@ -431,7 +519,11 @@ export async function getMassWeek(weekId: string): Promise<MassWeek> {
 }
 
 const WEEK_COLUMNS =
-  "id, name, notes, scope, participant_type, status, created_by, created_at, updated_at";
+  "id, name, notes, scope, participant_type, status, student_category, created_by, created_at, updated_at";
+
+function studentCategoryOf(value: unknown): MassStudentCategory {
+  return value === "postgraduate" || value === "both" ? value : "undergraduate";
+}
 
 export async function listMassWeeks(): Promise<MassWeek[]> {
   const rows = await query<WeekRow>(
@@ -459,6 +551,7 @@ export type MassWeekInput = {
   scope?: MassScope | undefined;
   participantType?: MassWeekParticipantType | undefined;
   weekdays?: number[] | undefined;
+  studentCategory?: MassStudentCategory | undefined;
 };
 
 export async function createMassWeek(input: MassWeekInput, actorId: string): Promise<MassWeek> {
@@ -477,10 +570,20 @@ export async function createMassWeek(input: MassWeekInput, actorId: string): Pro
   await transaction(async (connection) => {
     await connection.execute(
       `INSERT INTO mass_weeks
-         (id, name, notes, scope, participant_type, status,
+         (id, name, notes, scope, participant_type, status, student_category,
           created_by, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?)`,
-      [id, name, input.notes?.trim() || null, scope, participantType, actorId, stamp, stamp],
+       VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?)`,
+      [
+        id,
+        name,
+        input.notes?.trim() || null,
+        scope,
+        participantType,
+        studentCategoryOf(input.studentCategory),
+        actorId,
+        stamp,
+        stamp,
+      ],
     );
     for (const day of weekdays) {
       await connection.execute(
@@ -498,6 +601,7 @@ export type MassWeekPatch = {
   notes?: string | null | undefined;
   scope?: MassScope | undefined;
   participantType?: MassWeekParticipantType | undefined;
+  studentCategory?: MassStudentCategory | undefined;
 };
 
 /**
@@ -528,6 +632,28 @@ export async function updateMassWeek(
     }
   }
 
+  // Which students it expects is locked once a student file is in: their
+  // expected list was built from it.
+  const changingCategory =
+    patch.studentCategory !== undefined &&
+    studentCategoryOf(patch.studentCategory) !== week.student_category;
+  if (changingCategory) {
+    const studentFiles = await queryOne<CountRow>(
+      "SELECT COUNT(*) AS total FROM mass_uploads WHERE mass_week_id = ? AND participant_type = 'student'",
+      [weekId],
+    );
+    if (Number(studentFiles?.total ?? 0) > 0) {
+      throw new HttpError(
+        400,
+        "This week already has student files. Reset the students first to change which students it expects.",
+      );
+    }
+    await query(
+      "DELETE FROM mass_expected WHERE mass_week_id = ? AND participant_type = 'student'",
+      [weekId],
+    );
+  }
+
   const name = patch.name !== undefined ? patch.name.trim() : week.name;
   if (!name) throw new HttpError(400, "The week's name cannot be blank.");
   const scope: MassScope =
@@ -541,13 +667,16 @@ export async function updateMassWeek(
     await connection.execute(
       `UPDATE mass_weeks
           SET name = ?, notes = ?, scope = ?,
-              participant_type = ?, updated_at = ?
+              participant_type = ?, student_category = ?, updated_at = ?
         WHERE id = ?`,
       [
         name,
         patch.notes !== undefined ? patch.notes?.trim() || null : week.notes,
         scope,
         participantType,
+        patch.studentCategory !== undefined
+          ? studentCategoryOf(patch.studentCategory)
+          : week.student_category,
         utcStamp(),
         weekId,
       ],
@@ -720,7 +849,13 @@ async function buildStudentSnapshot(week: MassWeek): Promise<SnapshotRow[]> {
   if (departments && departments.names.length === 0) return [];
 
   const params: SqlParam[] = [];
-  let where = `(${studentCategorySql("s")}) = 'undergraduate'`;
+  // Undergraduates, postgraduates or both, as the week was set up.
+  let where =
+    week.student_category === "both"
+      ? `(${studentCategorySql("s")}) IN ('undergraduate', 'postgraduate')`
+      : `(${studentCategorySql("s")}) = '${week.student_category === "postgraduate" ? "postgraduate" : "undergraduate"}'`;
+  // Only students on the current list (see "complete list" on import).
+  where += ` AND COALESCE(s.on_current_list, 1) = 1`;
   if (week.scope === "sunday") {
     // A student whose registrar record says 'Religious' is not expected at
     // Sunday Mass. The comparison is trimmed and case-insensitive because the
@@ -731,8 +866,10 @@ async function buildStudentSnapshot(week: MassWeek): Promise<SnapshotRow[]> {
     where += ` AND (s.marital_status IS NULL OR UPPER(TRIM(s.marital_status)) <> 'RELIGIOUS')`;
   }
   if (departments) {
-    where += ` AND (${studentDepartmentSql("s")}) IN (${departments.names.map(() => "?").join(", ")})`;
-    params.push(...departments.names);
+    // Capitals and spaces aside: "GUIDANCE AND COUNSELLING" on the weekday list
+    // is the student file's "Guidance and Counselling".
+    where += ` AND LOWER(TRIM(${studentDepartmentSql("s")})) IN (${departments.names.map(() => "?").join(", ")})`;
+    params.push(...departments.names.map((name) => name.trim().toLowerCase()));
   }
   const rows = await query<RowDataPacket & SnapshotQueryRow>(
     `SELECT s.id, s.matric_no, ${studentNameSql("s")} AS full_name, s.level,
@@ -771,9 +908,9 @@ async function buildStaffSnapshot(week: MassWeek): Promise<SnapshotRow[]> {
             ${staffDepartmentSql("f")} AS department
        FROM staff f
       WHERE COALESCE(f.on_current_list, 1) = 1
-        AND (${staffDepartmentSql("f")}) IN (${departments.names.map(() => "?").join(", ")})
+        AND LOWER(TRIM(${staffDepartmentSql("f")})) IN (${departments.names.map(() => "?").join(", ")})
       ORDER BY ${staffNameSql("f")}`,
-    departments.names,
+    departments.names.map((name) => name.trim().toLowerCase()),
   );
   return rows.map((row) => ({
     personId: row.id,
@@ -989,7 +1126,14 @@ export async function processMassUpload(
   weekId: string,
   input: MassUploadInput,
   actorId: string,
-): Promise<{ upload: MassUpload | null; summary: MassSummary; added: number; skipped: number }> {
+): Promise<{
+  upload: MassUpload | null;
+  summary: MassSummary;
+  added: number;
+  skipped: number;
+  /** Uploaded for one level: how many students in the file are at other levels. */
+  otherLevels?: { students: number; levels: string[] };
+}> {
   const week = await getMassWeek(weekId);
   assertMassWeekOpen(week);
   if (week.participant_type === "students" && input.participantType !== "student") {
@@ -1011,7 +1155,8 @@ export async function processMassUpload(
     );
   }
 
-  const level = input.level?.trim() || null;
+  // One file can be for several levels ("500,600").
+  const level = uploadLevels(input.level).join(",") || null;
   const identity = await loadIdentity(input.participantType);
   const expected = await ensureExpected(week, input.participantType, identity);
   const config = GROUPS[input.participantType];
@@ -1046,7 +1191,7 @@ export async function processMassUpload(
     let inExpected = false;
     if (personId !== null) {
       const snapshot = expected.get(personId);
-      inExpected = snapshot !== undefined && (level === null || (snapshot.level ?? "") === level);
+      inExpected = snapshot !== undefined;
     }
     parsed.push({
       scanNumber,
@@ -1156,11 +1301,35 @@ export async function processMassUpload(
   const uploads = await listMassUploads(weekId);
   const upload = uploads.find((row) => row.id === uploadId);
   if (!upload) throw new Error("Upload was not stored.");
+  // A file uploaded for one level that holds students of other levels: they
+  // are out of scope, which is right when the file really is that level's, and
+  // a mistake when the file has every level in it. Say so, so it can be fixed.
+  let otherLevels: { students: number; levels: string[] } | undefined;
+  if (level && input.participantType === "student") {
+    const rows = await query<RowDataPacket & { level: string | null; students: number }>(
+      `SELECT st.level, COUNT(DISTINCT st.id) AS students
+         FROM mass_scans s JOIN students st ON st.id = s.person_id
+        WHERE s.upload_id = ?
+          AND COALESCE(st.level, '') NOT IN (${uploadLevels(level)
+            .map(() => "?")
+            .join(", ")})
+        GROUP BY st.level`,
+      [uploadId, ...uploadLevels(level)],
+    );
+    const students = rows.reduce((sum, row) => sum + Number(row.students), 0);
+    if (students > 0) {
+      otherLevels = {
+        students,
+        levels: rows.map((row) => row.level ?? "?").sort(),
+      };
+    }
+  }
   return {
     upload,
     added: prepared.length,
     skipped,
     summary: await massSummary(weekId, input.participantType, level),
+    ...(otherLevels ? { otherLevels } : {}),
   };
 }
 
@@ -1341,6 +1510,23 @@ async function massOutcome(
     [weekId, participantType],
   );
 
+  // Which levels the report covers. Asked for one level: that level. Asked for
+  // the whole week: every level when any file was for all levels; otherwise
+  // only the levels a file was uploaded for -- students of a level whose file
+  // is not in yet were not checked, so they are not absent (the debt page
+  // reads it the same way).
+  const fileLevels = await query<RowDataPacket & { level: string | null }>(
+    "SELECT DISTINCT level FROM mass_uploads WHERE mass_week_id = ? AND participant_type = ?",
+    [weekId, participantType],
+  );
+  const everyLevel = fileLevels.length === 0 || fileLevels.some((row) => !(row.level ?? "").trim());
+  const uploadedLevels = new Set(fileLevels.flatMap((row) => uploadLevels(row.level)));
+  // Levels whose files are in: their students were checked this week.
+  const checked = (rowLevel: string | null) =>
+    everyLevel || uploadedLevels.has((rowLevel ?? "").trim());
+  const covers = (rowLevel: string | null) =>
+    level !== null ? rowLevel === level && checked(rowLevel) : checked(rowLevel);
+
   const present = new Map<string, PresentAggregate>();
   const scannedNotCounted = new Map<string, { count: number; scannedName: string | null }>();
   const unmatchedList = new UnmatchedList();
@@ -1360,7 +1546,7 @@ async function massOutcome(
 
   for (const scan of scans) {
     const at = toIso(scan.scanned_at) ?? "";
-    const inReportedUploads = level === null || scan.upload_level === level;
+    const inReportedUploads = level === null || uploadLevels(scan.upload_level).includes(level);
 
     if (scan.person_id === null) {
       if (!inReportedUploads) continue;
@@ -1381,9 +1567,10 @@ async function massOutcome(
 
     const person = identity.canonical(scan.person_id);
     const expectedRow = expectedAll.get(person);
-    const counts =
-      expectedRow !== undefined &&
-      (scan.upload_level === null || (expectedRow.level ?? "") === scan.upload_level);
+    // A student who scanned in ANY of the week's files is present -- the
+    // level a file was uploaded for says which levels have been checked, not
+    // who may be in it (the 300L file often holds 100L and 200L students).
+    const counts = expectedRow !== undefined && checked(expectedRow.level ?? null);
 
     if (counts) fileOf(scan.upload_id).present.add(person);
     else fileOf(scan.upload_id).outOfScope.add(person);
@@ -1404,7 +1591,7 @@ async function massOutcome(
 
   const expected = new Map<string, MassExpectedRow>();
   for (const [person, row] of expectedAll) {
-    if (level === null || row.level === level) expected.set(person, row);
+    if (covers(row.level)) expected.set(person, row);
   }
 
   // Staff on the always-present list (Vice-Chancellor, DVCs, Provost, ...) are
@@ -1482,7 +1669,8 @@ async function summaryFrom(
     uploads: uploads
       .filter(
         (upload) =>
-          upload.participant_type === participantType && (level === null || upload.level === level),
+          upload.participant_type === participantType &&
+          (level === null || uploadLevels(upload.level).includes(level)),
       )
       .map((upload) => {
         const live = outcome.perUpload.get(upload.id);

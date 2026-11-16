@@ -73,3 +73,7 @@ query4staff.sql
 *.njsproj
 *.sln
 *.sw?
+
+# Local attendance data exports and demo media
+/ATTENDANCE 12TH-16TH OCTOBER 2026/
+*.mp4

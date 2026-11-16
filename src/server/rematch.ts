@@ -112,8 +112,10 @@ const settled = new Set<PersonKind>();
  *
  *   2  staff: the printed name decides who scanned; the number only narrows the
  *      field; the current staff list comes first.
+ *   3  students: a printed name with nothing in common with the matric
+ *      number's owner goes to the student it clearly names.
  */
-export const MATCH_RULES_VERSION = 2;
+export const MATCH_RULES_VERSION = 3;
 
 async function storedRulesVersion(kind: PersonKind): Promise<number> {
   try {

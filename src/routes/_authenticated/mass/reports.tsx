@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { Search } from "lucide-react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
@@ -72,6 +73,7 @@ function MassReportsHubPage() {
         <div className="flex flex-wrap items-end gap-3">
           <div className="space-y-1">
             <Label htmlFor="hub-participant">Who (weeks with both)</Label>
+            <Hint>For weeks that cover both, whose lists to download.</Hint>
             <Select
               value={participant}
               onValueChange={(value) => {
@@ -93,6 +95,7 @@ function MassReportsHubPage() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="hub-group">Group by</Label>
+            <Hint>How rows are grouped in the file.</Hint>
             <Select
               value={groupBy}
               onValueChange={(value) => setGroupBy(value as MassReportGroupBy)}
@@ -111,6 +114,7 @@ function MassReportsHubPage() {
           </div>
           <div className="space-y-1">
             <Label htmlFor="hub-format">Format</Label>
+            <Hint>File type of the downloads.</Hint>
             <Select
               value={format}
               onValueChange={(value) =>
@@ -270,6 +274,10 @@ function WeekReportCard({
       </div>
 
       <p className="mt-2 text-xs text-muted-foreground">Covers {covers}</p>
+      <Hint className="mt-1">
+        The buttons download who was present or absent that week; Open the full report shows every
+        list on screen.
+      </Hint>
 
       <div className="mt-3 flex flex-wrap gap-2">
         <a href={presentUrl} download>

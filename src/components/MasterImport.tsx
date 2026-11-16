@@ -1,3 +1,4 @@
+import { importSummary } from "@/lib/attendance";
 import { useRef, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -88,11 +89,15 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
       skipped: number;
       merged: number;
       notCurrent: number;
+      carried: Array<{ department: string; from: string; day: number }>;
+      summary: string;
     }> => {
       let saved = 0;
       let skipped = 0;
       let merged = 0;
       let notCurrent = 0;
+      const carried: Array<{ department: string; from: string; day: number }> = [];
+      const counts = { inFile: 0, added: 0, updated: 0, unchanged: 0, repeated: 0, skipped: 0 };
       const size = student ? BATCH : STAFF_BATCH;
       // "Complete list" only means something when the server sees every row at once.
       const whole = !student && completeList && rows.length <= STAFF_BATCH;
@@ -105,9 +110,30 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
         skipped += result.skipped;
         merged += result.duplicatesMerged ?? 0;
         notCurrent += result.notOnCurrentList ?? 0;
+        carried.push(...(result.departmentsCarried ?? []));
+        counts.inFile += result.inFile ?? batch.length;
+        counts.added += result.added ?? 0;
+        counts.updated += result.updated ?? 0;
+        counts.unchanged += result.unchanged ?? 0;
+        counts.repeated += result.repeated ?? 0;
+        counts.skipped += result.skipped ?? 0;
+      }
+      // Students come in parts, so "complete list" is applied once all are in.
+      if (student && completeList) {
+        const outcome = await api.setStudentCurrentList(
+          rows.map((row) => String(row.matricNo ?? "")).filter(Boolean),
+        );
+        notCurrent = outcome.notOnCurrentList;
       }
       await queryClient.invalidateQueries();
-      return { saved, skipped, merged, notCurrent };
+      return {
+        saved,
+        skipped,
+        merged,
+        notCurrent,
+        carried,
+        summary: importSummary(student ? "students" : "staff", counts),
+      };
     },
   });
 
@@ -216,7 +242,26 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
             </table>
           </div>
 
-          {student ? null : (
+          {student ? (
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={completeList}
+                onChange={(event) => setCompleteList(event.target.checked)}
+              />
+              <span>
+                <span className="font-medium">
+                  This file is the complete, current student list (e.g. Main_updated.csv)
+                </span>
+                <span className="block text-muted-foreground">
+                  Students not in this file (graduated, withdrawn) stop being expected at Mass and
+                  events and are not charged. They are kept on record and come back if a later file
+                  includes them. Untick this for a file with only some students.
+                </span>
+              </span>
+            </label>
+          ) : (
             <label className="flex items-start gap-2 text-sm">
               <input
                 type="checkbox"
@@ -267,12 +312,17 @@ export function MasterImport({ group }: { group: "student" | "staff" }) {
       ) : null}
       {upload.isSuccess ? (
         <p className="text-sm text-emerald-600">
-          Imported {upload.data.saved.toLocaleString()} rows. The master list is now up to date.
+          {upload.data.summary}
           {upload.data.merged > 0
             ? ` ${upload.data.merged.toLocaleString()} duplicate record(s) of the same person were merged.`
             : ""}
           {upload.data.notCurrent > 0
-            ? ` ${upload.data.notCurrent.toLocaleString()} staff not in this file are no longer expected.`
+            ? ` ${upload.data.notCurrent.toLocaleString()} ${student ? "students" : "staff"} not in this file are no longer expected.`
+            : ""}
+          {upload.data.carried.length > 0
+            ? ` Renamed departments kept their Mass day: ${upload.data.carried
+                .map((item) => `${item.from} → ${item.department}`)
+                .join(", ")}.`
             : ""}
         </p>
       ) : null}

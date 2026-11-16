@@ -1,3 +1,4 @@
+import { AccountDialog } from "@/components/AccountDialog";
 import type { ReactNode } from "react";
 import { Link, useNavigate, useLocation } from "@tanstack/react-router";
 import { PageHeader } from "@/components/PageHeader";
@@ -279,6 +280,23 @@ export function AppShell({ children }: { children: ReactNode }) {
           <div className="border-t border-sidebar-border p-3">
             <SyncStatusLine />
             <p className="truncate px-3 pb-2 text-xs opacity-70">{user?.email}</p>
+            {user ? (
+              <AccountDialog
+                userId={user.id}
+                email={user.email}
+                fullName={user.fullName ?? null}
+                self
+                trigger={
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="w-full justify-start hover:bg-sidebar-accent"
+                  >
+                    <UserCog className="mr-2 size-4" /> My account
+                  </Button>
+                }
+              />
+            ) : null}
             {bridge ? (
               <Dialog>
                 <DialogTrigger asChild>
@@ -316,7 +334,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
         </SidebarFooter>
       </Sidebar>
-      <SidebarInset>
+      <SidebarInset className="min-w-0">
         <header className="sticky top-0 z-40 flex h-14 items-center gap-4 border-b border-border bg-background px-4">
           <SidebarTrigger className="-ml-1" aria-label="Toggle sidebar" />
           <PageHeader />

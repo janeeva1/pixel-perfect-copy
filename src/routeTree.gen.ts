@@ -77,6 +77,7 @@ import { Route as ApiStudentEventsIndexRouteImport } from './routes/api/student-
 import { Route as ApiStudentEventsEventIdRouteImport } from './routes/api/student-events/$eventId'
 import { Route as ApiStudentsIndexRouteImport } from './routes/api/students/index'
 import { Route as ApiStudentsStudentIdRouteImport } from './routes/api/students/$studentId'
+import { Route as ApiStudentsCurrentListRouteImport } from './routes/api/students/current-list'
 import { Route as ApiStudentsDownloadRouteImport } from './routes/api/students/download'
 import { Route as ApiStudentsImportRouteImport } from './routes/api/students/import'
 import { Route as ApiUsersIndexRouteImport } from './routes/api/users/index'
@@ -453,6 +454,11 @@ const ApiStudentsStudentIdRoute = ApiStudentsStudentIdRouteImport.update({
   path: '/api/students/$studentId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStudentsCurrentListRoute = ApiStudentsCurrentListRouteImport.update({
+  id: '/api/students/current-list',
+  path: '/api/students/current-list',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStudentsDownloadRoute = ApiStudentsDownloadRouteImport.update({
   id: '/api/students/download',
   path: '/api/students/download',
@@ -663,6 +669,7 @@ export interface FileRoutesByFullPath {
   '/api/staff/import': typeof ApiStaffImportRoute
   '/api/student-events/$eventId': typeof ApiStudentEventsEventIdRouteWithChildren
   '/api/students/$studentId': typeof ApiStudentsStudentIdRoute
+  '/api/students/current-list': typeof ApiStudentsCurrentListRoute
   '/api/students/download': typeof ApiStudentsDownloadRoute
   '/api/students/import': typeof ApiStudentsImportRoute
   '/api/users/roles': typeof ApiUsersRolesRoute
@@ -759,6 +766,7 @@ export interface FileRoutesByTo {
   '/api/staff/import': typeof ApiStaffImportRoute
   '/api/student-events/$eventId': typeof ApiStudentEventsEventIdRouteWithChildren
   '/api/students/$studentId': typeof ApiStudentsStudentIdRoute
+  '/api/students/current-list': typeof ApiStudentsCurrentListRoute
   '/api/students/download': typeof ApiStudentsDownloadRoute
   '/api/students/import': typeof ApiStudentsImportRoute
   '/api/users/roles': typeof ApiUsersRolesRoute
@@ -857,6 +865,7 @@ export interface FileRoutesById {
   '/api/staff/import': typeof ApiStaffImportRoute
   '/api/student-events/$eventId': typeof ApiStudentEventsEventIdRouteWithChildren
   '/api/students/$studentId': typeof ApiStudentsStudentIdRoute
+  '/api/students/current-list': typeof ApiStudentsCurrentListRoute
   '/api/students/download': typeof ApiStudentsDownloadRoute
   '/api/students/import': typeof ApiStudentsImportRoute
   '/api/users/roles': typeof ApiUsersRolesRoute
@@ -955,6 +964,7 @@ export interface FileRouteTypes {
     | '/api/staff/import'
     | '/api/student-events/$eventId'
     | '/api/students/$studentId'
+    | '/api/students/current-list'
     | '/api/students/download'
     | '/api/students/import'
     | '/api/users/roles'
@@ -1051,6 +1061,7 @@ export interface FileRouteTypes {
     | '/api/staff/import'
     | '/api/student-events/$eventId'
     | '/api/students/$studentId'
+    | '/api/students/current-list'
     | '/api/students/download'
     | '/api/students/import'
     | '/api/users/roles'
@@ -1148,6 +1159,7 @@ export interface FileRouteTypes {
     | '/api/staff/import'
     | '/api/student-events/$eventId'
     | '/api/students/$studentId'
+    | '/api/students/current-list'
     | '/api/students/download'
     | '/api/students/import'
     | '/api/users/roles'
@@ -1230,6 +1242,7 @@ export interface RootRouteChildren {
   ApiStaffImportRoute: typeof ApiStaffImportRoute
   ApiStudentEventsEventIdRoute: typeof ApiStudentEventsEventIdRouteWithChildren
   ApiStudentsStudentIdRoute: typeof ApiStudentsStudentIdRoute
+  ApiStudentsCurrentListRoute: typeof ApiStudentsCurrentListRoute
   ApiStudentsDownloadRoute: typeof ApiStudentsDownloadRoute
   ApiStudentsImportRoute: typeof ApiStudentsImportRoute
   ApiUsersRolesRoute: typeof ApiUsersRolesRoute
@@ -1729,6 +1742,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStudentsStudentIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/students/current-list': {
+      id: '/api/students/current-list'
+      path: '/api/students/current-list'
+      fullPath: '/api/students/current-list'
+      preLoaderRoute: typeof ApiStudentsCurrentListRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/students/download': {
       id: '/api/students/download'
       path: '/api/students/download'
@@ -2096,6 +2116,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiStaffImportRoute: ApiStaffImportRoute,
   ApiStudentEventsEventIdRoute: ApiStudentEventsEventIdRouteWithChildren,
   ApiStudentsStudentIdRoute: ApiStudentsStudentIdRoute,
+  ApiStudentsCurrentListRoute: ApiStudentsCurrentListRoute,
   ApiStudentsDownloadRoute: ApiStudentsDownloadRoute,
   ApiStudentsImportRoute: ApiStudentsImportRoute,
   ApiUsersRolesRoute: ApiUsersRolesRoute,

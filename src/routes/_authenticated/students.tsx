@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -196,6 +197,7 @@ function StudentsPage() {
           </Button>
         ) : null}
       </header>
+      <Hint>Refresh reloads the list after changes made on another computer.</Hint>
 
       <div className="grid gap-4 sm:grid-cols-3">
         <StatTile label="Students" value={list.data?.total} />
@@ -286,6 +288,12 @@ function StudentsPage() {
           </div>
         }
       >
+        <Hint className="mb-2">
+          Download CSV saves the whole list. Use the search box and filters to find students; click
+          a column heading to sort. The pencil button corrects a student's details. Category:
+          undergraduate (VUG) or postgraduate (VPG). Marital status: "Religious" students are not
+          expected at Sunday Mass.
+        </Hint>
         {students.length === 0 ? (
           <EmptyState title="No students match">
             {list.isLoading

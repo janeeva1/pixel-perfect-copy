@@ -1,3 +1,4 @@
+import { ColumnGuide, Hint } from "@/components/Hint";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -188,6 +189,10 @@ function SyncPage() {
                 <Unplug className="mr-1 h-4 w-4" /> Stop being the Main computer
               </Button>
             ) : null}
+            <Hint>
+              The code above is what the other computers type to connect. Stop being the Main
+              computer ends syncing for everyone until another Main computer is set up.
+            </Hint>
           </div>
         ) : null}
 
@@ -257,6 +262,11 @@ function SyncPage() {
                 </Button>
               ) : null}
             </div>
+            <Hint>
+              Synchronize now sends this computer's changes to the Main computer and brings back
+              everyone else's (this also happens on its own every 3 minutes). Disconnect stops
+              syncing; this computer keeps its data.
+            </Hint>
           </div>
         ) : null}
       </Panel>
@@ -368,6 +378,7 @@ function SetUp({
           <div className="flex flex-wrap items-end gap-2">
             <div className="space-y-1">
               <Label htmlFor="pair-code">6-digit code from the Main computer</Label>
+              <Hint>Shown on the Sync computers page of the Main computer.</Hint>
               <Input
                 id="pair-code"
                 inputMode="numeric"

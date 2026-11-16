@@ -164,3 +164,52 @@ export function percent(part: number, whole: number): number | null {
   if (whole <= 0) return null;
   return Math.round((part / whole) * 1000) / 10;
 }
+
+/**
+ * The levels a student file was uploaded for. One file can hold several
+ * levels ("5-600LVL PROCESSED.xlsx" holds 500 and 600), stored as "500,600".
+ * Empty means every level.
+ */
+export function uploadLevels(value: string | null | undefined): string[] {
+  return [
+    ...new Set(
+      String(value ?? "")
+        .split(/[,;\s]+/)
+        .map((part) => part.trim())
+        .filter(Boolean),
+    ),
+  ].sort((a, b) => Number(a) - Number(b) || a.localeCompare(b));
+}
+
+/** Whether a file uploaded for `uploadLevel` covers a student at `studentLevel`. */
+export function levelCovered(
+  uploadLevel: string | null | undefined,
+  studentLevel: string | null,
+): boolean {
+  const levels = uploadLevels(uploadLevel);
+  return levels.length === 0 || levels.includes((studentLevel ?? "").trim());
+}
+
+/** "The file has 200 staff: 70 added, 2 updated, 128 already up to date." */
+export function importSummary(
+  who: "students" | "staff",
+  counts: {
+    inFile: number;
+    added: number;
+    updated: number;
+    unchanged: number;
+    repeated: number;
+    skipped: number;
+  },
+): string {
+  const parts = [
+    `${counts.added.toLocaleString()} added`,
+    `${counts.updated.toLocaleString()} updated`,
+    `${counts.unchanged.toLocaleString()} already up to date`,
+  ];
+  if (counts.repeated > 0)
+    parts.push(`${counts.repeated.toLocaleString()} listed twice in the file`);
+  if (counts.skipped > 0)
+    parts.push(`${counts.skipped.toLocaleString()} skipped (no number or name)`);
+  return `The file has ${counts.inFile.toLocaleString()} ${who}: ${parts.join(", ")}.`;
+}

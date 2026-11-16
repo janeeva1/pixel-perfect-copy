@@ -102,8 +102,10 @@ describe("migrations", () => {
       "017_peer_sync.sql",
       "018_match_rules.sql",
       "019_event_expected.sql",
+      "020_mass_student_category.sql",
+      "021_student_current_list.sql",
     ]);
-    assert.equal(result.version, 19);
+    assert.equal(result.version, 21);
 
     const tables = (
       getDb()
@@ -174,7 +176,7 @@ describe("migrations", () => {
   it("is not applied twice, so a second run is a no-op", () => {
     const result = migrate();
     assert.deepEqual(result.applied, []);
-    assert.equal(result.version, 19);
+    assert.equal(result.version, 21);
   });
 
   it("seeds every staff department with one weekday assignment", () => {
@@ -1003,6 +1005,61 @@ describe("different people who share a machine number are each matched by name",
     assert.equal(elsewhere.review, false);
     // A name that is on the current list and on an old record: the current one.
     assert.equal(matchRow(lookup, "900", "ALI SIMON", null).id, "sa39");
+  });
+});
+
+describe("students: the matric number decides, unless the name is clearly someone else's", () => {
+  it("14897 MASUOMO EBIMIL is Amasuomo Ebimi Lewisa (14890), not Omoruyi Judith (14897)", async () => {
+    const { matchRow } = await import("../src/server/events");
+    const { normalizeName } = await import("../src/lib/attendance");
+    const person = (id: string, name: string) => ({
+      id,
+      names: [normalizeName(name)],
+      words: [normalizeName(name).split(" ")],
+      current: true,
+    });
+    const judith = person("14897", "Omoruyi Judith");
+    const ebimi = person("14890", "Amasuomo Ebimi Lewisa");
+    const favour = person("13584", "Ochonma Favour Chinonso");
+    const everyone = [judith, ebimi, favour];
+    const lookup = {
+      kind: "student" as const,
+      byMachine: new Map([
+        ["14897", [judith]],
+        ["14890", [ebimi]],
+        ["13584", [favour]],
+      ]),
+      byStaffNo: new Map(),
+      byName: new Map<string, string | null>(),
+      everyone,
+      byWord: wordIndex(everyone),
+      aliases: new Map<string, string | null>(),
+    };
+    assert.equal(matchRow(lookup, "14897", "MASUOMO EBIMIL", null).id, "14890");
+    // A garbled name that still shares something with the owner: the number.
+    assert.equal(matchRow(lookup, "13584", "OCHOMA NONSO", null).id, "13584");
+    assert.equal(matchRow(lookup, "14897", "OMORUYI JUDITH", null).id, "14897");
+    // No name printed: the number.
+    assert.equal(matchRow(lookup, "14897", null, null).id, "14897");
+    // A name like nobody's: still the number's owner.
+    assert.equal(matchRow(lookup, "14897", "ZZZ QQQ", null).id, "14897");
+    assert.equal(matchRow(lookup, "14897", "MASUOMO EBIMIL", null).review, false);
+  });
+});
+
+describe("files with a repeated column name and several levels", () => {
+  it("keeps the first filled 'level' when the file has two 'level' columns", async () => {
+    const { readSpreadsheet } = await import("../src/lib/spreadsheet");
+    const csv = "matric_no,level,department,level\nVUG/CSC/25/1,200,Law,\n";
+    const { rows } = await readSpreadsheet(new File([csv], "Main_updated.csv"));
+    assert.equal(rows[0]!["level"], "200");
+  });
+  it("reads an upload for 500 and 600 as both levels", async () => {
+    const { uploadLevels, levelCovered } = await import("../src/lib/attendance");
+    assert.deepEqual(uploadLevels("600,500"), ["500", "600"]);
+    assert.equal(levelCovered("500,600", "600"), true);
+    assert.equal(levelCovered("500,600", "400"), false);
+    assert.equal(levelCovered(null, "400"), true);
   });
 });
 

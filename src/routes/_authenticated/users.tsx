@@ -1,7 +1,8 @@
+import { AccountDialog } from "@/components/AccountDialog";
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -76,6 +77,12 @@ function UsersPage() {
           Everyone who can sign in, and what they are allowed to do. The first account created is
           the administrator.
         </p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Role: admin can do everything, including clearing data and settings; operator can import,
+          upload and confirm matches; viewer can only look and download. Change it with the menu in
+          each row. Edit changes the name, sign-in email or password. Delete removes the account
+          (you cannot delete your own).
+        </p>
       </header>
 
       <section className="panel overflow-hidden">
@@ -136,27 +143,34 @@ function UsersPage() {
                       )}
                     </td>
                     <td className="p-3">
-                      {isSelf ? (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      ) : (
-                        <Button
-                          variant="destructive"
-                          size="sm"
-                          onClick={() => {
-                            if (
-                              window.confirm(
-                                `Delete ${row.email}? This cannot be undone.`,
-                              )
-                            ) {
-                              deleteUser.mutate(row.id);
-                            }
-                          }}
-                          disabled={deleteUser.isPending}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          {deleteUser.isPending ? "Deleting…" : "Delete"}
-                        </Button>
-                      )}
+                      <div className="flex flex-wrap gap-2">
+                        <AccountDialog
+                          userId={row.id}
+                          email={row.email}
+                          fullName={row.fullName}
+                          self={isSelf}
+                          trigger={
+                            <Button variant="outline" size="sm">
+                              <Pencil className="mr-2 h-4 w-4" /> Edit
+                            </Button>
+                          }
+                        />
+                        {isSelf ? null : (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => {
+                              if (window.confirm(`Delete ${row.email}? This cannot be undone.`)) {
+                                deleteUser.mutate(row.id);
+                              }
+                            }}
+                            disabled={deleteUser.isPending}
+                          >
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            {deleteUser.isPending ? "Deleting…" : "Delete"}
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

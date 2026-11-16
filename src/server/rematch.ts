@@ -34,14 +34,21 @@ export async function rematchScans(
   const idColumn = kind === "staff" ? "staff_id" : "student_id";
   const unresolved = (column: string) => (options.onlyUnresolved ? `AND ${column} IS NULL` : "");
   const [massRows, eventRows] = await Promise.all([
+    // Closed weeks and events keep the matches they were closed with.
     query<StoredScan>(
       `SELECT id, scan_number, scanned_name, machine_id, person_id, needs_review
-         FROM mass_scans WHERE participant_type = ? ${unresolved("person_id")}`,
+         FROM mass_scans
+        WHERE participant_type = ? ${unresolved("person_id")}
+          AND mass_week_id NOT IN
+              (SELECT id FROM mass_weeks WHERE status IN ('completed', 'archived'))`,
       [kind],
     ),
     query<StoredScan>(
       `SELECT id, scan_number, scanned_name, machine_id, ${idColumn} AS person_id, needs_review
-         FROM ${eventsTable} WHERE 1 = 1 ${unresolved(idColumn)}`,
+         FROM ${eventsTable}
+        WHERE event_id NOT IN (SELECT id FROM ${kind === "staff" ? "staff_events" : "student_events"}
+                                WHERE status = 'finalized')
+          ${unresolved(idColumn)}`,
     ),
   ]);
 
@@ -98,15 +105,49 @@ export async function rematchScans(
 const settled = new Set<PersonKind>();
 
 /**
- * Re-match unresolved scans once per running app and kind, so results stored by
- * an older version are read with today's rules. Cheap: only scans with nobody
- * are looked at. Imports call markStale() so new people are picked up.
+ * The version of the matching rules in src/server/events.ts. Raise it whenever
+ * the rules change: every stored scan of each kind is then matched again once
+ * (an administrator's answers are remembered and still win), so no result
+ * keeps a mistake an older rule made.
+ *
+ *   2  staff: the printed name decides who scanned; the number only narrows the
+ *      field; the current staff list comes first.
+ */
+export const MATCH_RULES_VERSION = 2;
+
+async function storedRulesVersion(kind: PersonKind): Promise<number> {
+  try {
+    const rows = await query<RowDataPacket & { version: number }>(
+      "SELECT version FROM match_rules WHERE kind = ?",
+      [kind],
+    );
+    return Number(rows[0]?.version ?? 0);
+  } catch {
+    // An older database without the table (MariaDB hub): treat as current.
+    return MATCH_RULES_VERSION;
+  }
+}
+
+/**
+ * Re-match scans once per running app and kind, so results stored by an older
+ * version are read with today's rules. Normally only scans with nobody yet are
+ * looked at; after a rules change, every scan once. Imports call markStale() so
+ * new people are picked up.
  */
 export async function ensureRematched(kind: PersonKind): Promise<void> {
   if (settled.has(kind)) return;
   settled.add(kind);
   try {
-    await rematchScans(kind, { onlyUnresolved: true });
+    if ((await storedRulesVersion(kind)) < MATCH_RULES_VERSION) {
+      await rematchScans(kind, { onlyUnresolved: false });
+      await query(
+        `INSERT INTO match_rules (kind, version) VALUES (?, ?)
+         ON CONFLICT(kind) DO UPDATE SET version = excluded.version`,
+        [kind, MATCH_RULES_VERSION],
+      );
+    } else {
+      await rematchScans(kind, { onlyUnresolved: true });
+    }
   } catch (error) {
     settled.delete(kind);
     throw error;

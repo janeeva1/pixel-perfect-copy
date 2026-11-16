@@ -507,6 +507,8 @@ export const api = {
   admin: {
     clearAllData: () => post<{ ok: boolean }>("/api/admin/clear-all"),
     clearEvents: () => post<{ ok: boolean }>("/api/admin/clear-events"),
+    clear: (part: "staff" | "students" | "events" | "mass" | "all") =>
+      post<{ ok: boolean; message: string }>("/api/admin/clear", { part }),
     syncStatus: () => request<SyncStatusResult>("/api/admin/sync"),
     runSync: () => post<SyncResult>("/api/admin/sync"),
     getSyncConfig: () => request<SyncConfigResult>("/api/admin/sync/settings"),

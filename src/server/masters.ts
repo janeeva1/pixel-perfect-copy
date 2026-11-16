@@ -27,7 +27,7 @@ import { addMissingExpectations, refreshMassExpectations, syncMassWeekdays } fro
 import {
   matricKey,
   staffCanonicalMap,
-  staffIdentityKeys,
+  compactStaffNumber,
   staffNameKey,
   staffNumberDigits,
   studentCanonicalMap,
@@ -503,18 +503,13 @@ export async function importStaff(
     );
 
     // Indexes over the records as they stand, kept current as the file is applied.
-    const compactNo = (value: string | null | undefined) =>
-      (value ?? "").toUpperCase().replace(/\s+/g, "");
+    const compactNo = (value: string | null | undefined) => compactStaffNumber(value);
     const rowsById = new Map<string, StaffIdentityRow>();
     const byNumber = new Map<string, string>();
-    const byKey = new Map<string, Set<string>>();
     const byNameNoNumber = new Map<string, Set<string>>();
     const index = (row: StaffIdentityRow) => {
       rowsById.set(row.id, row);
       if (row.staff_no) byNumber.set(compactNo(row.staff_no), row.id);
-      for (const key of staffIdentityKeys(row)) {
-        byKey.set(key, (byKey.get(key) ?? new Set()).add(row.id));
-      }
       const name = staffNameKey(row);
       if (!row.staff_no && name) {
         byNameNoNumber.set(name, (byNameNoNumber.get(name) ?? new Set()).add(row.id));
@@ -524,7 +519,6 @@ export async function importStaff(
       if (row.staff_no && byNumber.get(compactNo(row.staff_no)) === row.id) {
         byNumber.delete(compactNo(row.staff_no));
       }
-      for (const key of staffIdentityKeys(row)) byKey.get(key)?.delete(row.id);
       byNameNoNumber.get(staffNameKey(row))?.delete(row.id);
     };
     for (const row of existing) index(row);
@@ -546,14 +540,13 @@ export async function importStaff(
         machine_id: record.machineId,
       };
 
+      // A row of the file is an existing record only when the staff number is
+      // the same (spaces and capitals aside). Sharing a machine number or the
+      // digits of a staff number ("SA39" / "SW39") makes two people, never one.
       let targetId: string | null = null;
-      if (record.staffNo) targetId = byNumber.get(compactNo(record.staffNo)) ?? null;
-      if (!targetId) {
-        const found = new Set<string>();
-        for (const key of staffIdentityKeys(asRow)) {
-          for (const id of byKey.get(key) ?? []) found.add(canonical.get(id) ?? id);
-        }
-        if (found.size === 1) targetId = [...found][0]!;
+      if (record.staffNo) {
+        const holder = byNumber.get(compactNo(record.staffNo)) ?? null;
+        targetId = holder ? (canonical.get(holder) ?? holder) : null;
       }
       if (!targetId && !record.staffNo) {
         const sameName = byNameNoNumber.get(staffNameKey(asRow));

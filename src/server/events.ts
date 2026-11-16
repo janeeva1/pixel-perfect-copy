@@ -16,11 +16,14 @@ import {
 import { normalizeName, parseScanTime, percent } from "@/lib/attendance";
 import { lookAlikePairs } from "@/server/lookalikes";
 import { onlyNewScans, storedScanKeys } from "@/server/scan-dedup";
+import { HttpError } from "@/server/http";
+import { UnmatchedList, type UnmatchedEntry } from "@/server/unmatched";
 import {
   compareNames,
   loadIdentity,
   nameWords,
   staffNumberDigits,
+  wordSimilarity,
   type Identity,
 } from "@/server/identity";
 import type {
@@ -177,6 +180,8 @@ type Candidate = {
   names: string[];
   /** The words of each of their records' full names. */
   words: string[][];
+  /** On the current staff list (always true for students). */
+  current: boolean;
 };
 
 type Lookup = {
@@ -193,6 +198,8 @@ type Lookup = {
   byName: Map<string, string | null>;
   /** Everyone, for the name-resemblance step. */
   everyone: Candidate[];
+  /** Every whole name word -> the people with it, so a name is checked fast. */
+  byWord: Map<string, Candidate[]>;
   /** Answers an administrator gave for a machine entry, by aliasKey(). */
   aliases: Map<string, string | null>;
 };
@@ -245,14 +252,16 @@ async function loadLookup(config: GroupConfig): Promise<Lookup> {
       last_name: string | null;
       first_name: string | null;
       middle_name: string | null;
+      current: number | null;
     }
   >(
     staff
       ? `SELECT f.id, f.staff_id_on_machine AS machine_number, f.machine_id AS machine_number2,
-                f.staff_no, f.last_name, f.first_name, f.middle_name
+                f.staff_no, f.last_name, f.first_name, f.middle_name,
+                COALESCE(f.on_current_list, 1) AS current
          FROM staff f`
       : `SELECT s.id, ${config.scanNumber} AS machine_number, NULL AS machine_number2,
-                NULL AS staff_no, s.last_name, s.first_name, s.middle_name
+                NULL AS staff_no, s.last_name, s.first_name, s.middle_name, 1 AS current
          FROM students s`,
   );
   const [identity, aliasRows] = await Promise.all([
@@ -268,7 +277,7 @@ async function loadLookup(config: GroupConfig): Promise<Lookup> {
     const canonical = identity.canonical(id);
     let candidate = candidates.get(canonical);
     if (!candidate) {
-      candidate = { id: canonical, names: [], words: [] };
+      candidate = { id: canonical, names: [], words: [], current: false };
       candidates.set(canonical, candidate);
     }
     return candidate;
@@ -282,12 +291,15 @@ async function loadLookup(config: GroupConfig): Promise<Lookup> {
   const byMachine = new Map<string, Candidate[]>();
   const byStaffNo = new Map<string, Candidate[]>();
   const byName = new Map<string, string | null>();
+  const byWord = new Map<string, Candidate[]>();
   for (const row of rows) {
     const names = nameForms(row.last_name ?? "", row.first_name ?? "", row.middle_name ?? "");
     const candidate = candidateFor(row.id);
+    if (Number(row.current ?? 1) === 1) candidate.current = true;
     for (const name of names) if (!candidate.names.includes(name)) candidate.names.push(name);
     const words = nameWords(row.last_name, row.first_name, row.middle_name);
     if (words.length > 0) candidate.words.push(words);
+    for (const word of new Set(words)) addTo(byWord, word, candidate);
     for (const number of [row.machine_number, row.machine_number2]) {
       for (const key of numberKeys(number ?? "")) addTo(byMachine, key, candidate);
     }
@@ -310,6 +322,7 @@ async function loadLookup(config: GroupConfig): Promise<Lookup> {
     byStaffNo,
     byName,
     everyone: [...candidates.values()],
+    byWord,
     aliases,
   };
 }
@@ -348,85 +361,118 @@ function fit(scannedWords: string[], candidate: Candidate): { exact: number; tot
 }
 
 /**
- * Pick among the people a number points at, using the scanned name.
+ * How completely a printed name is this person's name, using their best record:
  *
- *   one person, name fits (a word agrees) or no name printed -> certain
- *   one person, name shares nothing with theirs              -> review
- *   several people, exactly one fits best                    -> certain
- *   several people, no clear best                            -> review
+ *   3  every printed word is one of their name words, spelled the same;
+ *   2  every printed word is one of their words, or the start of one (the
+ *      machine cuts long names: "LAWRE" for LAWRENCE, "ADEBOL" for ADEBOLA, an
+ *      initial "N" for NNAMDI);
+ *   1  as 2, but a word may also be a spelling variant ("SUCESS" / "SUCCESS");
+ *   0  not their name.
+ *
+ * Each of their words is used once, and at least one printed word must be a
+ * whole word of theirs (an initial alone is nobody). Printed words may be
+ * fewer than theirs: the machine leaves out middle names.
  */
-function decide(
-  people: Candidate[],
-  scannedWords: string[],
-  method: "machine_id" | "number",
-): Match | { review: true; candidates: string[] } {
-  if (scannedWords.length === 0) {
-    if (people.length === 1) {
-      return {
-        id: people[0]!.id,
-        method: "number",
-        originalMethod: method,
-        review: false,
-        candidates: [],
-      };
+function nameLevel(printed: string[], candidate: Candidate): number {
+  if (printed.length === 0) return 0;
+  let best = 0;
+  for (const words of candidate.words) {
+    const remaining = [...words];
+    let exact = 0;
+    let level = 3;
+    const rest: string[] = [];
+    for (const word of printed) {
+      const index = remaining.indexOf(word);
+      if (index >= 0) {
+        remaining.splice(index, 1);
+        exact += 1;
+      } else rest.push(word);
     }
-    return { review: true, candidates: people.map((person) => person.id) };
+    if (exact === 0) continue;
+    let ok = true;
+    // Longest first, so a short piece cannot take the word a longer one needs.
+    for (const word of rest.sort((a, b) => b.length - a.length)) {
+      let index = remaining.findIndex(
+        (theirs) => theirs.startsWith(word) && (word.length >= 3 || word.length === 1),
+      );
+      if (index >= 0) {
+        level = Math.min(level, 2);
+      } else {
+        index = remaining.findIndex(
+          (theirs) =>
+            word.length >= 4 && theirs.length >= 4 && wordSimilarity(word, theirs) >= 0.88,
+        );
+        if (index < 0) {
+          ok = false;
+          break;
+        }
+        level = Math.min(level, 1);
+      }
+      remaining.splice(index, 1);
+    }
+    if (ok) best = Math.max(best, level);
+    if (best === 3) break;
   }
-  const scored = people
-    .map((person) => ({ person, ...fit(scannedWords, person) }))
-    .sort((a, b) => b.total - a.total || b.exact - a.exact);
-  const best = scored[0]!;
-  const second = scored[1];
-  const clear =
-    best.total >= 1 &&
-    (!second ||
-      best.total > second.total ||
-      (best.total === second.total && best.exact > second.exact));
-  if (clear) {
-    return {
-      id: best.person.id,
-      method: "number",
-      originalMethod: method,
-      review: false,
-      candidates: [],
-    };
-  }
-  return { review: true, candidates: scored.map((entry) => entry.person.id) };
+  return best;
 }
 
-/** People whose name resembles the scanned name (2+ words agree), best first. */
-function resembling(lookup: Lookup, scannedWords: string[], limit = 5): string[] {
-  if (scannedWords.length < 2) return [];
-  return lookup.everyone
-    .map((person) => ({ person, ...fit(scannedWords, person) }))
-    .filter((entry) => entry.total >= 2 && entry.exact >= 1)
-    .sort((a, b) => b.total - a.total || b.exact - a.exact)
-    .slice(0, limit)
-    .map((entry) => entry.person.id);
+/** People who have at least one of the printed words: the only ones whose name it can be. */
+function namePool(lookup: Lookup, printed: string[]): Candidate[] {
+  const pool = new Set<Candidate>();
+  for (const word of printed) for (const person of lookup.byWord.get(word) ?? []) pool.add(person);
+  return [...pool];
+}
+
+type Ranked = { person: Candidate; level: number; owner: boolean };
+
+/**
+ * The single best person, or null with the tied ones when there is no single
+ * best. `order` says what counts first.
+ */
+function pickBest(
+  ranked: Ranked[],
+  order: Array<(entry: Ranked) => number>,
+): { winner: Candidate | null; tied: Candidate[] } {
+  if (ranked.length === 0) return { winner: null, tied: [] };
+  const key = (entry: Ranked) => order.map((score) => score(entry));
+  const sorted = [...ranked].sort((a, b) => {
+    const ka = key(a);
+    const kb = key(b);
+    for (let index = 0; index < ka.length; index++) {
+      if (ka[index] !== kb[index]) return kb[index]! - ka[index]!;
+    }
+    return 0;
+  });
+  const top = key(sorted[0]!).join("|");
+  const tied = sorted.filter((entry) => key(entry).join("|") === top).map((entry) => entry.person);
+  return tied.length === 1 ? { winner: tied[0]!, tied } : { winner: null, tied };
 }
 
 /**
  * The one person whose name contains every printed word (two words or more,
- * spelled exactly), or null when nobody or more than one person does.
+ * spelled exactly); when several do, the one on the current list if only one
+ * is. Null when nobody, or no single person, fits.
  */
 function wholeNameMatch(lookup: Lookup, scannedWords: string[]): string | null {
   if (scannedWords.length < 2) return null;
-  let found: string | null = null;
-  for (const person of lookup.everyone) {
-    const fits = person.words.some((words) => {
-      const remaining = [...words];
-      for (const word of scannedWords) {
-        const index = remaining.indexOf(word);
-        if (index < 0) return false;
-        remaining.splice(index, 1);
-      }
-      return true;
-    });
-    if (!fits) continue;
-    if (found !== null && found !== person.id) return null;
-    found = person.id;
-  }
-  return found;
+  const full = namePool(lookup, scannedWords).filter(
+    (person) => nameLevel(scannedWords, person) === 3,
+  );
+  if (full.length === 1) return full[0]!.id;
+  const current = full.filter((person) => person.current);
+  return current.length === 1 ? current[0]!.id : null;
+}
+
+/** People whose name resembles the printed name, best first (for the review window). */
+function resembling(lookup: Lookup, scannedWords: string[], limit = 5): string[] {
+  if (scannedWords.length === 0) return [];
+  return namePool(lookup, scannedWords)
+    .map((person) => ({ person, ...fit(scannedWords, person) }))
+    .filter((entry) => entry.total >= Math.min(2, scannedWords.length) && entry.exact >= 1)
+    .sort((a, b) => b.total - a.total || b.exact - a.exact)
+    .slice(0, limit)
+    .map((entry) => entry.person.id);
 }
 
 /**
@@ -531,71 +577,130 @@ function matchRow(
     };
   }
 
-  // The printed name, when it is one person's name beyond doubt: two or more
-  // words, every one of them in that person's name, and nobody else's. The
-  // machine often prints a number that is not the person's (a neighbour's, a
-  // mistyped one: "1548 IGWE CHICHI" for IGWE CHICHI, AT1508). Such a name wins
-  // over a number whose owner does not fit every printed word (another IGWE),
-  // and settles a number that fits nobody. A number whose owner fits every word
-  // (an initial or a cut-short word counts) keeps it: "779 CHIKEZIE IFEANYI" is
-  // AT779 Chikezie Ifeanyichukwu, not AT1390 Chekwas Chikezie Ifeanyi.
-  const named = wholeNameMatch(lookup, scannedWords);
-  const byName: Match | null = named
-    ? { id: named, method: "name", originalMethod: "name", review: false, candidates: [] }
-    : null;
+  const certain = (person: Candidate, by: "number" | "name"): Match => ({
+    id: person.id,
+    method: by,
+    originalMethod: by === "number" ? "machine_id" : "name",
+    review: false,
+    candidates: [],
+  });
+
+  // Whose name is printed: everyone whose name it is (full, cut short, an
+  // initial, a spelling variant), from the people who share a word with it.
+  const nameRanked: Ranked[] = namePool(lookup, scannedWords)
+    .map((person) => ({ person, level: nameLevel(scannedWords, person), owner: false }))
+    .filter((entry) => entry.level > 0);
 
   // 0b. "Not anyone on the list" was answered for this entry. It holds -- except
-  //     when the printed name is exactly one person's: then that person scanned,
-  //     and leaving the scan unmatched would show them absent AND unmatched.
-  if (remembered === null) return byName ?? NO_MATCH;
+  //     when the printed name is clearly one person's (full or cut short): then
+  //     that person scanned, and leaving the scan unmatched would show them
+  //     absent AND unmatched.
+  if (remembered === null) {
+    if (scannedWords.length < 2) return NO_MATCH;
+    const { winner } = pickBest(
+      nameRanked.filter((entry) => entry.level >= 2),
+      [(entry) => entry.level, (entry) => (entry.person.current ? 1 : 0)],
+    );
+    return winner ? certain(winner, "name") : NO_MATCH;
+  }
 
-  const reviewWith: string[] = [];
-  const steps: Array<[Map<string, Candidate[]>, string | null, "machine_id" | "number"]> = [
-    [lookup.byMachine, machineId, "machine_id"],
-    [lookup.byMachine, scanNumber, "machine_id"],
-    [lookup.byStaffNo, scanNumber ? staffNumberDigits(scanNumber) : null, "number"],
+  // 1. Who the number is: the machine id first, then the staff number's digits.
+  //    Two different people can share a number ("SA39" and "SW39"; a member of
+  //    staff registered on the machine under a colleague's number), so the
+  //    number only ever narrows the field -- the printed name says which of
+  //    them scanned.
+  const owners = new Map<Candidate, number>();
+  const steps: Array<[Map<string, Candidate[]>, string | null, number]> = [
+    [lookup.byMachine, machineId, 2],
+    [lookup.byMachine, scanNumber, 2],
+    [lookup.byStaffNo, scanNumber ? staffNumberDigits(scanNumber) : null, 1],
   ];
-  for (const [map, value, method] of steps) {
+  for (const [map, value, weight] of steps) {
     if (!value) continue;
-    const people = new Set<Candidate>();
-    for (const key of numberKeys(value.trim()))
-      for (const person of map.get(key) ?? []) people.add(person);
-    if (people.size === 0) continue;
-    const outcome = decide([...people], scannedWords, method);
-    if (!("review" in outcome && outcome.review === true && !("id" in outcome))) {
-      const chosen = outcome as Match;
-      if (byName && chosen.id !== byName.id) {
-        const owner = [...people].find((person) => person.id === chosen.id);
-        const fitsAll =
-          owner !== undefined && fit(scannedWords, owner).total >= scannedWords.length;
-        if (!fitsAll) return byName;
+    for (const key of numberKeys(value.trim())) {
+      for (const person of map.get(key) ?? []) {
+        owners.set(person, Math.max(owners.get(person) ?? 0, weight));
       }
-      return chosen;
     }
-    for (const id of outcome.candidates) if (!reviewWith.includes(id)) reviewWith.push(id);
   }
 
-  // The number pointed at people the name does not fit, or at nobody.
-  if (byName) return byName;
-
-  // 4. The exact name, when only one person has it.
-  if (scannedName) {
-    const exactName = lookup.byName.get(scannedName);
-    if (exactName && reviewWith.length === 0) {
-      return {
-        id: exactName,
-        method: "name",
-        originalMethod: "name",
-        review: false,
-        candidates: [],
-      };
-    }
-    if (exactName && !reviewWith.includes(exactName)) reviewWith.unshift(exactName);
+  if (scannedWords.length === 0) {
+    // No name printed: the number alone, when it is one person's.
+    const ownerList = [...owners.keys()];
+    if (ownerList.length === 1) return certain(ownerList[0]!, "number");
+    const current = ownerList.filter((person) => person.current);
+    if (current.length === 1) return certain(current[0]!, "number");
+    return ownerList.length === 0
+      ? NO_MATCH
+      : {
+          id: null,
+          method: "none",
+          originalMethod: "none",
+          review: true,
+          candidates: ownerList.map((person) => person.id),
+        };
   }
 
-  // Not certain: whoever the number pointed at, and whoever the name resembles.
-  for (const id of resembling(lookup, scannedWords))
+  // 2. An owner of the number whose name this is: the current staff list first
+  //    (an old record of the same person is not expected anywhere), then the
+  //    closest name, then the machine id over the staff number.
+  const ownerRanked: Ranked[] = [...owners.entries()]
+    .map(([person]) => ({ person, level: nameLevel(scannedWords, person), owner: true }))
+    .filter((entry) => entry.level > 0);
+  const byOwner = pickBest(ownerRanked, [
+    (entry) => (entry.person.current ? 1 : 0),
+    (entry) => entry.level,
+    (entry) => owners.get(entry.person) ?? 0,
+  ]);
+  if (byOwner.winner) return certain(byOwner.winner, "number");
+
+  // 3. Nobody with that number has that name: the machine has the person under
+  //    another number. The name alone decides when it is clearly one person's
+  //    (full or cut short, not just a similar spelling), the current staff list
+  //    first.
+  const byPrintedName = pickBest(
+    nameRanked.filter((entry) => entry.level >= 2),
+    [(entry) => entry.level, (entry) => (entry.person.current ? 1 : 0)],
+  );
+  //    One printed word is too little to name someone without the number.
+  if (byOwner.tied.length === 0 && byPrintedName.winner && scannedWords.length >= 2) {
+    return certain(byPrintedName.winner, "name");
+  }
+
+  // 3b. Nobody has the printed name exactly, but the number's owner shares part
+  //     of it (a typo, "MWOKORIE" for NWOKORIE; a maiden or married name,
+  //     "ODU JANE" for Anyanwu Jane): the machine registered them under that
+  //     number, so the scan is theirs. The current staff list first.
+  if (byOwner.tied.length === 0 && byPrintedName.tied.length === 0) {
+    const partly = pickBest(
+      [...owners.entries()]
+        .map(([person, weight]) => ({ person, weight, ...fit(scannedWords, person) }))
+        .filter((entry) => entry.total >= 1)
+        .map((entry) => ({
+          person: entry.person,
+          level: entry.total * 10 + entry.exact,
+          owner: true,
+        })),
+      [
+        (entry) => (entry.person.current ? 1 : 0),
+        (entry) => entry.level,
+        (entry) => owners.get(entry.person) ?? 0,
+      ],
+    );
+    if (partly.winner) return certain(partly.winner, "number");
+  }
+
+  // 4. Not certain -- two people fit equally, or the name only resembles
+  //    someone: an administrator decides, with the likely people offered.
+  const reviewWith: string[] = [];
+  const add = (id: string) => {
     if (!reviewWith.includes(id)) reviewWith.push(id);
+  };
+  for (const person of byOwner.tied) add(person.id);
+  for (const person of byPrintedName.tied) add(person.id);
+  for (const entry of nameRanked.sort((a, b) => b.level - a.level)) add(entry.person.id);
+  for (const id of resembling(lookup, scannedWords)) add(id);
+  for (const person of owners.keys()) add(person.id);
   if (reviewWith.length === 0) return NO_MATCH;
   return {
     id: null,
@@ -746,6 +851,79 @@ function scopeWhereFor(
     params,
     alias ?? "s",
   );
+}
+
+/**
+ * The `WHERE` fragment for who an event expects. An open event expects whoever
+ * its scope covers on the staff or student list as it is now. A closed event
+ * ("finalized") expects exactly the people it expected when it was closed
+ * (event_expected), so people added to the list afterwards are never counted
+ * there.
+ */
+async function expectedWhereFor(
+  kind: GroupKind,
+  event: StudentEvent | StaffEvent,
+  params: SqlParam[],
+  alias: string,
+): Promise<string> {
+  if (event.status !== "finalized") return openExpectedWhere(kind, event, params, alias);
+  await freezeExpected(kind, event);
+  params.push(kind, event.id);
+  return `${alias}.id IN (SELECT person_id FROM event_expected WHERE kind = ? AND event_id = ?)`;
+}
+
+/**
+ * Who an open event expects: the people its scope covers -- except anyone
+ * added to the staff or student list after the event's last file was
+ * uploaded, who is expected only if they scanned. Someone who was not on the
+ * list when the attendance was taken is never counted absent for it.
+ */
+function openExpectedWhere(
+  kind: GroupKind,
+  event: StudentEvent | StaffEvent,
+  params: SqlParam[],
+  alias: string,
+): string {
+  const config = GROUPS[kind];
+  const scope = scopeWhereFor(kind, scopeOf(event), params, alias);
+  params.push(event.id, event.id);
+  return `(${scope}) AND (
+    ${alias}.created_at IS NULL
+    OR ${alias}.created_at <= COALESCE(
+         (SELECT MAX(uploaded_at) FROM ${config.uploads} WHERE event_id = ?), ${alias}.created_at)
+    OR ${alias}.id IN (SELECT ${config.idColumn} FROM ${config.scans}
+                        WHERE event_id = ? AND ${config.idColumn} IS NOT NULL))`;
+}
+
+/**
+ * Write down who a closed event expects, once. An event closed by an older
+ * version has no list yet; it gets one the first time it is read.
+ */
+async function freezeExpected(kind: GroupKind, event: StudentEvent | StaffEvent): Promise<void> {
+  const existing = await queryOne<RowDataPacket & { ok: number }>(
+    "SELECT 1 AS ok FROM event_expected WHERE kind = ? AND event_id = ? LIMIT 1",
+    [kind, event.id],
+  );
+  if (existing) return;
+  const config = GROUPS[kind];
+  const params: SqlParam[] = [];
+  const where = openExpectedWhere(kind, event, params, config.personAlias);
+  await query(
+    `INSERT INTO event_expected (kind, event_id, person_id)
+     SELECT ?, ?, ${config.personAlias}.id FROM ${config.people} ${config.personAlias}
+     WHERE ${where}`,
+    [kind, event.id, ...params],
+  );
+}
+
+/** Refuse a change to a closed event's attendance. */
+export function assertEventOpen(event: { status: string; title?: string | null }): void {
+  if (event.status === "finalized") {
+    throw new HttpError(
+      409,
+      "This event is closed, so its attendance no longer changes. Reopen it first to add or change files.",
+    );
+  }
 }
 
 /** Every department an event covers, in a stable order. Empty means everyone. */
@@ -1097,17 +1275,25 @@ export async function setEventStatus(
   status: "draft" | "finalized",
 ): Promise<StudentEvent | StaffEvent> {
   const config = GROUPS[kind];
-  await getEvent(kind, eventId);
+  const before = await getEvent(kind, eventId);
+  // Closing writes down who is expected now; reopening forgets it, so an open
+  // event follows the staff or student list again.
+  await query("DELETE FROM event_expected WHERE kind = ? AND event_id = ?", [kind, eventId]);
   await query(
     `UPDATE ${config.events} SET status = ?, finalized_at = ?, updated_at = ? WHERE id = ?`,
     [status, status === "finalized" ? new Date() : null, utcStamp(), eventId],
   );
+  if (status === "finalized") {
+    await (await import("@/server/rematch")).ensureRematched(kind);
+    await freezeExpected(kind, { ...before, status: "finalized" });
+  }
   return getEvent(kind, eventId);
 }
 
 export async function deleteEvent(kind: GroupKind, eventId: string): Promise<void> {
   const config = GROUPS[kind];
   await getEvent(kind, eventId);
+  await query("DELETE FROM event_expected WHERE kind = ? AND event_id = ?", [kind, eventId]);
   await query(`DELETE FROM ${config.events} WHERE id = ?`, [eventId]);
 }
 
@@ -1181,6 +1367,7 @@ export async function uploadScans(
 ): Promise<{ upload: EventUpload | null; summary: EventSummary; added: number; skipped: number }> {
   const config = GROUPS[kind];
   const event = await getEvent(kind, eventId);
+  assertEventOpen(event);
   const scope = scopeOf(event);
   const lookup = await loadLookup(config);
   const uploadId = randomUUID();
@@ -1325,12 +1512,10 @@ export async function uploadScans(
       );
     }
 
-    // New scans change the numbers, so an event that was closed goes back to
-    // draft rather than pretending to be final.
-    await connection.execute(
-      `UPDATE ${config.events} SET status = 'draft', finalized_at = NULL, updated_at = ? WHERE id = ?`,
-      [utcStamp(), eventId],
-    );
+    await connection.execute(`UPDATE ${config.events} SET updated_at = ? WHERE id = ?`, [
+      utcStamp(),
+      eventId,
+    ]);
     await connection.execute(
       "INSERT INTO audit_logs (id, actor_id, action, entity, entity_id, details) VALUES (?, ?, ?, ?, ?, ?)",
       [
@@ -1358,7 +1543,7 @@ async function expectedCount(
   event: StudentEvent | StaffEvent,
 ): Promise<number> {
   const params: SqlParam[] = [];
-  const where = scopeWhereFor(kind, scopeOf(event), params, config.personAlias);
+  const where = await expectedWhereFor(kind, event, params, config.personAlias);
   const row = await queryOne<RowDataPacket & { total: number }>(
     `SELECT COUNT(*) AS total FROM ${config.people} ${config.personAlias} WHERE ${where}`,
     params,
@@ -1395,41 +1580,81 @@ async function grantedPresentIds(
   return granted.filter((id) => !already.has(id));
 }
 
+/**
+ * An event's unmatched entries (src/server/unmatched.ts) and, per file, which
+ * of them it holds -- the one count the cards, the tab, the file table and the
+ * downloads all show.
+ */
+async function eventUnmatched(
+  kind: GroupKind,
+  eventId: string,
+): Promise<{ list: UnmatchedEntry[]; perUpload: Map<string, Set<string>> }> {
+  const config = GROUPS[kind];
+  const rows = await query<
+    RowDataPacket & {
+      id: string;
+      upload_id: string;
+      scan_number: string | null;
+      scanned_name: string | null;
+      scanned_at: Date | string;
+    }
+  >(
+    `SELECT id, upload_id, scan_number, scanned_name, scanned_at FROM ${config.scans}
+      WHERE event_id = ? AND ${config.idColumn} IS NULL AND needs_review = 0`,
+    [eventId],
+  );
+  const list = new UnmatchedList();
+  const perUpload = new Map<string, Set<string>>();
+  for (const row of rows) {
+    const key = list.add({
+      id: row.id,
+      scan_number: row.scan_number,
+      scanned_name: row.scanned_name,
+      at: toIso(row.scanned_at) ?? "",
+    });
+    const set = perUpload.get(row.upload_id) ?? new Set<string>();
+    set.add(key);
+    perUpload.set(row.upload_id, set);
+  }
+  return { list: list.entries(), perUpload };
+}
+
 export async function eventSummary(kind: GroupKind, eventId: string): Promise<EventSummary> {
   await (await import("@/server/rematch")).ensureRematched(kind);
   const config = GROUPS[kind];
   const event = await getEvent(kind, eventId);
   const scopeParams: SqlParam[] = [];
-  const scopeWhere = scopeWhereFor(kind, scopeOf(event), scopeParams, config.personAlias);
-  const [identity, inScope, scanned, counts, uploads, window, granted] = await Promise.all([
-    loadIdentity(kind),
-    query<RowDataPacket & { id: string }>(
-      `SELECT ${config.personAlias}.id FROM ${config.people} ${config.personAlias}
+  const scopeWhere = await expectedWhereFor(kind, event, scopeParams, config.personAlias);
+  const [identity, inScope, scanned, counts, uploads, window, granted, unmatched] =
+    await Promise.all([
+      loadIdentity(kind),
+      query<RowDataPacket & { id: string }>(
+        `SELECT ${config.personAlias}.id FROM ${config.people} ${config.personAlias}
        WHERE ${scopeWhere}`,
-      scopeParams,
-    ),
-    query<RowDataPacket & { person_id: string; in_scope: number }>(
-      `SELECT DISTINCT ${config.idColumn} AS person_id, in_scope FROM ${config.scans}
+        scopeParams,
+      ),
+      query<RowDataPacket & { person_id: string; in_scope: number }>(
+        `SELECT DISTINCT ${config.idColumn} AS person_id, in_scope FROM ${config.scans}
        WHERE event_id = ? AND ${config.idColumn} IS NOT NULL`,
-      [eventId],
-    ),
-    queryOne<RowDataPacket & { scans: number; unmatched: number; pending: number }>(
-      `SELECT COUNT(*) AS scans,
-              SUM(CASE WHEN match_method = 'none' AND needs_review = 0 THEN 1 ELSE 0 END) AS unmatched,
+        [eventId],
+      ),
+      queryOne<RowDataPacket & { scans: number; pending: number }>(
+        `SELECT COUNT(*) AS scans,
               SUM(CASE WHEN needs_review = 1 THEN 1 ELSE 0 END) AS pending
        FROM ${config.scans} WHERE event_id = ?`,
-      [eventId],
-    ),
-    listUploads(kind, eventId),
-    queryOne<RowDataPacket & { first_scan: Date | null; last_scan: Date | null }>(
-      `SELECT MIN(scanned_at) AS first_scan, MAX(scanned_at) AS last_scan
+        [eventId],
+      ),
+      listUploads(kind, eventId),
+      queryOne<RowDataPacket & { first_scan: Date | null; last_scan: Date | null }>(
+        `SELECT MIN(scanned_at) AS first_scan, MAX(scanned_at) AS last_scan
        FROM ${config.scans} WHERE event_id = ?`,
-      [eventId],
-    ),
-    // The staff credited present without a scan, already reduced to the ones
-    // who did not scan.
-    grantedPresentIds(kind, eventId, event),
-  ]);
+        [eventId],
+      ),
+      // The staff credited present without a scan, already reduced to the ones
+      // who did not scan.
+      grantedPresentIds(kind, eventId, event),
+      eventUnmatched(kind, eventId),
+    ]);
 
   // Counted per PERSON: rows of the master list that are the same person
   // (src/server/identity.ts) count once, so nobody is both present and absent.
@@ -1446,7 +1671,7 @@ export async function eventSummary(kind: GroupKind, eventId: string): Promise<Ev
     present: people.present.size,
     absent: people.absent.size,
     outOfScope: people.outOfScope.size,
-    unmatched: Number(counts?.unmatched ?? 0),
+    unmatched: unmatched.list.length,
     percent: percent(people.present.size, people.expected.size),
     firstScanAt: toIso(window?.first_scan),
     lastScanAt: toIso(window?.last_scan),
@@ -1509,7 +1734,7 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
   const summary = await eventSummary(kind, eventId);
 
   const scopeParams: SqlParam[] = [];
-  const scopeWhere = scopeWhereFor(kind, scopeOf(event), scopeParams, alias);
+  const scopeWhere = await expectedWhereFor(kind, event, scopeParams, alias);
 
   const [scannedPeople, inScopePeople, unmatched, uploadList, granted] = await Promise.all([
     // Every matched person with their scans, whether or not the upload judged
@@ -1533,25 +1758,7 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
        ORDER BY name`,
       scopeParams,
     ),
-    query<
-      RowDataPacket & {
-        scan_id: string;
-        scan_number: string | null;
-        scanned_name: string | null;
-        scan_count: number;
-        first_scan_at: Date;
-        last_scan_at: Date;
-      }
-    >(
-      `SELECT MIN(id) AS scan_id, scan_number, scanned_name, COUNT(*) AS scan_count,
-              MIN(scanned_at) AS first_scan_at, MAX(scanned_at) AS last_scan_at
-       FROM ${config.scans}
-       WHERE event_id = ? AND match_method = 'none' AND needs_review = 0
-       GROUP BY scan_number, scanned_name
-       ORDER BY scan_count DESC, scanned_name
-       LIMIT 500`,
-      [eventId],
-    ),
+    eventUnmatched(kind, eventId),
     listUploads(kind, eventId),
     grantedPresentIds(kind, eventId, event),
   ]);
@@ -1638,6 +1845,27 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
     }
   }
 
+  // Each file's numbers as they are now, in the same terms as the totals.
+  const perFile = await query<RowDataPacket & { upload_id: string; person_id: string }>(
+    `SELECT DISTINCT upload_id, ${config.idColumn} AS person_id FROM ${config.scans}
+      WHERE event_id = ? AND ${config.idColumn} IS NOT NULL`,
+    [eventId],
+  );
+  const livePresent = new Map<string, Set<string>>();
+  const liveOutOfScope = new Map<string, Set<string>>();
+  for (const row of perFile) {
+    const key = person(row.person_id);
+    const target = outcome.present.has(key)
+      ? livePresent
+      : outcome.outOfScope.has(key)
+        ? liveOutOfScope
+        : null;
+    if (!target) continue;
+    const set = target.get(row.upload_id) ?? new Set<string>();
+    set.add(key);
+    target.set(row.upload_id, set);
+  }
+
   const byListName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
   return {
     ...summary,
@@ -1648,15 +1876,13 @@ export async function eventResult(kind: GroupKind, eventId: string): Promise<Eve
     // event page can say the present count includes overrides instead of
     // leaving the reader to infer it from a zero in the scan column.
     hasGrantedPresence: granted.length > 0,
-    unmatchedList: unmatched.map((row) => ({
-      scan_id: row.scan_id,
-      scan_number: row.scan_number,
-      scanned_name: row.scanned_name,
-      scan_count: Number(row.scan_count),
-      first_scan_at: toIso(row.first_scan_at) ?? "",
-      last_scan_at: toIso(row.last_scan_at) ?? "",
+    unmatchedList: unmatched.list,
+    uploadList: uploadList.map((upload) => ({
+      ...upload,
+      present_count: livePresent.get(upload.id)?.size ?? 0,
+      out_of_scope_count: liveOutOfScope.get(upload.id)?.size ?? 0,
+      unmatched_count: unmatched.perUpload.get(upload.id)?.size ?? 0,
     })),
-    uploadList,
   };
 }
 

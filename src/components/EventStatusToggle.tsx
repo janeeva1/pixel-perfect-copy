@@ -1,20 +1,16 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useMutationWithToast } from "@/lib/mutations";
 import type { StaffEvent, StudentEvent } from "@/lib/types";
 
 /**
- * Mark an event final, or take it back to draft.
+ * Close an event ("stop counting"), or reopen it.
  *
- * "Reopen" is the same thing as suspending an event: a draft is one whose
- * attendance has not been signed off, so it stops being treated as settled and
- * `finalized_at` is cleared. There is no separate suspended state, because the
- * two the schema allows are the two anybody actually needs, and a third would
- * only mean deciding again later what a report should do with it.
- *
- * The button says which way it will go, because an event that is already final
- * offering "Mark final" is a trap.
+ * Closing writes down who the event expects at that moment and keeps every
+ * match as it is, so people added to the staff or student list afterwards are
+ * never counted there, and nothing re-matches its scans. Files can only be
+ * added to an open event. Reopening makes the event follow the list again.
  */
 export function EventStatusToggle({
   group,
@@ -32,7 +28,7 @@ export function EventStatusToggle({
   const change = useMutationWithToast(() => api.setEventStatus(group, event.id, next), {
     successMessage: finalized
       ? `“${event.title}” is open again.`
-      : `“${event.title}” marked final.`,
+      : `“${event.title}” is closed: its numbers no longer change.`,
     errorMessage: "The status could not be changed.",
     mutationOptions: {
       onSuccess: () => {
@@ -42,14 +38,21 @@ export function EventStatusToggle({
     },
   });
 
+  const ask = () => {
+    const question = finalized
+      ? `Reopen “${event.title}”?\n\nIt will follow the ${group} list again: anyone added to the list since it was closed will be counted (absent unless they scanned).`
+      : `Close “${event.title}”?\n\nWho was expected and who was present are kept as they are now. People added to the ${group} list later will not be counted, and no more files can be added until you reopen it.`;
+    if (window.confirm(question)) change.mutate();
+  };
+
   return (
     <Button
       variant={finalized ? "outline" : "default"}
       size={size}
       disabled={change.isPending}
-      onClick={() => change.mutate()}
+      onClick={ask}
     >
-      {change.isPending ? "…" : finalized ? "Reopen" : "Mark final"}
+      {change.isPending ? "…" : finalized ? "Reopen" : "Close — stop counting"}
     </Button>
   );
 }

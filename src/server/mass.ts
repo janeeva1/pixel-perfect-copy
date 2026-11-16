@@ -39,6 +39,7 @@ import { parseScanTime, percent } from "@/lib/attendance";
 import { loadIdentity, type Identity } from "@/server/identity";
 import { lookAlikePairs } from "@/server/lookalikes";
 import { ensureRematched } from "@/server/rematch";
+import { UnmatchedList } from "@/server/unmatched";
 import { exemptStaffIds } from "@/server/presence-overrides";
 import { onlyNewScans, storedScanKeys } from "@/server/scan-dedup";
 import { HttpError } from "@/server/http";
@@ -606,6 +607,21 @@ export async function setMassWeekWeekdays(
   return getMassWeek(weekId);
 }
 
+/** A week marked completed or archived is closed: its results no longer change. */
+export function isMassWeekClosed(week: { status: string }): boolean {
+  return week.status === "completed" || week.status === "archived";
+}
+
+/** Refuse a change to a closed week's attendance. */
+export function assertMassWeekOpen(week: { status: string }): void {
+  if (isMassWeekClosed(week)) {
+    throw new HttpError(
+      409,
+      "This week is closed, so its attendance no longer changes. Reopen it first to add or change files.",
+    );
+  }
+}
+
 export async function setMassWeekStatus(
   weekId: string,
   status: MassWeekStatus,
@@ -614,6 +630,11 @@ export async function setMassWeekStatus(
   await getMassWeek(weekId);
   if (!["draft", "active", "completed", "archived"].includes(status)) {
     throw new HttpError(400, "Status must be draft, active, completed or archived.");
+  }
+  if (status === "completed" || status === "archived") {
+    // Settle every match with today's rules before the week stops changing.
+    await ensureRematched("staff");
+    await ensureRematched("student");
   }
   await query("UPDATE mass_weeks SET status = ?, updated_at = ? WHERE id = ?", [
     status,
@@ -838,17 +859,24 @@ async function ensureExpected(
 
 /**
  * After a master-list import: put people who were not on the list when a week
- * was frozen onto that week's expected list, so their scans count as present
- * (not out of scope) and their absence is counted. Nobody already expected is
+ * was frozen, AND who scanned that week, onto its expected list, so their scans
+ * count as present (not out of scope). People who did not scan are not added:
+ * they were not on the list when the attendance was taken, so they are never
+ * counted absent for it. Closed weeks are left alone. Nobody already expected is
  * removed or changed -- the snapshot is history -- and a week without uploads
  * is simply rebuilt from scratch on its next upload, as before.
  */
 export async function addMissingExpectations(
   participantType: MassUploadParticipant,
 ): Promise<{ weeks: number; added: number }> {
+  // Match waiting scans against the list as it is now first, so a person just
+  // added is found on the scans they made.
+  await ensureRematched(participantType);
   const weekType = participantType === "student" ? "students" : "staff";
   const weeks = await query<RowDataPacket & { id: string }>(
-    `SELECT id FROM mass_weeks WHERE participant_type = ? OR participant_type = 'both'`,
+    `SELECT id FROM mass_weeks
+      WHERE (participant_type = ? OR participant_type = 'both')
+        AND status NOT IN ('completed', 'archived')`,
     [weekType],
   );
   const identity = await loadIdentity(participantType);
@@ -861,13 +889,27 @@ export async function addMissingExpectations(
     );
     if (existing.length === 0) continue; // not frozen yet: built on its first upload
     const known = new Set(existing.map((row) => identity.canonical(row.person_id)));
+    // Only people who scanned this week: someone added to the list after the
+    // attendance was taken is never counted absent for it, but if they did
+    // scan (and were unmatched until now), they are present.
+    const scannedRows = await query<RowDataPacket & { person_id: string }>(
+      `SELECT DISTINCT person_id FROM mass_scans
+        WHERE mass_week_id = ? AND participant_type = ? AND person_id IS NOT NULL`,
+      [id, participantType],
+    );
+    const scanned = new Set(scannedRows.map((row) => identity.canonical(row.person_id)));
+    if (scanned.size === 0) continue;
     const week = await getMassWeek(id);
     const snapshot = collapseSnapshot(
       participantType === "student"
         ? await buildStudentSnapshot(week)
         : await buildStaffSnapshot(week),
       identity,
-    ).filter((row) => !known.has(identity.canonical(row.personId)));
+    ).filter(
+      (row) =>
+        !known.has(identity.canonical(row.personId)) &&
+        scanned.has(identity.canonical(row.personId)),
+    );
     if (snapshot.length === 0) continue;
     touched += 1;
     added += snapshot.length;
@@ -949,6 +991,7 @@ export async function processMassUpload(
   actorId: string,
 ): Promise<{ upload: MassUpload | null; summary: MassSummary; added: number; skipped: number }> {
   const week = await getMassWeek(weekId);
+  assertMassWeekOpen(week);
   if (week.participant_type === "students" && input.participantType !== "student") {
     throw new HttpError(
       400,
@@ -1132,7 +1175,7 @@ export async function resetMassScope(
   participantType: MassUploadParticipant,
   actorId: string,
 ): Promise<void> {
-  await getMassWeek(weekId);
+  assertMassWeekOpen(await getMassWeek(weekId));
   await transaction(async (connection) => {
     await connection.execute(
       "DELETE FROM mass_scans WHERE mass_week_id = ? AND participant_type = ?",
@@ -1183,6 +1226,7 @@ export async function refreshMassExpectations(
     `SELECT id, name FROM mass_weeks
       WHERE scope <> 'sunday'
         AND (participant_type = ? OR participant_type = 'both')
+        AND status NOT IN ('completed', 'archived')
       ORDER BY created_at`,
     [weekType],
   );
@@ -1231,6 +1275,7 @@ type ScanForOutcome = RowDataPacket & {
   scan_number: string | null;
   scanned_name: string | null;
   scanned_at: string | Date;
+  upload_id: string;
   upload_level: string | null;
 };
 
@@ -1243,10 +1288,11 @@ type MassOutcome = {
   absent: string[];
   /** Person -> number of their scans in the uploads being reported on. */
   outOfScope: Map<string, { count: number; scannedName: string | null }>;
-  unmatchedScans: number;
   unmatched: MassUnmatchedRow[];
   /** Scans waiting for an administrator to say who they are. */
   pendingReview: number;
+  /** Per file: the people it shows present and out of scope, and its unmatched entries. */
+  perUpload: Map<string, { present: Set<string>; outOfScope: Set<string>; unmatched: Set<string> }>;
 };
 
 function expectedRowFrom(row: ExpectedQueryRow, personId: string): MassExpectedRow {
@@ -1288,7 +1334,7 @@ async function massOutcome(
 
   const scans = await query<ScanForOutcome>(
     `SELECT s.id, s.person_id, s.needs_review, s.scan_number, s.scanned_name, s.scanned_at,
-            u.level AS upload_level
+            s.upload_id, u.level AS upload_level
        FROM mass_scans s
        JOIN mass_uploads u ON u.id = s.upload_id
       WHERE s.mass_week_id = ? AND s.participant_type = ?`,
@@ -1297,9 +1343,20 @@ async function massOutcome(
 
   const present = new Map<string, PresentAggregate>();
   const scannedNotCounted = new Map<string, { count: number; scannedName: string | null }>();
-  const unmatchedGroups = new Map<string, MassUnmatchedRow>();
-  let unmatchedScans = 0;
+  const unmatchedList = new UnmatchedList();
   let pendingReview = 0;
+  const perUpload = new Map<
+    string,
+    { present: Set<string>; outOfScope: Set<string>; unmatched: Set<string> }
+  >();
+  const fileOf = (uploadId: string) => {
+    let entry = perUpload.get(uploadId);
+    if (!entry) {
+      entry = { present: new Set(), outOfScope: new Set(), unmatched: new Set() };
+      perUpload.set(uploadId, entry);
+    }
+    return entry;
+  };
 
   for (const scan of scans) {
     const at = toIso(scan.scanned_at) ?? "";
@@ -1312,24 +1369,13 @@ async function massOutcome(
         pendingReview += 1;
         continue;
       }
-      unmatchedScans += 1;
-      const key = `${scan.scan_number ?? ""}\u0000${scan.scanned_name ?? ""}`;
-      const group = unmatchedGroups.get(key);
-      if (!group) {
-        unmatchedGroups.set(key, {
-          scan_id: scan.id,
-          scan_number: scan.scan_number,
-          scanned_name: scan.scanned_name,
-          scan_count: 1,
-          first_scan_at: at,
-          last_scan_at: at,
-        });
-      } else {
-        group.scan_count += 1;
-        if (scan.id < group.scan_id) group.scan_id = scan.id;
-        if (at < group.first_scan_at) group.first_scan_at = at;
-        if (at > group.last_scan_at) group.last_scan_at = at;
-      }
+      const key = unmatchedList.add({
+        id: scan.id,
+        scan_number: scan.scan_number,
+        scanned_name: scan.scanned_name,
+        at,
+      });
+      fileOf(scan.upload_id).unmatched.add(key);
       continue;
     }
 
@@ -1339,6 +1385,8 @@ async function massOutcome(
       expectedRow !== undefined &&
       (scan.upload_level === null || (expectedRow.level ?? "") === scan.upload_level);
 
+    if (counts) fileOf(scan.upload_id).present.add(person);
+    else fileOf(scan.upload_id).outOfScope.add(person);
     if (counts) {
       const aggregate = present.get(person);
       if (!aggregate) present.set(person, { count: 1, first: at, last: at });
@@ -1384,22 +1432,19 @@ async function massOutcome(
     if (!present.has(person)) outOfScope.set(person, entry);
   }
 
-  const unmatched = [...unmatchedGroups.values()]
-    .sort(
-      (a, b) =>
-        b.scan_count - a.scan_count ||
-        (a.scanned_name ?? "").localeCompare(b.scanned_name ?? "", "en"),
-    )
-    .slice(0, 500);
+  // Someone present through another file is not out of scope in this one either.
+  for (const entry of perUpload.values()) {
+    for (const person of entry.outOfScope) if (present.has(person)) entry.outOfScope.delete(person);
+  }
 
   return {
     expected,
     present: presentAtLevel,
     absent,
     outOfScope,
-    unmatchedScans,
-    unmatched,
+    unmatched: unmatchedList.entries(),
     pendingReview,
+    perUpload,
   };
 }
 
@@ -1430,13 +1475,49 @@ async function summaryFrom(
     present,
     absent: outcome.absent.length,
     out_of_scope: outcome.outOfScope.size,
-    unmatched: outcome.unmatchedScans,
+    unmatched: outcome.unmatched.length,
     percent: percent(present, expected),
-    uploads: uploads.filter(
-      (upload) =>
-        upload.participant_type === participantType && (level === null || upload.level === level),
-    ),
+    // Each file's numbers as they are now (after matches confirmed since, and
+    // in the same terms as the totals), not as they were when it was uploaded.
+    uploads: uploads
+      .filter(
+        (upload) =>
+          upload.participant_type === participantType && (level === null || upload.level === level),
+      )
+      .map((upload) => {
+        const live = outcome.perUpload.get(upload.id);
+        return {
+          ...upload,
+          present_count: live?.present.size ?? 0,
+          out_of_scope_count: live?.outOfScope.size ?? 0,
+          unmatched_count: live?.unmatched.size ?? 0,
+        };
+      }),
   };
+}
+
+/**
+ * A week's files with their numbers as they are now, in the same terms as the
+ * week's totals: people present and out of scope, and unmatched entries.
+ */
+export async function liveMassUploads(weekId: string): Promise<MassUpload[]> {
+  const uploads = await listMassUploads(weekId);
+  const live = new Map<string, MassUpload>();
+  for (const type of ["staff", "student"] as const) {
+    if (!uploads.some((upload) => upload.participant_type === type)) continue;
+    const outcome = await massOutcome(weekId, type, null);
+    for (const upload of uploads) {
+      if (upload.participant_type !== type) continue;
+      const counts = outcome.perUpload.get(upload.id);
+      live.set(upload.id, {
+        ...upload,
+        present_count: counts?.present.size ?? 0,
+        out_of_scope_count: counts?.outOfScope.size ?? 0,
+        unmatched_count: counts?.unmatched.size ?? 0,
+      });
+    }
+  }
+  return uploads.map((upload) => live.get(upload.id) ?? upload);
 }
 
 export async function massSummary(

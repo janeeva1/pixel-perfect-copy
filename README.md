@@ -199,23 +199,36 @@ Admin manages roles on **Permissions** page.
 - A department with no weekday = never expected at weekday Mass
 
 ### One Person, One Identity (no one is both present and absent)
-A person can be on the master list twice, e.g. after a re-import wrote their staff number differently (`SA 534` then `SAC534`). The app treats such rows as **one person** everywhere:
-- **Same person** = the same staff-number digits (`AT1430` = `AT 1430` = `A1430`) or machine number, **and** names that agree on at least two words in any order, allowing spelling variants (`Olusola`/`Olushola`), shortened names (`ANOMU`) and initials. Students: the same matric number.
-- **Not the same person**: same name with different numbers, or the same machine number with different names (the machine prints `39` for two different staff).
+Two staff records are joined into one person **only when the staff number is the same**, apart from spaces and capitals (`AT1430` = `AT 1430` = `at1430`). Students: the same matric number.
+- **Never joined automatically**: different staff numbers, however alike the names (`SA 534` / `SAC534`, twins such as AKWUTE Sylvester / Sylvia), and the same machine number with different names (the machine prints `39` for two different staff). When two such records look like one person on the present and absent lists, an administrator is asked once (see Look-alikes below).
 - Every count is per person: Weekly Mass, event pages, the daily/weekly/monthly reports and the Excel/CSV downloads. A person is exactly one of present, absent or out of scope, never two. Older weeks are read the same way, with no re-upload needed.
 - Students: matric numbers that differ only in case, spacing, punctuation or leading zeros (`vug/csc/25/01001` = `VUG/CSC/25/1001`) are one student.
 - Duplicates are removed automatically after **every staff import, every student import and every Synchronize**. Uploading the same scan file twice never changes who is present.
-- Scan matching order: an answer an admin gave before → machine ID → staff number (spaces and letters ignored) → full printed name → exact name. Every number match is checked against the printed name. A full printed name (2+ words) that is exactly one person's name wins over a number whose owner does not fit it (the machine often prints a neighbour's number: `1548 IGWE CHICHI` is IGWE CHICHI, AT1508). When the number and name disagree and the name is not certain, or the name only resembles someone, the scan is **not guessed**: it goes to the **Confirm the matches** window. Scans stored by an older version are matched again with the current rules (only scans with nobody yet).
+- **Who scanned (staff)**: the number only narrows the field; the **printed name decides**.
+  1. An answer an admin gave before.
+  2. Everyone with that machine ID / staff-number digits whose name fits the printed name — full name, a name the machine cut short (`IKPEAMA CHILO`), an initial or a spelling variant. Two different people who share one machine number are each matched by their own name, so both are present. People on the current staff list come first.
+  3. Nobody with that number has that name: the person whose name it clearly is (2+ words, full or cut short), current staff first (`1548 IGWE CHICHI` is IGWE CHICHI, AT1508).
+  4. Nobody has that name, but the number's owner shares part of it (a typo `MWOKORIE` for NWOKORIE, a married name `ODU JANE` for Anyanwu Jane): the number's owner.
+  5. Otherwise the scan is **not guessed**: it goes to the **Confirm the matches** window.
+- When the matching rules improve, every stored scan is matched again once with the new rules (your answers are kept), so older weeks are corrected without re-uploading.
+
+### Closing a week or event (stop counting)
+- When you have finished uploading, press **Close week — stop counting** (Weekly Mass) or **Close — stop counting** (events). Who was expected and who was present are kept exactly as they are; staff or students added to the list later are never counted in it, scans are not matched again, and no files can be added. **Reopen** undoes it.
+- Even while open, someone added to the staff or student list **after** the last file was uploaded is never counted absent there. If they did scan (and were unmatched because they were not on the list yet), they become present.
+- Weekly Mass weeks marked *Completed* or *Archived* are closed.
+
+### Unmatched
+"Unmatched" counts the different entries the machine printed that are nobody on the list — one per number + name, however many times it was scanned and in however many files (`039 ADA OKO` and `39 Ada Oko` are one entry). The card, the Unmatched tab, the per-file table and the downloads all show this same number. The per-file table shows each file's numbers as they are now.
 
 ### Confirming uncertain matches (before any report)
 After an upload, Weekly Mass and event pages show an amber **Confirm before reporting** banner (button **Review now**), and the window opens by itself for editors. It has two kinds of questions:
 - **Scans the app is unsure about**: pick the right person from the suggestions, search for someone else, or say it is nobody on the list. The answer is remembered, so the same scan never asks again on later uploads.
 - **Answers given before** (bottom of the window, or **Saved match answers** on the page): every answer can be taken back with **Undo**, and its scans are matched again. An answer of "not anyone on the list" whose printed name matches someone exactly is flagged in amber, because that person is then shown absent.
-- **Look-alikes**: someone counted present who looks like someone counted absent (same staff number with a similar name, or the same full name). Answer **Same person — merge** (the records become one and the person is present) or **Different people** (never asked again).
+- **Look-alikes**: someone counted present who is almost certainly the same as someone counted absent — every word of the shorter name is in the other name (`Boyi Solomon` A600 / `BOYI SOLOMON SYLVESTER` AT 600). Answer **Different people** (never asked again; choose this when unsure) or **Same person — merge** (the records become one and the person is present).
 Report generation, CSV downloads and the Reports page refuse to produce a report for that week/event until nothing is left to confirm.
 
 ### Merging Duplicate Staff
-- **Staff import** updates existing people instead of adding them again (it recognises `SA 534` and `SAC534` as the same person) and reads the registrar's `staffdb.xlsx` layout (`Staff Number`, `Surname`, `OtherNames`, `Staff_ID_on_machine`, ...). After every staff import, records that are certainly the same person are merged automatically.
+- **Staff import** updates existing people instead of adding them again (by the same staff number, spaces and capitals aside) and reads the registrar's `staffdb.xlsx` layout (`Staff Number`, `Surname`, `OtherNames`, `Staff_ID_on_machine`, ...). After every staff import, records with the same staff number are merged automatically. Re-importing `staffdb.xlsx` with **complete list** ticked restores anyone an earlier version merged by mistake.
 - **Admin → Staff Deduplication**: *Scan* shows what would be merged and a **Check by hand** list of look-alikes that are never merged automatically; *Merge* folds duplicates into one record and moves their scans.
 - Deletes don't sync, so merge on every computer that has the duplicates (results are correct either way).
 
@@ -226,8 +239,11 @@ Report generation, CSV downloads and the Reports page refuse to produce a report
 
 ### Data Export / Backup
 - **Events / Reports** → **Download CSV** (per event or bulk)
-- **Admin → Clear Events Only** — removes scans/events, keeps people
-- **Admin → Clear All Data** — wipes everything except users
+- **Admin → Clear staff** — the staff list and all staff attendance (staff events, staff Weekly Mass, always-present list); students stay
+- **Admin → Clear students** — the student list and all student attendance; staff stay
+- **Admin → Clear events** — student and staff events with their files and scans; people and Weekly Mass stay
+- **Admin → Clear Weekly Mass** — every Mass week with its files, scans and expected lists; people and events stay
+- **Admin → Clear all data** — everything except user accounts (the audit log, department weekdays and debt rates are always kept)
 - **Sync** pushes/pulls all data including scans
 
 ---

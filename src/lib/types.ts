@@ -505,8 +505,8 @@ export const MASS_WEEKDAY_LABELS: Record<number, string> = {
 export const MASS_STATUS_LABELS: Record<MassWeekStatus, string> = {
   draft: "Draft",
   active: "Active",
-  completed: "Completed",
-  archived: "Archived",
+  completed: "Completed (closed)",
+  archived: "Archived (closed)",
 };
 
 export type MassWeekdayAssignment = {

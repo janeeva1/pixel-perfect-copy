@@ -92,6 +92,32 @@ function MassWeekPage() {
     onError: (e) => toast.error(e.message),
   });
 
+  const isClosedStatus = (status: MassWeekStatus) =>
+    status === "completed" || status === "archived";
+  const changeStatus = (status: MassWeekStatus) => {
+    const current = week.data?.status;
+    if (!current || current === status) return;
+    if (!isClosedStatus(current) && isClosedStatus(status)) {
+      if (
+        !window.confirm(
+          "Close this week?\n\nWho was expected and who was present are kept as they are now. Staff or students added to the list later will not be counted, and no more files can be added until you reopen it.",
+        )
+      ) {
+        return;
+      }
+    }
+    if (isClosedStatus(current) && !isClosedStatus(status)) {
+      if (
+        !window.confirm(
+          "Reopen this week?\n\nFiles can be added again, and people added to the staff or student list will be put on its expected list after their next import.",
+        )
+      ) {
+        return;
+      }
+    }
+    setStatus.mutate(status);
+  };
+
   const setWeekdays = useMutation({
     mutationFn: (days: number[]) => api.mass.setWeekdays(weekId, days),
     onSuccess: () => {
@@ -196,6 +222,7 @@ function MassWeekPage() {
 
   const record = week.data;
   const hasUploads = (uploads.data?.uploads.length ?? 0) > 0;
+  const closed = week.data?.status === "completed" || week.data?.status === "archived";
   const coveredParticipants: MassUploadParticipant[] =
     record.participant_type === "both"
       ? ["student", "staff"]
@@ -249,11 +276,39 @@ function MassWeekPage() {
               size="sm"
               variant={record.status === status ? "default" : "outline"}
               disabled={!canEdit || setStatus.isPending}
-              onClick={() => setStatus.mutate(status)}
+              onClick={() => changeStatus(status)}
             >
               {MASS_STATUS_LABELS[status]}
             </Button>
           ))}
+        </div>
+        <div
+          className={`mt-4 flex flex-wrap items-center gap-3 rounded-md border p-3 text-sm ${
+            closed ? "border-border bg-muted/40" : "border-amber-200 bg-amber-50/60"
+          }`}
+        >
+          {closed ? (
+            <span>
+              This week is <span className="font-medium">closed</span>: who was expected and who was
+              present no longer change, even when people are added to the staff or student list.
+              Reopen it to add files.
+            </span>
+          ) : (
+            <span>
+              Finished uploading? Close the week so that staff or students added to the list later
+              are not counted in it.
+            </span>
+          )}
+          {canEdit ? (
+            <Button
+              size="sm"
+              variant={closed ? "outline" : "default"}
+              disabled={setStatus.isPending}
+              onClick={() => changeStatus(closed ? "active" : "completed")}
+            >
+              {closed ? "Reopen week" : "Close week — stop counting"}
+            </Button>
+          ) : null}
         </div>
       </Panel>
 
@@ -277,7 +332,15 @@ function MassWeekPage() {
         </Panel>
       )}
 
-      {canEdit ? (
+      {canEdit && closed ? (
+        <Panel title="Upload machine scans" description="This week is closed.">
+          <p className="text-sm text-muted-foreground">
+            Reopen the week (above) to add files. Closed weeks keep their numbers.
+          </p>
+        </Panel>
+      ) : null}
+
+      {canEdit && !closed ? (
         <Panel
           title="Upload machine scans"
           description={`Add clock-in, clock-out or re-export files. Every scan is kept and classified present, out of scope or unmatched. This week takes ${participantDescription(record.participant_type)}; the file you choose must be a matching one.`}
@@ -376,7 +439,7 @@ function MassWeekPage() {
                   size="sm"
                   variant="outline"
                   className="text-rose-600"
-                  disabled={reset.isPending || !hasUploads}
+                  disabled={reset.isPending || !hasUploads || closed}
                   onClick={() => {
                     if (
                       window.confirm(
@@ -405,7 +468,7 @@ function MassWeekPage() {
                     "Level",
                     "Label",
                     "Rows",
-                    "In scope",
+                    "Present",
                     "Out of scope",
                     "Unmatched",
                     "Uploaded",

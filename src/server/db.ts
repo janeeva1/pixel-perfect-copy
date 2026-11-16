@@ -121,6 +121,11 @@ export const dialect = {
   },
 
   /** Numeric ordering for a column stored as text, e.g. a student's level. */
+  /** A text value with its leading zeros removed ("039" -> "39"). */
+  stripLeadingZeros(column: string): string {
+    return usingSqlite() ? `LTRIM(${column}, '0')` : `TRIM(LEADING '0' FROM ${column})`;
+  },
+
   intCast(column: string): string {
     return usingSqlite() ? `CAST(${column} AS INTEGER)` : `CAST(${column} AS UNSIGNED)`;
   },

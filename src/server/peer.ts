@@ -72,6 +72,7 @@ const TABLES: Record<string, TableSpec> = {
   staff_event_uploads: { pk: ["id"], lww: false },
   student_scans: { pk: ["id"], lww: false },
   staff_scans: { pk: ["id"], lww: false },
+  event_expected: { pk: ["kind", "event_id", "person_id"], lww: false },
   mass_department_weekdays: { pk: ["id"], lww: true, natural: ["department_code"] },
   mass_weeks: { pk: ["id"], lww: true },
   mass_week_weekdays: { pk: ["mass_week_id", "day_of_week"], lww: false },
@@ -229,7 +230,7 @@ function translate(table: string, row: Row): Row {
   if (table === "mass_scans" || table === "mass_expected") {
     out["person_id"] = mapped(personKindOf(out["participant_type"]), out["person_id"]);
   }
-  if (table === "scan_aliases")
+  if (table === "scan_aliases" || table === "event_expected")
     out["person_id"] = mapped(personKindOf(out["kind"]), out["person_id"]);
   if (table === "distinct_people") {
     out["person_a"] = mapped(personKindOf(out["kind"]), out["person_a"]);

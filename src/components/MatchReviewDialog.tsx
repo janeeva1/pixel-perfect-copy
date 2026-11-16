@@ -514,8 +514,8 @@ function LookAlikeCard({ pair, canEdit }: { pair: ReviewLookAlike; canEdit: bool
   return (
     <div className="space-y-3 rounded-lg border p-4">
       <p className="text-sm text-muted-foreground">
-        {pair.reason}. Merge only if these two records are the same staff member; if the absent one
-        is someone else, choose “Different people” (asked once).
+        {pair.reason}. Merge only if you know these two records are the same staff member. If they
+        are two people, or you are not sure, choose “Different people” (asked once).
       </p>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
@@ -538,15 +538,11 @@ function LookAlikeCard({ pair, canEdit }: { pair: ReviewLookAlike; canEdit: bool
       </div>
       {canEdit ? (
         <div className="flex flex-wrap justify-end gap-2">
-          <Button
-            variant="outline"
-            disabled={answer.isPending}
-            onClick={() => answer.mutate(false)}
-          >
-            Different people
-          </Button>
-          <Button disabled={answer.isPending} onClick={() => answer.mutate(true)}>
+          <Button variant="outline" disabled={answer.isPending} onClick={() => answer.mutate(true)}>
             Same person — merge
+          </Button>
+          <Button disabled={answer.isPending} onClick={() => answer.mutate(false)}>
+            Different people
           </Button>
         </div>
       ) : null}

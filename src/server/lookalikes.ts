@@ -16,14 +16,10 @@
 // Reports are not produced while such a pair is open.
 //
 // What counts as "could be one person":
-//   staff:    the same number (staff-number digits or machine number), whatever
-//             the names -- on screen that is "the same staff number" on both
-//             lists, so it is always confirmed; or,
-//             with different numbers, at least two complete name words in
-//             common ("Otusanya Esther" / "ESTHER OTUSANYA IYABO"), or one in
-//             common and another spelled nearly the same ("OKECHUKWU OKONKWO" /
-//             "IKECHUKWU OKONKWO PETER"). Two people
-//             who merely share a first name and an initial are not asked about.
+//   staff:    every word of the shorter name (at least two words) is in the
+//             other name, spelled the same. Two people who share a staff or
+//             machine number, or whose names are merely similar, are not asked
+//             about: each is matched by their own printed name.
 //   students: never -- matric numbers are unique, so student records are
 //             not compared at all.
 
@@ -186,31 +182,22 @@ export async function lookAlikePairs(
       if (!other || !otherWords) continue;
       const agreement = compareNames(words, otherWords, true);
       let reason: string | null = null;
-      if (kind === "staff") {
-        if (sameNumber.has(otherId) && agreement.total >= 1) {
-          reason = "Same staff/machine number and a similar name";
-        } else if (sameNumber.has(otherId)) {
-          // "SW39" absent while "SA39" is present reads as one staff member on
-          // both lists. The names differ, so it is probably two people sharing
-          // a number -- but only an administrator can say, once.
-          reason = "Same staff/machine number, different name";
-        } else if (agreement.exact >= 2) {
-          const sameExact =
-            compactStaffNumber(row.code) !== "" &&
-            compactStaffNumber(row.code) === compactStaffNumber(other.code);
-          reason = sameExact ? "Same staff number" : "Very similar name";
-        } else {
-          // One word the same and another spelled nearly the same
-          // ("OKECHUKWU OKONKWO" / "IKECHUKWU OKONKWO PETER"). Initials do not
-          // count here, or every "A. JOSEPH" would look like every Joseph.
-          const strict = compareNames(words, otherWords, false);
-          if (strict.exact >= 1 && strict.total >= 2) reason = "Similar name";
-        }
-      } else {
-        const shorter = Math.min(words.length, otherWords.length);
-        if (agreement.exact >= 2 && agreement.exact >= shorter) {
-          reason = "Same name";
-        }
+      // Only when it is almost certainly one person: every word of the
+      // shorter name (two words or more) is in the other, spelled the same
+      // ("OTUSANYA ESTHER" / "OTUSANYA ESTHER IYABO"). A shared staff or
+      // machine number with a different name is two people, each matched by
+      // their own name; a similar spelling is not enough either.
+      const shorter = Math.min(words.length, otherWords.length);
+      if (shorter >= 2 && agreement.exact >= shorter) {
+        const sameExact =
+          compactStaffNumber(row.code) !== "" &&
+          compactStaffNumber(row.code) === compactStaffNumber(other.code);
+        const digits = staffNumberDigits(row.code);
+        reason = sameExact
+          ? "Same staff number and name"
+          : digits !== "" && digits === staffNumberDigits(other.code)
+            ? `Same name and the same number ${digits}`
+            : "Same name";
       }
       if (reason) {
         pairs.push({

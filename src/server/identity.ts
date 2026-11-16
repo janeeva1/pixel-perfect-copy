@@ -11,22 +11,15 @@
 // used by scan matching, the Weekly Mass expected list and results, the staff
 // import, and the duplicate-merge tool, so they can never disagree.
 //
-// Staff rows are the same person when they share a NUMBER and their NAMES AGREE:
-//   * the number is the digits of the staff number (letters, spaces and leading
-//     zeros ignored: "SAT417", "SA 417" and "417" are all 417) or the number the
-//     attendance machine prints for them (machine id);
-//   * the names agree when at least two words of one name match words of the
-//     other, in any order, where a match may be an exact word, a shortened word
-//     or initial ("MARY" / "M"), or a spelling variant ("OLUSHOLA" / "OLUSOLA",
-//     "SUCCESS" / "SUCESS"). Missing or extra middle names do not matter.
-// Real duplicates in the registrar's data look like "Okafor Ijeoma Chinaeme"
-// (A494) and "OKAFOR CHINAEMELUM IJEOMA" (AT 494): same number, the names agree.
-// A shared name alone is not enough: two members of staff can have the same
-// name. A shared number alone is not enough: the machine prints the same number
-// for different people (39 and 65 in the registrar's roster), and the digits of
-// AT 029 and ST 029 collide. Anything that only half-fits is never joined here;
-// it is put to an administrator (see src/server/review.ts).
-//
+// Staff rows are the same person ONLY when the staff number is the same number
+// written differently: spaces and capitals aside ("AT1430" = "AT 1430"). Shared
+// digits with different letters ("SA39" / "SW39"), a shared machine number, or
+// similar names never join two rows: those are often different people (twins,
+// relatives, two staff the machine both knows as 39), and joining deletes a
+// record. Who scanned is decided by the printed name when the number is shared
+// or wrong (src/server/events.ts), and old records left off the current staff
+// list are not expected anywhere, so keeping rows apart never makes a person
+// absent.
 // Students are the same person when their matric numbers are equal once case,
 // spaces, punctuation and leading zeros are ignored. Two students with the same
 // name and different matric numbers are different people.
@@ -219,14 +212,22 @@ export function staffIdentityKeys(row: StaffIdentityRow): string[] {
   return [...new Set(keys)];
 }
 
-/** Whether two staff rows are one person (see the rule at the top of this file). */
+/**
+ * Whether two staff rows are one person: ONLY when the staff number is the same
+ * number written differently -- spaces and capitals aside ("AT1430" = "AT 1430"
+ * = "at1430").
+ *
+ * Shared digits are not enough ("SA39" and "SW39" are two people the machine
+ * both knows as 39), and neither are similar names ("AKWUTE Sylvester" and
+ * "AKWUTE Sylvia" are twins). Joining two records deletes one of them, so it is
+ * done only when there is no doubt. Old records that are no longer on the
+ * current staff list are not expected anywhere, so leaving them separate never
+ * makes anyone absent; and who scanned is decided by the printed name
+ * (src/server/events.ts), not by joining records.
+ */
 export function sameStaffPerson(a: StaffIdentityRow, b: StaffIdentityRow): boolean {
   const ca = compactStaffNumber(a.staff_no);
-  if (ca && ca === compactStaffNumber(b.staff_no)) return true;
-  const keysA = staffIdentityKeys(a);
-  const keysB = new Set(staffIdentityKeys(b));
-  if (!keysA.some((key) => keysB.has(key))) return false;
-  return staffNamesAgree(a, b);
+  return ca !== "" && ca === compactStaffNumber(b.staff_no);
 }
 
 export function studentIdentityKeys(row: StudentIdentityRow): string[] {
@@ -295,7 +296,6 @@ export function staffCanonicalMap(rows: StaffIdentityRow[]): Map<string, string>
   // one person. Joining is transitive: A=B and B=C makes one person of three.
   const buckets = new Map<string, StaffIdentityRow[]>();
   for (const row of rows) {
-    for (const key of staffIdentityKeys(row)) buckets.set(key, [...(buckets.get(key) ?? []), row]);
     const compact = compactStaffNumber(row.staff_no);
     if (compact) buckets.set(`exact:${compact}`, [...(buckets.get(`exact:${compact}`) ?? []), row]);
   }

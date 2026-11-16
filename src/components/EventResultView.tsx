@@ -45,7 +45,8 @@ function batchMessage(
 /**
  * One event, for either group. Uploading is additive: an event can take a
  * clock-in file, a clock-out file and later re-exports, and every scan is kept.
- * A new upload reopens a finalized event, because the numbers changed.
+ * A closed event ("Close — stop counting") keeps the expected list and matches it
+ * had when it was closed; files can only be added after reopening it.
  */
 export function EventResultView({ group, eventId }: { group: GroupKind; eventId: string }) {
   const queryClient = useQueryClient();
@@ -174,7 +175,9 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
       />
       <Panel
         title={event.title}
-        description={`${event.event_date} · ${scope} · ${event.status}`}
+        description={`${event.event_date} · ${scope} · ${
+          event.status === "finalized" ? "Closed — numbers no longer change" : "Open"
+        }`}
         actions={
           <>
             {blocked ? (
@@ -249,40 +252,59 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
           title="Upload machine scans"
           description="Add as many files as the event needs: clock-in, then clock-out, then a re-export. Each upload is listed separately below."
         >
-          <div className="flex flex-wrap items-center gap-3">
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              multiple
-              className="hidden"
-              onChange={(event) => {
-                const files = [...(event.target.files ?? [])];
-                if (files.length > 0) {
-                  upload.mutate(files, { onSettled: () => (event.target.value = "") });
-                }
-              }}
-            />
-            <Input
-              className="h-9 w-44"
-              placeholder="Label, e.g. clock-in"
-              value={label}
-              onChange={(event) => setLabel(event.target.value)}
-            />
-            <Button
-              variant="outline"
-              disabled={upload.isPending}
-              onClick={() => fileRef.current?.click()}
-            >
-              {upload.isPending ? "Uploading…" : "Choose machine file(s)"}
-            </Button>
-            <span className="text-xs text-muted-foreground">Expected columns: ID, NAME, Time</span>
-          </div>
+          {event.status === "finalized" ? (
+            <p className="rounded-md border border-border bg-muted/40 p-3 text-sm">
+              This event is <span className="font-medium">closed</span>: who was expected and who
+              was present no longer change, even when people are added to the list. Reopen it to add
+              files.
+            </p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                multiple
+                className="hidden"
+                onChange={(event) => {
+                  const files = [...(event.target.files ?? [])];
+                  if (files.length > 0) {
+                    upload.mutate(files, { onSettled: () => (event.target.value = "") });
+                  }
+                }}
+              />
+              <Input
+                className="h-9 w-44"
+                placeholder="Label, e.g. clock-in"
+                value={label}
+                onChange={(event) => setLabel(event.target.value)}
+              />
+              <Button
+                variant="outline"
+                disabled={upload.isPending}
+                onClick={() => fileRef.current?.click()}
+              >
+                {upload.isPending ? "Uploading…" : "Choose machine file(s)"}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Expected columns: ID, NAME, Time
+              </span>
+            </div>
+          )}
           {upload.isError ? (
             <p className="mt-3 text-sm text-rose-600">{(upload.error as Error).message}</p>
           ) : null}
           {upload.isSuccess ? (
             <p className="mt-3 text-sm text-emerald-600">{batchMessage(upload.data)}</p>
+          ) : null}
+          {event.status !== "finalized" && result.data.uploadList.length > 0 ? (
+            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-amber-200 bg-amber-50/60 p-3 text-sm">
+              <span>
+                Finished uploading? Close the event so that staff or students added to the list
+                later are not counted here.
+              </span>
+              <EventStatusToggle group={group} event={event} />
+            </div>
           ) : null}
 
           {result.data.uploadList.length > 0 ? (
@@ -294,7 +316,7 @@ export function EventResultView({ group, eventId }: { group: GroupKind; eventId:
                       "File",
                       "Label",
                       "Rows",
-                      "In scope",
+                      "Present",
                       "Out of scope",
                       "Unmatched",
                       "Uploaded",

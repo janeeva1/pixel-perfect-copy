@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { requireEditor, requireSession } from "@/server/auth";
 import { handleRoute, json, parse, readJson } from "@/server/http";
-import { listMassUploads, processMassUpload } from "@/server/mass";
+import { liveMassUploads, processMassUpload } from "@/server/mass";
 
 const nullable = z.string().trim().max(200).nullable().default(null);
 
@@ -34,7 +34,7 @@ export const Route = createFileRoute("/api/mass/weeks/$weekId/uploads")({
       GET: ({ params }) =>
         handleRoute(async () => {
           await requireSession();
-          return json({ uploads: await listMassUploads(params.weekId) });
+          return json({ uploads: await liveMassUploads(params.weekId) });
         }),
       POST: ({ params, request }) =>
         handleRoute(async () => {

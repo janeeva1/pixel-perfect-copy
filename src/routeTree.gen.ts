@@ -37,6 +37,7 @@ import { Route as AuthenticatedStaffEventsIndexRouteImport } from './routes/_aut
 import { Route as AuthenticatedStaffEventsEventIdRouteImport } from './routes/_authenticated/staff-events/$eventId'
 import { Route as AuthenticatedStudentEventsIndexRouteImport } from './routes/_authenticated/student-events/index'
 import { Route as AuthenticatedStudentEventsEventIdRouteImport } from './routes/_authenticated/student-events/$eventId'
+import { Route as ApiAdminClearRouteImport } from './routes/api/admin/clear'
 import { Route as ApiAdminClearAllRouteImport } from './routes/api/admin/clear-all'
 import { Route as ApiAdminClearEventsRouteImport } from './routes/api/admin/clear-events'
 import { Route as ApiAdminMassWeekdaysRouteImport } from './routes/api/admin/mass-weekdays'
@@ -252,6 +253,11 @@ const AuthenticatedStudentEventsEventIdRoute =
     path: '/student-events/$eventId',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiAdminClearRoute = ApiAdminClearRouteImport.update({
+  id: '/api/admin/clear',
+  path: '/api/admin/clear',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiAdminClearAllRoute = ApiAdminClearAllRouteImport.update({
   id: '/api/admin/clear-all',
   path: '/api/admin/clear-all',
@@ -625,6 +631,7 @@ export interface FileRoutesByFullPath {
   '/reports/students': typeof AuthenticatedReportsStudentsRoute
   '/staff-events/$eventId': typeof AuthenticatedStaffEventsEventIdRoute
   '/student-events/$eventId': typeof AuthenticatedStudentEventsEventIdRoute
+  '/api/admin/clear': typeof ApiAdminClearRoute
   '/api/admin/clear-all': typeof ApiAdminClearAllRoute
   '/api/admin/clear-events': typeof ApiAdminClearEventsRoute
   '/api/admin/mass-weekdays': typeof ApiAdminMassWeekdaysRouteWithChildren
@@ -720,6 +727,7 @@ export interface FileRoutesByTo {
   '/reports/students': typeof AuthenticatedReportsStudentsRoute
   '/staff-events/$eventId': typeof AuthenticatedStaffEventsEventIdRoute
   '/student-events/$eventId': typeof AuthenticatedStudentEventsEventIdRoute
+  '/api/admin/clear': typeof ApiAdminClearRoute
   '/api/admin/clear-all': typeof ApiAdminClearAllRoute
   '/api/admin/clear-events': typeof ApiAdminClearEventsRoute
   '/api/admin/mass-weekdays': typeof ApiAdminMassWeekdaysRouteWithChildren
@@ -817,6 +825,7 @@ export interface FileRoutesById {
   '/_authenticated/reports/students': typeof AuthenticatedReportsStudentsRoute
   '/_authenticated/staff-events/$eventId': typeof AuthenticatedStaffEventsEventIdRoute
   '/_authenticated/student-events/$eventId': typeof AuthenticatedStudentEventsEventIdRoute
+  '/api/admin/clear': typeof ApiAdminClearRoute
   '/api/admin/clear-all': typeof ApiAdminClearAllRoute
   '/api/admin/clear-events': typeof ApiAdminClearEventsRoute
   '/api/admin/mass-weekdays': typeof ApiAdminMassWeekdaysRouteWithChildren
@@ -914,6 +923,7 @@ export interface FileRouteTypes {
     | '/reports/students'
     | '/staff-events/$eventId'
     | '/student-events/$eventId'
+    | '/api/admin/clear'
     | '/api/admin/clear-all'
     | '/api/admin/clear-events'
     | '/api/admin/mass-weekdays'
@@ -1009,6 +1019,7 @@ export interface FileRouteTypes {
     | '/reports/students'
     | '/staff-events/$eventId'
     | '/student-events/$eventId'
+    | '/api/admin/clear'
     | '/api/admin/clear-all'
     | '/api/admin/clear-events'
     | '/api/admin/mass-weekdays'
@@ -1105,6 +1116,7 @@ export interface FileRouteTypes {
     | '/_authenticated/reports/students'
     | '/_authenticated/staff-events/$eventId'
     | '/_authenticated/student-events/$eventId'
+    | '/api/admin/clear'
     | '/api/admin/clear-all'
     | '/api/admin/clear-events'
     | '/api/admin/mass-weekdays'
@@ -1186,6 +1198,7 @@ export interface RootRouteChildren {
   ApiLevelsRoute: typeof ApiLevelsRoute
   ApiSetupRoute: typeof ApiSetupRoute
   ApiStaffDepartmentsRoute: typeof ApiStaffDepartmentsRoute
+  ApiAdminClearRoute: typeof ApiAdminClearRoute
   ApiAdminClearAllRoute: typeof ApiAdminClearAllRoute
   ApiAdminClearEventsRoute: typeof ApiAdminClearEventsRoute
   ApiAdminMassWeekdaysRoute: typeof ApiAdminMassWeekdaysRouteWithChildren
@@ -1435,6 +1448,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/student-events/$eventId'
       preLoaderRoute: typeof AuthenticatedStudentEventsEventIdRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/admin/clear': {
+      id: '/api/admin/clear'
+      path: '/api/admin/clear'
+      fullPath: '/api/admin/clear'
+      preLoaderRoute: typeof ApiAdminClearRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/admin/clear-all': {
       id: '/api/admin/clear-all'
@@ -2044,6 +2064,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiLevelsRoute: ApiLevelsRoute,
   ApiSetupRoute: ApiSetupRoute,
   ApiStaffDepartmentsRoute: ApiStaffDepartmentsRoute,
+  ApiAdminClearRoute: ApiAdminClearRoute,
   ApiAdminClearAllRoute: ApiAdminClearAllRoute,
   ApiAdminClearEventsRoute: ApiAdminClearEventsRoute,
   ApiAdminMassWeekdaysRoute: ApiAdminMassWeekdaysRouteWithChildren,

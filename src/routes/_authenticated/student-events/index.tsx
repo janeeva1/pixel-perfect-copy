@@ -69,7 +69,7 @@ function StudentEvents() {
                     ]
                       .filter(Boolean)
                       .join(" · ")}{" "}
-                    · {event.status}
+                    · {event.status === "finalized" ? "closed" : "open"}
                   </p>
                 </div>
                 {canEdit ? <EventStatusToggle group="student" event={event} /> : null}

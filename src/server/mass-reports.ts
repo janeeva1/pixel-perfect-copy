@@ -411,7 +411,7 @@ function groupedMassTable(
     ]);
 
   if (result.unmatched > 0) {
-    rows.push(["Unmatched scans (no person group)", 0, 0, 0, 0, result.unmatched, "—"]);
+    rows.push(["Unmatched entries (not on the list)", 0, 0, 0, 0, result.unmatched, "—"]);
   }
   rows.push([
     "Total",

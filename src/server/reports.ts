@@ -182,7 +182,11 @@ export async function buildReport(options: ReportOptions): Promise<ReportSeries>
           `SELECT e.event_date,
                 COUNT(DISTINCT CASE WHEN sc.in_scope = 0 AND sc.${config.idColumn} IS NOT NULL
                                    THEN sc.${config.idColumn} END) AS out_of_scope,
-                SUM(CASE WHEN sc.match_method = 'none' AND sc.needs_review = 0 THEN 1 ELSE 0 END) AS unmatched
+                -- One per printed entry per event (src/server/unmatched.ts), not per scan.
+                COUNT(DISTINCT CASE WHEN sc.${config.idColumn} IS NULL AND sc.needs_review = 0
+                                   THEN CONCAT(sc.event_id, '|',
+                                               ${dialect.stripLeadingZeros("COALESCE(sc.scan_number, '')")}, '|',
+                                               UPPER(TRIM(COALESCE(sc.scanned_name, '')))) END) AS unmatched
          FROM ${config.scans} sc
          JOIN ${config.events} e ON e.id = sc.event_id
          WHERE e.event_date BETWEEN ? AND ? ${eventFilter}

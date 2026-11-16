@@ -52,7 +52,8 @@ function StaffEvents() {
                     {event.title}
                   </Link>
                   <p className="text-xs text-muted-foreground">
-                    {event.event_date} · all staff · {event.status}
+                    {event.event_date} · all staff ·{" "}
+                    {event.status === "finalized" ? "closed" : "open"}
                   </p>
                 </div>
                 {canEdit ? <EventStatusToggle group="staff" event={event} /> : null}

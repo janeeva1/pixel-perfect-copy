@@ -67,6 +67,17 @@ after(async () => {
   fs.rmSync(path.dirname(file), { recursive: true, force: true, maxRetries: 5, retryDelay: 50 });
 });
 
+/** The word index the matcher's lookup keeps, for hand-built test lookups. */
+function wordIndex<T extends { words: string[][] }>(people: T[]): Map<string, T[]> {
+  const index = new Map<string, T[]>();
+  for (const person of people) {
+    for (const word of new Set(person.words.flat())) {
+      index.set(word, [...(index.get(word) ?? []), person]);
+    }
+  }
+  return index;
+}
+
 describe("migrations", () => {
   it("creates every table the app uses, and records the version", () => {
     const result = migrate();
@@ -89,8 +100,10 @@ describe("migrations", () => {
       "015_match_review.sql",
       "016_debt_rates.sql",
       "017_peer_sync.sql",
+      "018_match_rules.sql",
+      "019_event_expected.sql",
     ]);
-    assert.equal(result.version, 17);
+    assert.equal(result.version, 19);
 
     const tables = (
       getDb()
@@ -107,12 +120,14 @@ describe("migrations", () => {
       "change_log",
       "debt_rates",
       "distinct_people",
+      "event_expected",
       "mass_department_weekdays",
       "mass_expected",
       "mass_scans",
       "mass_uploads",
       "mass_week_weekdays",
       "mass_weeks",
+      "match_rules",
       "peer_devices",
       "peer_id_map",
       "peer_settings",
@@ -159,7 +174,7 @@ describe("migrations", () => {
   it("is not applied twice, so a second run is a no-op", () => {
     const result = migrate();
     assert.deepEqual(result.applied, []);
-    assert.equal(result.version, 17);
+    assert.equal(result.version, 19);
   });
 
   it("seeds every staff department with one weekday assignment", () => {
@@ -733,31 +748,32 @@ describe("event dates survive both drivers", () => {
 // left the same person on the list twice, and Weekly Mass then showed them as
 // both present and absent. These pin the rule that prevents it.
 describe("same person, one identity", () => {
-  it("treats rows with the same name and staff-number digits as one person", async () => {
+  it("joins rows only when the staff number is the same number written differently", async () => {
     const { staffCanonicalMap } = await import("../src/server/identity");
     const map = staffCanonicalMap([
       {
         id: "old",
-        staff_no: "SA 534",
-        last_name: "Soronnadi",
-        first_name: "Augustina",
+        staff_no: "AT 1430",
+        last_name: "Eze",
+        first_name: "Ada",
         updated_at: "2026-10-20",
       },
       {
         id: "new",
-        staff_no: "SAC534",
-        last_name: "SORONNADI",
-        first_name: "AUGUSTINA",
-        machine_id: "534",
+        staff_no: "at1430",
+        last_name: "EZE",
+        first_name: "ADA",
+        machine_id: "1430",
         updated_at: "2026-11-10",
       },
-      { id: "zero", staff_no: "08", last_name: "Eze", first_name: "Ada" },
-      { id: "zero2", staff_no: "A8", last_name: "EZE", first_name: "ADA" },
+      // Same name, same digits, different staff numbers: two records, kept apart.
+      { id: "sa", staff_no: "SA 534", last_name: "Soronnadi", first_name: "Augustina" },
+      { id: "sac", staff_no: "SAC534", last_name: "SORONNADI", first_name: "AUGUSTINA" },
     ]);
     // The row the machine knows stands for the person.
     assert.equal(map.get("old"), "new");
     assert.equal(map.get("new"), "new");
-    assert.equal(map.get("zero"), map.get("zero2"));
+    assert.notEqual(map.get("sa"), map.get("sac"));
   });
 
   it("keeps different people apart when only the name or only the number agrees", async () => {
@@ -835,49 +851,20 @@ describe("student matric numbers written differently", () => {
 });
 
 describe("one person despite spelling, word order and middle names", () => {
-  it("joins records with the same number whose names agree on two words", async () => {
+  it("never joins records whose staff numbers differ, however alike the names", async () => {
     const { staffCanonicalMap } = await import("../src/server/identity");
     const map = staffCanonicalMap([
-      // Real shapes from the registrar's data.
-      {
-        id: "a1",
-        staff_no: "J 165",
-        last_name: "DADA",
-        first_name: "OLUSOLA",
-        middle_name: "EUNICE",
-      },
-      { id: "a2", staff_no: "SA165", last_name: "Dada", first_name: "Olushola", machine_id: "165" },
-      {
-        id: "b1",
-        staff_no: "AT 494",
-        last_name: "OKAFOR",
-        first_name: "CHINAEMELUM",
-        middle_name: "IJEOMA",
-      },
+      // Twins and namesakes from the registrar's data: different people.
+      { id: "a1", staff_no: "SA 451", last_name: "AKWUTE", first_name: "SYLVESTER" },
+      { id: "a2", staff_no: "SA 452", last_name: "AKWUTE", first_name: "SYLVIA" },
+      { id: "b1", staff_no: "SA1052", last_name: "FIDELIS", first_name: "JOMBO" },
       {
         id: "b2",
-        staff_no: "A494",
-        last_name: "Okafor",
-        first_name: "Ijeoma",
-        middle_name: "Chinaeme",
-        machine_id: "494",
+        staff_no: "AC1577",
+        last_name: "JOMBO",
+        first_name: "FIDELIS",
+        machine_id: "1577",
       },
-      {
-        id: "c1",
-        staff_no: "SA 417",
-        last_name: "OBOYO-JAMES",
-        first_name: "ANOMUOGHARAN",
-        middle_name: "VICTORIA",
-      },
-      {
-        id: "c2",
-        staff_no: "SAT417",
-        last_name: "Ajuebishi",
-        first_name: "Anomuogharan",
-        middle_name: "Victoria",
-        machine_id: "417",
-      },
-      // Same number, different people: never joined.
       {
         id: "d1",
         staff_no: "SW39",
@@ -886,30 +873,20 @@ describe("one person despite spelling, word order and middle names", () => {
         machine_id: "39",
       },
       { id: "d2", staff_no: "SA39", last_name: "Ali", first_name: "Simon", machine_id: "39" },
-      // Same number, only one word in common: not certain, so not joined.
-      { id: "e1", staff_no: "AT 302", last_name: "OLUSHOLA", first_name: "THERESA" },
-      {
-        id: "e2",
-        staff_no: "A302",
-        last_name: "Olaniyi",
-        first_name: "Theresa",
-        machine_id: "302",
-      },
     ]);
-    assert.equal(map.get("a1"), "a2");
-    assert.equal(map.get("b1"), "b2");
-    assert.equal(map.get("c1"), "c2");
+    assert.notEqual(map.get("a1"), map.get("a2"));
+    assert.notEqual(map.get("b1"), map.get("b2"));
     assert.notEqual(map.get("d1"), map.get("d2"));
-    assert.notEqual(map.get("e1"), map.get("e2"));
   });
 
   it("asks instead of guessing when the number and the printed name disagree", async () => {
     const { matchRow } = await import("../src/server/events");
     const { normalizeName } = await import("../src/lib/attendance");
-    const person = (id: string, name: string) => ({
+    const person = (id: string, name: string, current = true) => ({
       id,
       names: [normalizeName(name)],
       words: [normalizeName(name).split(" ")],
+      current,
     });
     const igwe = person("igwe", "IGWE CHICHI");
     const markus = person("markus", "MARKUS AFINIKI EUNICE");
@@ -925,6 +902,7 @@ describe("one person despite spelling, word order and middle names", () => {
         [normalizeName("MARKUS AFINIKI EUNICE"), "markus"],
       ]),
       everyone: [igwe, markus],
+      byWord: wordIndex([igwe, markus]),
       aliases: new Map<string, string | null>(),
     };
     // Number and name agree: certain.
@@ -959,10 +937,11 @@ describe("the number keeps the scan when its owner fits every printed word", () 
   it("779 CHIKEZIE IFEANYI is AT779 Chikezie Ifeanyichukwu, not Chekwas Chikezie Ifeanyi", async () => {
     const { matchRow } = await import("../src/server/events");
     const { normalizeName } = await import("../src/lib/attendance");
-    const person = (id: string, name: string) => ({
+    const person = (id: string, name: string, current = true) => ({
       id,
       names: [normalizeName(name)],
       words: [normalizeName(name).split(" ")],
+      current,
     });
     const owner = person("at779", "Chikezie Ifeanyichukwu Nnamdi");
     const other = person("at1390", "CHEKWAS CHIKEZIE IFEANYI");
@@ -975,12 +954,55 @@ describe("the number keeps the scan when its owner fits every printed word", () 
       byStaffNo: new Map(),
       byName: new Map<string, string | null>(),
       everyone: [owner, other],
+      byWord: wordIndex([owner, other]),
       aliases: new Map<string, string | null>(),
     };
     assert.equal(matchRow(lookup, "779", "CHIKEZIE IFEANYI", null).id, "at779");
     assert.equal(matchRow(lookup, "1390", "CHIKEZIE IFEANYI", null).id, "at1390");
     // No number: the whole name settles it.
     assert.equal(matchRow(lookup, null, "CHIKEZIE IFEANYI", null).id, "at1390");
+  });
+});
+
+describe("different people who share a machine number are each matched by name", () => {
+  it("39 ALI SIMON and 39 IKPEAMA CHILOTAM are two people, both present", async () => {
+    const { matchRow } = await import("../src/server/events");
+    const { normalizeName } = await import("../src/lib/attendance");
+    const person = (id: string, name: string, current = true) => ({
+      id,
+      names: [normalizeName(name)],
+      words: [normalizeName(name).split(" ")],
+      current,
+    });
+    const ali = person("sa39", "ALI SIMON");
+    const ikpeama = person("sw39", "IKPEAMA CHILOTAM");
+    const oldAli = person("old-ali", "ALI SIMON PETER", false);
+    const okafor = person("okafor", "OKAFOR CHINAEMELUM IJEOMA");
+    const everyone = [ali, ikpeama, oldAli, okafor];
+    const lookup = {
+      kind: "staff" as const,
+      byMachine: new Map([
+        ["39", [ali, ikpeama]],
+        ["494", [okafor]],
+      ]),
+      byStaffNo: new Map(),
+      byName: new Map<string, string | null>(),
+      everyone,
+      byWord: wordIndex(everyone),
+      aliases: new Map<string, string | null>(),
+    };
+    assert.equal(matchRow(lookup, "39", "ALI SIMON", null).id, "sa39");
+    assert.equal(matchRow(lookup, "39", "SIMON ALI", null).id, "sa39");
+    assert.equal(matchRow(lookup, "39", "IKPEAMA CHILOTAM", null).id, "sw39");
+    // The machine cuts long names short.
+    assert.equal(matchRow(lookup, "39", "IKPEAMA CHILO", null).id, "sw39");
+    assert.equal(matchRow(lookup, "494", "OKAFOR CHINAE", null).id, "okafor");
+    // Registered on the machine under someone else's number: the name decides.
+    const elsewhere = matchRow(lookup, "777", "OKAFOR IJEOMA", null);
+    assert.equal(elsewhere.id, "okafor");
+    assert.equal(elsewhere.review, false);
+    // A name that is on the current list and on an old record: the current one.
+    assert.equal(matchRow(lookup, "900", "ALI SIMON", null).id, "sa39");
   });
 });
 

@@ -11,6 +11,41 @@ import { useRoles } from "@/lib/useAuth";
 import { toast } from "sonner";
 import { RotateCcw, Wifi, WifiOff, Save, TestTube2, AlertTriangle, Trash2 } from "lucide-react";
 
+type ClearPart = "staff" | "students" | "events" | "mass" | "all";
+
+const CLEAR_OPTIONS: Array<{ part: ClearPart; label: string; detail: string }> = [
+  {
+    part: "staff",
+    label: "Clear staff",
+    detail:
+      "Deletes the staff list and all staff attendance: staff events, staff Weekly Mass data and the always-present list. Students stay.",
+  },
+  {
+    part: "students",
+    label: "Clear students",
+    detail:
+      "Deletes the student list and all student attendance: student events and student Weekly Mass data. Staff stay.",
+  },
+  {
+    part: "events",
+    label: "Clear events",
+    detail:
+      "Deletes every student and staff event with its files and scans. Staff, students and Weekly Mass stay.",
+  },
+  {
+    part: "mass",
+    label: "Clear Weekly Mass",
+    detail:
+      "Deletes every Weekly Mass week with its files, scans and expected lists. Staff, students and events stay.",
+  },
+  {
+    part: "all",
+    label: "Clear all data",
+    detail:
+      "Deletes staff, students, events, Weekly Mass and recurring templates — everything except user accounts.",
+  },
+];
+
 export const Route = createFileRoute("/_authenticated/admin")({
   beforeLoad: ({ context }) => {
     if (!context.me.roles.includes("admin")) {
@@ -111,21 +146,11 @@ function AdminPage() {
     onError: (error) => toast.error(error.message),
   });
 
-  const clearData = useMutation({
-    mutationFn: () => api.admin.clearAllData(),
-    onSuccess: () => {
-      toast.success("All data cleared successfully");
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-    },
-    onError: (error) => toast.error(error.message),
-  });
-
-  const clearEvents = useMutation({
-    mutationFn: () => api.admin.clearEvents(),
-    onSuccess: () => {
-      toast.success("Events cleared successfully");
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
-      queryClient.invalidateQueries({ queryKey: ["mass-weeks"] });
+  const clear = useMutation({
+    mutationFn: (part: ClearPart) => api.admin.clear(part),
+    onSuccess: (result) => {
+      toast.success(result.message);
+      void queryClient.invalidateQueries();
     },
     onError: (error) => toast.error(error.message),
   });
@@ -141,41 +166,40 @@ function AdminPage() {
 
       <Panel
         title="Database Management"
-        description="Clear the events and their scans, or wipe the whole database and start fresh. The student list, the staff list and the department weekdays are kept either way unless you clear everything."
+        description="Clear one part of the data and keep the rest, or clear everything and start fresh."
       >
-        <div className="flex flex-wrap items-center gap-4">
-          <Button
-            variant="outline"
-            onClick={() => {
-              if (
-                confirm(
-                  "This will DELETE all events, scans, uploads, recurring templates and weekly Mass records. Students, staff and department weekdays will remain. Are you sure?",
-                )
-              ) {
-                clearEvents.mutate();
-              }
-            }}
-            disabled={clearEvents.isPending || clearData.isPending}
-          >
-            {clearEvents.isPending ? "Clearing events…" : "Clear Events Only"}
-          </Button>
-          <Button
-            variant="destructive"
-            onClick={() => {
-              if (
-                confirm(
-                  "This will DELETE ALL attendance data (students, staff, events, scans, weekly Mass records). User accounts will remain. Are you sure?",
-                )
-              ) {
-                clearData.mutate();
-              }
-            }}
-            disabled={clearData.isPending || clearEvents.isPending}
-          >
-            {clearData.isPending ? "Clearing…" : "Clear All Data"}
-          </Button>
-          <span className="text-sm text-muted-foreground">These cannot be undone.</span>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {CLEAR_OPTIONS.map((option) => (
+            <div
+              key={option.part}
+              className="flex flex-col justify-between gap-2 rounded-md border border-border p-3"
+            >
+              <div>
+                <p className="font-medium">{option.label}</p>
+                <p className="text-sm text-muted-foreground">{option.detail}</p>
+              </div>
+              <Button
+                variant={option.part === "all" ? "destructive" : "outline"}
+                className={option.part === "all" ? "" : "text-rose-600"}
+                disabled={clear.isPending}
+                onClick={() => {
+                  if (
+                    confirm(
+                      `${option.label}?\n\n${option.detail}\n\nThis cannot be undone. On computers that sync with this one, it is cleared there too.`,
+                    )
+                  ) {
+                    clear.mutate(option.part);
+                  }
+                }}
+              >
+                {clear.isPending && clear.variables === option.part ? "Clearing…" : option.label}
+              </Button>
+            </div>
+          ))}
         </div>
+        <p className="mt-3 text-sm text-muted-foreground">
+          User accounts, the audit log, department weekdays and debt rates are always kept.
+        </p>
       </Panel>
 
       <Panel
